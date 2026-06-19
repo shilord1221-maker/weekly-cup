@@ -12,14 +12,10 @@ const RegisterSchema = z.object({
     .string()
     .min(3, 'Ник должен быть не короче 3 символов')
     .max(32, 'Ник должен быть не длиннее 32 символов')
-    .regex(/^[a-zA-Z0-9_]+$/, 'Ник может содержать только буквы, цифры и подчёркивание'),
+    .regex(/^[a-zA-Z0-9_ ]+$/, 'Ник может содержать буквы, цифры, пробел и подчёркивание'),
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
-  staticId: z
-    .string()
-    .min(4, 'Static ID должен быть не короче 4 символов')
-    .max(64, 'Static ID должен быть не длиннее 64 символов')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Static ID может содержать буквы, цифры, - и _'),
+  staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
 });
 
 const LoginSchema = z.object({
@@ -198,11 +194,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   // ───────── BIND / UPDATE STATIC ID ─────────
   const StaticIdSchema = z.object({
-    staticId: z
-      .string()
-      .min(4)
-      .max(64)
-      .regex(/^[a-zA-Z0-9_-]+$/, 'Static ID может содержать буквы, цифры, - и _'),
+    staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
   });
 
   app.patch('/api/auth/static-id', { preHandler: requireAuth }, async (req, reply) => {

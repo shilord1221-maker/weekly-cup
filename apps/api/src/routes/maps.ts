@@ -6,7 +6,7 @@ import { logAudit } from '@/services/audit.js';
 
 const CreateMapSchema = z.object({
   name: z.string().min(2).max(64),
-  imageUrl: z.string().url(),
+  imageUrl: z.string().min(1, 'Укажите путь или ссылку на изображение'),
 });
 
 const CreateZoneSchema = z.object({
@@ -46,7 +46,7 @@ export async function mapRoutes(app: FastifyInstance) {
 
   app.patch('/api/maps/:id', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const Schema = z.object({ name: z.string().optional(), imageUrl: z.string().url().optional(), isActive: z.boolean().optional() });
+    const Schema = z.object({ name: z.string().optional(), imageUrl: z.string().min(1).optional(), isActive: z.boolean().optional() });
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 

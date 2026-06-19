@@ -36,54 +36,120 @@ async function main() {
   });
   console.log('Organizer created:', organizer.username);
 
-  // ───────── SAMPLE MAP: 5x5 grid с adjacencyMap (как на лендинге) ─────────
-  const existingMap = await prisma.gameMap.findFirst({ where: { name: 'Erangel' } });
-  if (!existingMap) {
+  // ───────── REAL MAPS — 10 карт с зонами и adjacencyMap ─────────
+  // Зоны строятся как сетка нужного размера, соседство — по строкам/столбцам (вверх/вниз/влево/вправо).
+  const mapsConfig: { name: string; imageUrl: string; gridCols: number; gridRows: number; zoneNames: string[] }[] = [
+    {
+      name: 'Industrial',
+      imageUrl: '/maps/industrial.jpg',
+      gridCols: 3,
+      gridRows: 2,
+      zoneNames: ['Red Block', 'Cyan Block', 'Green Peninsula', 'Yellow District', 'Purple Quarter', 'Blue Bay'],
+    },
+    {
+      name: 'Mirror',
+      imageUrl: '/maps/mirror.jpg',
+      gridCols: 3,
+      gridRows: 2,
+      zoneNames: ['Cyan North', 'Pink Heights', 'Red Center', 'Green Strip', 'Blue Harbor', 'Yellow South'],
+    },
+    {
+      name: 'Sandy Shores',
+      imageUrl: '/maps/sandy-shores.jpg',
+      gridCols: 3,
+      gridRows: 2,
+      zoneNames: ['Yellow Town', 'Cyan Point', 'Blue West', 'Purple Hills', 'Red Ridge', 'Green Coast'],
+    },
+    {
+      name: 'Vinewood',
+      imageUrl: '/maps/vinewood.jpg',
+      gridCols: 4,
+      gridRows: 2,
+      zoneNames: ['Red North', 'Yellow Ridge', 'Magenta West', 'Purple Hills', 'Cyan Center', 'Orange Valley', 'Green Park', 'Blue South'],
+    },
+    {
+      name: 'City',
+      imageUrl: '/maps/city.jpg',
+      gridCols: 3,
+      gridRows: 2,
+      zoneNames: ['Blue North', 'Magenta West', 'Cyan East', 'Pink District', 'Orange Center', 'Green Block'],
+    },
+    {
+      name: 'Farm',
+      imageUrl: '/maps/farm.jpg',
+      gridCols: 3,
+      gridRows: 2,
+      zoneNames: ['Orange Field', 'Pink Barn', 'Cyan Silo', 'Blue West', 'Green Pasture', 'Red South'],
+    },
+    {
+      name: 'Ghetto',
+      imageUrl: '/maps/ghetto.jpg',
+      gridCols: 3,
+      gridRows: 3,
+      zoneNames: ['Red North', 'Cyan East', 'Yellow West', 'Pink Center', 'Green Mid', 'Purple South', 'Orange Corner', 'Blue Block', 'Magenta Row'],
+    },
+    {
+      name: 'Vineyards',
+      imageUrl: '/maps/vineyards.jpg',
+      gridCols: 3,
+      gridRows: 3,
+      zoneNames: ['Purple Hills', 'Pink Valley', 'Orange Grove', 'Orange Field', 'Yellow Rows', 'Cyan Edge', 'Brown Ridge', 'Blue Pond', 'Teal Corner'],
+    },
+    {
+      name: 'Windmill',
+      imageUrl: '/maps/windmill.jpg',
+      gridCols: 3,
+      gridRows: 3,
+      zoneNames: ['Orange West', 'Cyan North', 'Pink Top', 'Purple Side', 'Brown Center', 'Blue East', 'Green South', 'Yellow Field', 'Red Bottom'],
+    },
+    {
+      name: 'Redwood',
+      imageUrl: '/maps/redwood.jpg',
+      gridCols: 3,
+      gridRows: 3,
+      zoneNames: ['Red West', 'Yellow Slope', 'Blue North', 'Cyan Center', 'Pink Corner', 'Green East', 'Brown South', 'Purple Mid', 'Orange Bottom'],
+    },
+  ];
+
+  for (const cfg of mapsConfig) {
+    const existing = await prisma.gameMap.findFirst({ where: { name: cfg.name } });
+    if (existing) {
+      console.log(`Map "${cfg.name}" already exists, skipping`);
+      continue;
+    }
+
     const map = await prisma.gameMap.create({
-      data: {
-        name: 'Erangel',
-        imageUrl: 'https://placehold.co/800x800/0b1022/e8ecf8?text=Erangel',
-        isActive: true,
-      },
+      data: { name: cfg.name, imageUrl: cfg.imageUrl, isActive: true },
     });
 
-    // Создаём grid 5x5, считаем соседство по строкам/столбцам
-    const GRID = 5;
-    const zoneNames = [
-      'Pochinki', 'Yasnaya Polyana', 'Mylta', 'Mylta Power', 'Severny',
-      'Rozhok', 'Gatka', 'Lipovka', 'Stalber', 'Shooting Range',
-      'School', 'Sosnovka Military Base', 'Primorsk', 'Kameshki', 'Zharki',
-      'Novorepnoye', 'Krechevo', 'Ferry Pier', 'Hospital', 'Quarry',
-      'Georgopol', 'Container Yard', 'Water Town', 'Apartments', 'Train Yard',
-    ];
-
+    const total = cfg.gridCols * cfg.gridRows;
     const created: { id: string; idx: number }[] = [];
-    for (let i = 0; i < GRID * GRID; i++) {
+    for (let i = 0; i < total; i++) {
       const zone = await prisma.zone.create({
         data: {
           mapId: map.id,
-          name: zoneNames[i] ?? `Zone ${i + 1}`,
-          coordinates: { row: Math.floor(i / GRID), col: i % GRID },
+          name: cfg.zoneNames[i] ?? `Zone ${i + 1}`,
+          coordinates: { row: Math.floor(i / cfg.gridCols), col: i % cfg.gridCols },
         },
       });
       created.push({ id: zone.id, idx: i });
     }
 
-    // Заполняем adjacencyMap: соседи по сетке (вверх/вниз/влево/вправо)
+    // adjacencyMap по сетке: соседи сверху/снизу/слева/справа
     for (const { id, idx } of created) {
-      const row = Math.floor(idx / GRID);
-      const col = idx % GRID;
+      const row = Math.floor(idx / cfg.gridCols);
+      const col = idx % cfg.gridCols;
       const neighborIdxs: number[] = [];
-      if (row > 0) neighborIdxs.push(idx - GRID);
-      if (row < GRID - 1) neighborIdxs.push(idx + GRID);
+      if (row > 0) neighborIdxs.push(idx - cfg.gridCols);
+      if (row < cfg.gridRows - 1) neighborIdxs.push(idx + cfg.gridCols);
       if (col > 0) neighborIdxs.push(idx - 1);
-      if (col < GRID - 1) neighborIdxs.push(idx + 1);
+      if (col < cfg.gridCols - 1) neighborIdxs.push(idx + 1);
 
       const adjacentIds = created.filter((c) => neighborIdxs.includes(c.idx)).map((c) => c.id);
       await prisma.zone.update({ where: { id }, data: { adjacentIds } });
     }
 
-    console.log(`Map "Erangel" created with ${created.length} zones and adjacencyMap`);
+    console.log(`Map "${cfg.name}" created with ${created.length} zones and adjacencyMap`);
   }
 
   // ───────── SAMPLE NEWS ─────────
