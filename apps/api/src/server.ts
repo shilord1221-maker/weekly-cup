@@ -44,7 +44,7 @@ async function main() {
   await app.register((instance) => matchRoutes(instance, { io }));
   await app.register((instance) => lobbyRoutes(instance, { io }));
   await app.register(mapRoutes);
-  await app.register(complaintRoutes);
+  await app.register((instance) => complaintRoutes(instance, { io }));
   await app.register(newsRoutes);
   await app.register(mediaRoutes);
   await app.register(profileRoutes);

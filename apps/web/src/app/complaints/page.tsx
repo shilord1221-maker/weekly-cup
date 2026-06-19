@@ -2,21 +2,32 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { MediaGrid, MediaUrlInput } from '@/components/MediaAttachments';
+
+interface ComplaintReply {
+  id: string;
+  text: string;
+  mediaUrls: string[];
+  createdAt: string;
+  author: { username: string; role: string };
+}
 
 interface Complaint {
   id: string;
   nick: string;
   staticIdValue: string | null;
   text: string;
+  mediaUrls: string[];
   status: 'NEW' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED';
   adminComment: string | null;
   createdAt: string;
   author: { username: string };
+  replies: ComplaintReply[];
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -30,6 +41,7 @@ const ComplaintSchema = z.object({
   nick: z.string().min(1, 'Укажите ник').max(64),
   staticIdValue: z.string().max(64).optional(),
   text: z.string().min(5, 'Опишите ситуацию подробнее (минимум 5 символов)').max(2000),
+  mediaUrls: z.array(z.string()).default([]),
 });
 type ComplaintForm = z.infer<typeof ComplaintSchema>;
 
@@ -49,15 +61,16 @@ export default function ComplaintsPage() {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isSubmitting },
-  } = useForm<ComplaintForm>({ resolver: zodResolver(ComplaintSchema) });
+  } = useForm<ComplaintForm>({ resolver: zodResolver(ComplaintSchema), defaultValues: { mediaUrls: [] } });
 
   const onSubmit = async (data: ComplaintForm) => {
     setServerError(null);
     setSuccess(false);
     try {
       await api.post('/complaints', data);
-      reset();
+      reset({ nick: user?.username, staticIdValue: user?.staticId ?? '', text: '', mediaUrls: [] });
       setSuccess(true);
       qc.invalidateQueries({ queryKey: ['complaints'] });
     } catch (e) {
@@ -122,6 +135,15 @@ export default function ComplaintsPage() {
           {errors.text && <p className="error-text">{errors.text.message}</p>}
         </div>
 
+        <div>
+          <label className="label-field">Доказательства (скриншоты, видео)</label>
+          <Controller
+            name="mediaUrls"
+            control={control}
+            render={({ field }) => <MediaUrlInput urls={field.value} onChange={field.onChange} />}
+          />
+        </div>
+
         <button type="submit" disabled={isSubmitting} className="btn-main justify-center">
           {isSubmitting ? 'Отправляем...' : 'Отправить жалобу'}
         </button>
@@ -142,6 +164,13 @@ export default function ComplaintsPage() {
           const status = STATUS_LABELS[c.status];
           return (
             <div key={c.id} className="rounded-xl p-5" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+              {/* Медиа — в верхней части карточки, как требовалось */}
+              {c.mediaUrls.length > 0 && (
+                <div className="mb-3">
+                  <MediaGrid urls={c.mediaUrls} />
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
                 <span className="text-sm font-medium">
                   {c.nick} {c.staticIdValue && <span className="font-mono text-xs" style={{ color: 'var(--muted)' }}>· {c.staticIdValue}</span>}
@@ -153,12 +182,30 @@ export default function ComplaintsPage() {
               <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>
                 {c.text}
               </p>
-              {c.adminComment && (
-                <div className="text-xs rounded-lg px-3 py-2 mt-2" style={{ background: 'rgba(255,255,255,.03)', color: 'var(--muted)' }}>
-                  Комментарий администратора: {c.adminComment}
+
+              {/* История ответов организатора/администратора */}
+              {c.replies.length > 0 && (
+                <div className="flex flex-col gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                  {c.replies.map((r) => (
+                    <div key={r.id} className="rounded-lg px-3 py-2.5" style={{ background: 'rgba(79,127,255,.05)', border: '1px solid rgba(79,127,255,.12)' }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--a)' }}>
+                          {r.author.username} ({r.author.role === 'OWNER' ? 'Owner' : r.author.role === 'ADMIN' ? 'Admin' : 'Organizer'})
+                        </span>
+                        <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
+                          {new Date(r.createdAt).toLocaleString('ru-RU')}
+                        </span>
+                      </div>
+                      <p className="text-xs mb-2" style={{ color: 'var(--text)' }}>
+                        {r.text}
+                      </p>
+                      {r.mediaUrls.length > 0 && <MediaGrid urls={r.mediaUrls} size={70} />}
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="font-mono text-[10px] mt-2" style={{ color: 'rgba(96,104,128,.5)' }}>
+
+              <div className="font-mono text-[10px] mt-3" style={{ color: 'rgba(96,104,128,.5)' }}>
                 {new Date(c.createdAt).toLocaleString('ru-RU')}
               </div>
             </div>

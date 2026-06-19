@@ -1,7 +1,32 @@
 import { create } from 'zustand';
 import { api, setAccessToken, ApiClientError } from '@/lib/api';
 
-export type Role = 'ADMIN' | 'ORGANIZER' | 'PLAYER';
+export type Role = 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'PLAYER';
+
+const ROLE_RANK: Record<Role, number> = { OWNER: 3, ADMIN: 2, ORGANIZER: 1, PLAYER: 0 };
+
+/** OWNER и ADMIN — обе считаются "админским" доступом (видят /admin полностью) */
+export function isAdminOrOwner(role: Role | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN';
+}
+
+/** OWNER, ADMIN, ORGANIZER — доступ к организаторским функциям (создание матчей, лобби-контроль) */
+export function isOrganizerOrAbove(role: Role | undefined): boolean {
+  return !!role && ROLE_RANK[role] >= ROLE_RANK.ORGANIZER;
+}
+
+export function roleLabel(role: Role): string {
+  switch (role) {
+    case 'OWNER':
+      return 'Owner';
+    case 'ADMIN':
+      return 'Администратор';
+    case 'ORGANIZER':
+      return 'Организатор';
+    case 'PLAYER':
+      return 'Игрок';
+  }
+}
 
 export interface User {
   id: string;

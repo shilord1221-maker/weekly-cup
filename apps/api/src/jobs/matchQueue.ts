@@ -16,7 +16,7 @@ export async function scheduleMatchStart(matchId: string, startTime: Date) {
   const delay = Math.max(0, startTime.getTime() - Date.now());
   await matchQueue.add('start', { kind: 'MATCH_STARTED', matchId } satisfies JobData, {
     delay,
-    jobId: `start:${matchId}`,
+    jobId: `start-${matchId}`,
     removeOnComplete: true,
   });
 }
@@ -26,7 +26,7 @@ export async function scheduleMatchReminder(matchId: string, startTime: Date) {
   const delay = Math.max(0, startTime.getTime() - Date.now() + 2 * 60 * 1000);
   await matchQueue.add('reminder', { kind: 'MATCH_REMINDER', matchId } satisfies JobData, {
     delay,
-    jobId: `reminder:${matchId}`,
+    jobId: `reminder-${matchId}`,
     removeOnComplete: true,
   });
 }
@@ -34,7 +34,7 @@ export async function scheduleMatchReminder(matchId: string, startTime: Date) {
 export async function scheduleFinalZoneClose(matchId: string, durationMs = 120_000) {
   await matchQueue.add('final-zone-close', { kind: 'FINAL_ZONE_CLOSE', matchId } satisfies JobData, {
     delay: durationMs,
-    jobId: `finalzone:${matchId}:${Date.now()}`,
+    jobId: `finalzone-${matchId}-${Date.now()}`,
     removeOnComplete: true,
   });
 }

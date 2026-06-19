@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
+import { ZoneMapSelector } from '@/components/ZoneMapSelector';
 
 interface Zone {
   id: string;
   name: string;
   adjacentIds: string[];
+  coordinates?: { row: number; col: number } | null;
 }
 interface TeamData {
   id: string;
@@ -21,13 +23,33 @@ interface MatchDetail {
   mode: string;
   status: string;
   startTime: string;
-  map: { id: string; name: string; zones: Zone[] };
+  map: { id: string; name: string; imageUrl: string; zones: Zone[] };
   selectedZones: Zone[];
   finalZone: Zone | null;
   lobby: { teams: TeamData[] } | null;
 }
 
 const MODE_LABELS: Record<string, string> = { MODE_2X2: '2×2', MODE_3X3: '3×3', MODE_4X4: '4×4', MODE_5X5: '5×5' };
+
+// Готовые voice-каналы Discord — организатор выбирает из списка, без ручного ввода ссылок.
+const VOICE_CHANNELS = [
+  { label: 'Voice 1', url: 'https://discord.com/channels/1503166605855690793/1503166606497284222' },
+  { label: 'Voice 2', url: 'https://discord.com/channels/1503166605855690793/1512570070889398363' },
+  { label: 'Voice 3', url: 'https://discord.com/channels/1503166605855690793/1512570127223226478' },
+  { label: 'Voice 4', url: 'https://discord.com/channels/1503166605855690793/1512570190368346183' },
+  { label: 'Voice 5', url: 'https://discord.com/channels/1503166605855690793/1512570237772632135' },
+  { label: 'Voice 6', url: 'https://discord.com/channels/1503166605855690793/1512570277538697266' },
+  { label: 'Voice 7', url: 'https://discord.com/channels/1503166605855690793/1512570317590106173' },
+  { label: 'Voice 8', url: 'https://discord.com/channels/1503166605855690793/1512570360363749376' },
+  { label: 'Voice 9', url: 'https://discord.com/channels/1503166605855690793/1512570414159757312' },
+  { label: 'Voice 10', url: 'https://discord.com/channels/1503166605855690793/1512572351127224421' },
+  { label: 'Voice 11', url: 'https://discord.com/channels/1503166605855690793/1512572391455326378' },
+  { label: 'Voice 12', url: 'https://discord.com/channels/1503166605855690793/1512572470874345492' },
+  { label: 'Voice 13', url: 'https://discord.com/channels/1503166605855690793/1512572703092248656' },
+  { label: 'Voice 14', url: 'https://discord.com/channels/1503166605855690793/1512572751897038939' },
+  { label: 'Voice 15', url: 'https://discord.com/channels/1503166605855690793/1512572895543431251' },
+  { label: 'Voice 16', url: 'https://discord.com/channels/1503166605855690793/1512897712729755658' },
+];
 
 export default function AdminMatchDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +72,6 @@ export default function AdminMatchDetailPage() {
     );
   }
 
-  const gridSize = Math.round(Math.sqrt(match.map.zones.length)) || 5;
   const availableSelected = selectedZoneIds.length > 0 ? selectedZoneIds : match.selectedZones.map((z) => z.id);
 
   const isAdjacentToSelected = (zoneId: string, zone: Zone): boolean => {
@@ -100,6 +121,23 @@ export default function AdminMatchDetailPage() {
     }
   };
 
+  const handleAutoAssignVoice = async () => {
+    if (!match.lobby) return;
+    setError(null);
+    try {
+      await Promise.all(
+        match.lobby.teams.map((team, i) => {
+          const channel = VOICE_CHANNELS[i];
+          if (!channel) return Promise.resolve();
+          return api.patch(`/lobby/${match.id}/voice-url/${team.id}`, { voiceUrl: channel.url });
+        })
+      );
+      qc.invalidateQueries({ queryKey: ['admin-match', id] });
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : 'Не удалось назначить каналы автоматически');
+    }
+  };
+
   const handleFinish = async (winnerTeamId: string) => {
     setError(null);
     try {
@@ -132,7 +170,7 @@ export default function AdminMatchDetailPage() {
         </div>
       )}
 
-      {/* ZONE SELECTION */}
+      {/* ZONE SELECTION — интерактивная карта с реальным изображением */}
       <div className="card mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>
@@ -143,31 +181,21 @@ export default function AdminMatchDetailPage() {
           </button>
         </div>
         <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
-          Можно выбрать только зоны, граничащие с уже выбранными (граф соседства).
+          Наведите на зону, чтобы увидеть соседние. Можно выбрать только зоны, граничащие с уже выбранными (граф соседства).
         </p>
-        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}>
-          {match.map.zones.map((zone) => {
-            const isSelected = availableSelected.includes(zone.id);
-            const isAvailable = availableSelected.length === 0 || isAdjacentToSelected(zone.id, zone) || isSelected;
-            return (
-              <button
-                key={zone.id}
-                onClick={() => isAvailable && toggleZone(zone.id)}
-                disabled={!isAvailable}
-                className="aspect-square rounded-md text-[8px] p-1 transition-all"
-                style={{
-                  background: isSelected ? 'rgba(79,127,255,.3)' : isAvailable ? 'rgba(79,127,255,.06)' : 'rgba(255,255,255,.02)',
-                  border: `1px solid ${isSelected ? 'rgba(79,127,255,.6)' : 'rgba(255,255,255,.06)'}`,
-                  color: isSelected ? 'var(--text)' : 'var(--muted)',
-                  cursor: isAvailable ? 'pointer' : 'not-allowed',
-                  opacity: isAvailable ? 1 : 0.4,
-                }}
-              >
-                {zone.name}
-              </button>
-            );
-          })}
-        </div>
+        <ZoneMapSelector
+          imageUrl={match.map.imageUrl}
+          zones={match.map.zones}
+          selectedIds={availableSelected}
+          finalZoneId={match.finalZone?.id}
+          interactive
+          onToggleZone={toggleZone}
+          isZoneAvailable={(zoneId) => {
+            const zone = match.map.zones.find((z) => z.id === zoneId);
+            if (!zone) return false;
+            return availableSelected.length === 0 || isAdjacentToSelected(zoneId, zone) || availableSelected.includes(zoneId);
+          }}
+        />
       </div>
 
       {/* FINAL ZONE */}
@@ -196,19 +224,31 @@ export default function AdminMatchDetailPage() {
       {/* VOICE URLS */}
       {match.lobby && (
         <div className="card mb-6">
-          <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
-            Discord Voice ссылки
+          <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-2" style={{ color: 'var(--muted)' }}>
+            Discord Voice каналы
           </h2>
+          <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+            Выберите готовый voice-канал для каждой команды, или нажмите «Авто» для назначения по порядку (Team 1 → Voice 1 и т.д.).
+          </p>
+          <button onClick={handleAutoAssignVoice} className="btn-out mb-4" style={{ padding: '8px 18px', fontSize: '13px' }}>
+            🎲 Авто-назначить каналы по порядку
+          </button>
           <div className="flex flex-col gap-3">
             {match.lobby.teams.map((team) => (
               <div key={team.id} className="flex gap-2 items-center">
                 <span className="text-sm w-20 flex-shrink-0">{team.name}</span>
-                <input
+                <select
                   defaultValue={team.voiceUrl ?? ''}
                   onChange={(e) => setVoiceInputs((prev) => ({ ...prev, [team.id]: e.target.value }))}
-                  placeholder="https://discord.gg/..."
                   className="input-field flex-1"
-                />
+                >
+                  <option value="">— не назначен —</option>
+                  {VOICE_CHANNELS.map((vc) => (
+                    <option key={vc.url} value={vc.url}>
+                      {vc.label}
+                    </option>
+                  ))}
+                </select>
                 <button onClick={() => handleSaveVoice(team.id)} className="btn-out" style={{ padding: '10px 16px', fontSize: '13px' }}>
                   Сохранить
                 </button>

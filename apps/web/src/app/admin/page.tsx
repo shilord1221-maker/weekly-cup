@@ -3,19 +3,19 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, isOrganizerOrAbove, isAdminOrOwner, roleLabel } from '@/store/auth';
 
 export default function AdminPage() {
   const { user, isInitialized } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
-    if (isInitialized && (!user || (user.role !== 'ADMIN' && user.role !== 'ORGANIZER'))) {
+    if (isInitialized && (!user || !isOrganizerOrAbove(user.role))) {
       router.push('/');
     }
   }, [isInitialized, user, router]);
 
-  if (!user || (user.role !== 'ADMIN' && user.role !== 'ORGANIZER')) {
+  if (!user || !isOrganizerOrAbove(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
         <p style={{ color: 'var(--muted)' }}>Проверка доступа...</p>
@@ -23,13 +23,17 @@ export default function AdminPage() {
     );
   }
 
+  const isOwner = user.role === 'OWNER';
+  const isAdmin = isAdminOrOwner(user.role);
+
   const links = [
     { href: '/admin/matches', label: 'Матчи', desc: 'Создание и управление матчами', icon: '🎮', show: true },
-    { href: '/admin/maps', label: 'Карты', desc: 'Загрузка карт и зон с adjacencyMap', icon: '🗺️', show: user.role === 'ADMIN' },
+    { href: '/admin/maps', label: 'Карты', desc: 'Загрузка карт и зон с adjacencyMap', icon: '🗺️', show: isAdmin },
     { href: '/admin/complaints', label: 'Жалобы', desc: 'Модерация жалоб игроков', icon: '📋', show: true },
-    { href: '/admin/news', label: 'Новости', desc: 'Публикация новостей', icon: '📰', show: user.role === 'ADMIN' },
-    { href: '/admin/users', label: 'Пользователи', desc: 'Управление ролями', icon: '👥', show: user.role === 'ADMIN' },
-    { href: '/admin/audit-log', label: 'Audit Log', desc: 'История всех действий', icon: '🧾', show: user.role === 'ADMIN' },
+    { href: '/admin/news', label: 'Новости', desc: 'Публикация и удаление новостей', icon: '📰', show: isAdmin },
+    { href: '/admin/users', label: 'Пользователи', desc: 'Управление ролями', icon: '👥', show: isAdmin },
+    { href: '/admin/audit-log', label: 'Audit Log', desc: 'История всех действий', icon: '🧾', show: isAdmin },
+    { href: '/admin/settings', label: 'Настройки системы', desc: 'Доступно только Owner', icon: '⚙️', show: isOwner },
   ].filter((l) => l.show);
 
   return (
@@ -38,7 +42,7 @@ export default function AdminPage() {
         Админ-панель
       </h1>
       <p className="text-sm mb-10" style={{ color: 'var(--muted)' }}>
-        Роль: {user.role === 'ADMIN' ? 'Администратор' : 'Организатор'}
+        Роль: {roleLabel(user.role)}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

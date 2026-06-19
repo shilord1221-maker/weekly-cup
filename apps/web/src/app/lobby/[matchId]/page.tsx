@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 import { useSocket } from '@/hooks/useSocket';
 
 interface Member {
@@ -150,7 +150,7 @@ export default function LobbyPage() {
   }, [matchId, socket]);
 
   const myMembership = lobby?.teams.flatMap((t) => t.members.map((m) => ({ ...m, teamId: t.id }))).find((m) => m.userId === user?.id);
-  const isOrganizerOrAdmin = user?.role === 'ORGANIZER' || user?.role === 'ADMIN';
+  const isOrganizerOrAdmin = isOrganizerOrAbove(user?.role);
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -250,12 +250,27 @@ export default function LobbyPage() {
           </h1>
         </div>
 
-        {isOrganizerOrAdmin && (
-          <button onClick={handleAutoAssign} disabled={actionLoading} className="btn-out">
-            🎲 Авто-раскидать
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href="https://discord.com/channels/1503166605855690793/1509959162031767613"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-medium transition-all hover:translate-x-0.5"
+            style={{ background: 'rgba(88,101,242,.1)', border: '1px solid rgba(88,101,242,.25)', color: '#a5b4fc' }}
+          >
+            💀 Стак войс (после смерти)
+          </a>
+          {isOrganizerOrAdmin && (
+            <button onClick={handleAutoAssign} disabled={actionLoading} className="btn-out">
+              🎲 Авто-раскидать
+            </button>
+          )}
+        </div>
       </div>
+
+      <p className="text-xs mb-8" style={{ color: 'var(--muted)' }}>
+        После смерти своей команды заходите в стак войс — чтобы вас не мували и не было споров, что вы «ещё играете».
+      </p>
 
       {actionError && (
         <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>

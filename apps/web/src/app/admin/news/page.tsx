@@ -53,6 +53,17 @@ export default function AdminNewsPage() {
     }
   };
 
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`Удалить новость «${title}»? Это действие нельзя отменить.`)) return;
+    setServerError(null);
+    try {
+      await api.delete(`/news/${id}`);
+      qc.invalidateQueries({ queryKey: ['admin-news'] });
+    } catch (e) {
+      setServerError(e instanceof ApiClientError ? e.message : 'Не удалось удалить новость');
+    }
+  };
+
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-2xl mx-auto" style={{ background: 'var(--bg)' }}>
       <h1 className="font-display font-bold uppercase mb-10" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
@@ -103,9 +114,18 @@ export default function AdminNewsPage() {
         {news?.map((n) => (
           <div key={n.id} className="flex items-center justify-between px-5 py-3 rounded-lg text-sm" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
             <span>{n.title}</span>
-            <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
-              {new Date(n.createdAt).toLocaleDateString('ru-RU')}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
+                {new Date(n.createdAt).toLocaleDateString('ru-RU')}
+              </span>
+              <button
+                onClick={() => handleDelete(n.id, n.title)}
+                className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                style={{ color: '#f87171', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}
+              >
+                Удалить
+              </button>
+            </div>
           </div>
         ))}
       </div>

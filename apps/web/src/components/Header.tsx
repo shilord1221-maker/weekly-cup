@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 
 export function Header() {
   const [stuck, setStuck] = useState(false);
@@ -61,7 +61,7 @@ export function Header() {
               <Link href="/profile" className="h-btn">
                 {user.username}
               </Link>
-              {(user.role === 'ADMIN' || user.role === 'ORGANIZER') && (
+              {isOrganizerOrAbove(user.role) && (
                 <Link href="/admin" className="h-btn">
                   Админка
                 </Link>

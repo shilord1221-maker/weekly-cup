@@ -47,6 +47,16 @@ export async function newsRoutes(app: FastifyInstance) {
     const news = await prisma.news.update({ where: { id }, data: req.body as any });
     reply.send(news);
   });
+
+  app.delete('/api/news/:id', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const news = await prisma.news.findUnique({ where: { id } });
+    if (!news) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Новость не найдена' });
+
+    await prisma.news.delete({ where: { id } });
+    await logAudit({ actorId: req.user!.id, action: 'NEWS_DELETED', entityType: 'News', entityId: id, payload: { title: news.title } });
+    reply.send({ success: true });
+  });
 }
 
 export async function mediaRoutes(app: FastifyInstance) {
@@ -149,9 +159,17 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.patch('/api/users/:id/role', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const Schema = z.object({ role: z.enum(['ADMIN', 'ORGANIZER', 'PLAYER']) });
+    const Schema = z.object({ role: z.enum(['OWNER', 'ADMIN', 'ORGANIZER', 'PLAYER']) });
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден' });
+
+    // Только OWNER может управлять другим OWNER — снимать, менять или назначать роль OWNER.
+    if ((targetUser.role === 'OWNER' || parsed.data.role === 'OWNER') && req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только Owner может управлять ролью Owner' });
+    }
 
     const user = await prisma.user.update({ where: { id }, data: { role: parsed.data.role } });
     await logAudit({ actorId: req.user!.id, action: 'USER_ROLE_CHANGED', entityType: 'User', entityId: id, payload: { role: parsed.data.role } });

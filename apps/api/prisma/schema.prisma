@@ -14,6 +14,7 @@ datasource db {
 // ───────────────────────── ENUMS ─────────────────────────
 
 enum Role {
+  OWNER
   ADMIN
   ORGANIZER
   PLAYER
@@ -68,6 +69,7 @@ model User {
   chatMessages     ChatMessage[]
   complaints       Complaint[]    @relation("ComplaintAuthor")
   reviewedComplaints Complaint[]  @relation("ComplaintReviewer")
+  complaintReplies  ComplaintReply[]
   achievements     Achievement[]
   wins             Win[]
   notifications    Notification[]
@@ -233,15 +235,31 @@ model Complaint {
   nick          String          @db.VarChar(64)
   staticIdValue String?         @db.VarChar(64)
   text          String          @db.VarChar(2000)
+  mediaUrls     String[]        @default([]) // изображения/видео, прикреплённые автором, организатором или админом
   status        ComplaintStatus @default(NEW)
-  adminComment  String?         @db.VarChar(2000)
+  adminComment  String?         @db.VarChar(2000) // оставлено для обратной совместимости; новые ответы — через ComplaintReply
   reviewerId    String?
   reviewer      User?           @relation("ComplaintReviewer", fields: [reviewerId], references: [id])
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
+  replies ComplaintReply[]
+
   @@index([status])
   @@index([authorId])
+}
+
+model ComplaintReply {
+  id          String    @id @default(uuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  text        String    @db.VarChar(2000)
+  mediaUrls   String[]  @default([])
+  createdAt   DateTime  @default(now())
+
+  @@index([complaintId])
 }
 
 // ───────────────────────── ACHIEVEMENTS / WINS ─────────────────────────

@@ -6,13 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { api, ApiClientError } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, roleLabel, type Role } from '@/store/auth';
 
 interface ProfileData {
   id: string;
   username: string;
   email: string;
-  role: string;
+  role: Role;
   staticId: { value: string } | null;
   achievements: { id: string; title: string; earnedAt: string }[];
   wins: { id: string; createdAt: string; match: { map: { name: string } } }[];
@@ -72,7 +72,7 @@ export default function ProfilePage() {
             {profile.username}
           </h1>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {profile.email} · {profile.role === 'ADMIN' ? 'Администратор' : profile.role === 'ORGANIZER' ? 'Организатор' : 'Игрок'}
+            {profile.email} · {roleLabel(profile.role)}
           </p>
         </div>
       </div>

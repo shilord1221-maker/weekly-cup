@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { ZoneAnimation } from '@/components/ZoneAnimation';
 
@@ -34,6 +35,7 @@ const MODE_LABELS: Record<string, string> = {
 export default function HomePage() {
   const [loaderOut, setLoaderOut] = useState(false);
   const [pct, setPct] = useState(0);
+  const { user } = useAuthStore();
 
   const { data: matches } = useQuery<MatchSummary[]>({
     queryKey: ['matches-preview'],
@@ -134,7 +136,7 @@ export default function HomePage() {
         </p>
 
         <div className="flex gap-3.5 justify-center flex-wrap relative z-10">
-          <Link href="/register" className="btn-main">
+          <Link href={user ? '/matches' : '/register'} className="btn-main">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
               <polyline points="10 17 15 12 10 7" />
@@ -286,11 +288,11 @@ export default function HomePage() {
               <span style={{ background: 'linear-gradient(90deg,var(--a),var(--a2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Заходи.</span>
             </h2>
             <p className="mb-11 max-w-sm mx-auto" style={{ color: 'var(--muted)' }}>
-              Регистрируйся, привязывай Static ID и вставай в лобби ближайшего матча.
+              {user ? 'Выбирай ближайший матч и вставай в лобби.' : 'Регистрируйся, привязывай Static ID и вставай в лобби ближайшего матча.'}
             </p>
             <div className="flex gap-3.5 justify-center flex-wrap">
-              <Link href="/register" className="btn-main" style={{ fontSize: '15px', padding: '16px 40px' }}>
-                Создать аккаунт
+              <Link href={user ? '/matches' : '/register'} className="btn-main" style={{ fontSize: '15px', padding: '16px 40px' }}>
+                {user ? 'Найти матч' : 'Создать аккаунт'}
               </Link>
               <Link href="/rules" className="btn-out" style={{ fontSize: '15px', padding: '16px 36px' }}>
                 Правила

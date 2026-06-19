@@ -6,6 +6,23 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
+  // ───────── OWNER USER ─────────
+  // Защита от случайного удаления: upsert никогда не удаляет существующую запись,
+  // повторный запуск seed безопасен и не пересоздаёт/не сбрасывает аккаунт.
+  const ownerPassword = await argon2.hash('Owner123!');
+  const owner = await prisma.user.upsert({
+    where: { email: 'owner@weeklycup.gg' },
+    update: {},
+    create: {
+      username: 'owner',
+      email: 'owner@weeklycup.gg',
+      passwordHash: ownerPassword,
+      role: 'OWNER',
+      staticId: { create: { value: '00001' } },
+    },
+  });
+  console.log('Owner created:', owner.username);
+
   // ───────── ADMIN USER ─────────
   const adminPassword = await argon2.hash('Admin123!');
   const admin = await prisma.user.upsert({
@@ -16,7 +33,7 @@ async function main() {
       email: 'admin@weeklycup.gg',
       passwordHash: adminPassword,
       role: 'ADMIN',
-      staticId: { create: { value: 'ADMIN-0001' } },
+      staticId: { create: { value: '00002' } },
     },
   });
   console.log('Admin created:', admin.username);
@@ -31,7 +48,7 @@ async function main() {
       email: 'organizer@weeklycup.gg',
       passwordHash: orgPassword,
       role: 'ORGANIZER',
-      staticId: { create: { value: 'ORG-0001' } },
+      staticId: { create: { value: '00003' } },
     },
   });
   console.log('Organizer created:', organizer.username);
