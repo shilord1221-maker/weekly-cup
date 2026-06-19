@@ -122,6 +122,26 @@ body {
   border-color: var(--red);
 }
 
+/* Выпадающий список <select> рендерит <option> отдельно от родительских стилей —
+   браузер по умолчанию делает белый фон. Задаём тёмные цвета явно. */
+select.input-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23606880' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  padding-right: 40px;
+  cursor: pointer;
+}
+select.input-field option {
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px;
+}
+select.input-field option:disabled {
+  color: var(--muted);
+}
+
 .label-field {
   display: block;
   font-size: 13px;
