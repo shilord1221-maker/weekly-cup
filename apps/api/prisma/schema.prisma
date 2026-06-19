@@ -1,0 +1,310 @@
+// Weekly Cup — Prisma schema
+// PostgreSQL. UTC хранится в БД, конвертация в МСК — на фронте.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── ENUMS ─────────────────────────
+
+enum Role {
+  ADMIN
+  ORGANIZER
+  PLAYER
+}
+
+enum MatchMode {
+  MODE_2X2
+  MODE_3X3
+  MODE_4X4
+  MODE_5X5
+}
+
+enum MatchStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  FINISHED
+  CANCELLED
+}
+
+enum LobbyState {
+  DRAFT
+  OPEN
+  READY
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+enum ComplaintStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+// ───────────────────────── CORE ─────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique @db.VarChar(32)
+  email        String   @unique @db.VarChar(255)
+  passwordHash String
+  role         Role     @default(PLAYER)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  staticId        StaticId?
+  organizedMatches Match[]        @relation("OrganizerMatches")
+  lobbyMemberships LobbyMember[]
+  chatMessages     ChatMessage[]
+  complaints       Complaint[]    @relation("ComplaintAuthor")
+  reviewedComplaints Complaint[]  @relation("ComplaintReviewer")
+  achievements     Achievement[]
+  wins             Win[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  refreshTokens    RefreshToken[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  @@index([userId])
+}
+
+model StaticId {
+  id        String   @id @default(uuid())
+  value     String   @unique @db.VarChar(64)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────── MAPS / ZONES ─────────────────────────
+
+model GameMap {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(64)
+  imageUrl  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  zones   Zone[]
+  matches Match[]
+}
+
+model Zone {
+  id          String   @id @default(uuid())
+  mapId       String
+  map         GameMap  @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(64)
+  // adjacencyMap: список id соседних зон (граф соседства)
+  adjacentIds String[] @default([])
+  // координаты/полигон для отображения на карте (в %)
+  coordinates Json?
+
+  matchesSelected Match[] @relation("SelectedZones")
+  matchesFinal    Match[] @relation("FinalZone")
+
+  @@index([mapId])
+}
+
+// ───────────────────────── MATCH / LOBBY ─────────────────────────
+
+model Match {
+  id          String      @id @default(uuid())
+  mapId       String
+  map         GameMap     @relation(fields: [mapId], references: [id])
+  organizerId String
+  organizer   User        @relation("OrganizerMatches", fields: [organizerId], references: [id])
+  mode        MatchMode
+  status      MatchStatus @default(DRAFT)
+
+  startTime   DateTime // UTC
+  finishedAt  DateTime?
+
+  selectedZones Zone[] @relation("SelectedZones")
+  finalZoneId   String?
+  finalZone     Zone?   @relation("FinalZone", fields: [finalZoneId], references: [id])
+  finalZoneOpenedAt DateTime?
+  finalZoneClosesAt DateTime?
+
+  winnerTeamId String?
+  winnerTeam   Team?   @relation("WinnerOfMatch", fields: [winnerTeamId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lobby Lobby?
+  wins  Win[]
+
+  @@index([status])
+  @@index([startTime])
+}
+
+model Lobby {
+  id        String     @id @default(uuid())
+  matchId   String     @unique
+  match     Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  state     LobbyState @default(DRAFT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  teams Team[]
+}
+
+model Team {
+  id       String  @id @default(uuid())
+  lobbyId  String
+  lobby    Lobby   @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  name     String  @db.VarChar(64)
+  slot     Int // порядковый номер команды в лобби (1,2,3...)
+  voiceUrl String? // Discord invite link
+  isReady  Boolean @default(false)
+
+  members      LobbyMember[]
+  wonMatches   Match[]       @relation("WinnerOfMatch")
+  wins         Win[]
+
+  @@unique([lobbyId, slot])
+  @@index([lobbyId])
+}
+
+model LobbyMember {
+  id       String   @id @default(uuid())
+  lobbyId  String
+  teamId   String?
+  team     Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@unique([lobbyId, userId])
+  @@index([teamId])
+}
+
+// ───────────────────────── CHAT / NOTIFICATIONS ─────────────────────────
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  text      String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @db.VarChar(64)
+  payload   Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ───────────────────────── COMPLAINTS ─────────────────────────
+
+model Complaint {
+  id            String          @id @default(uuid())
+  authorId      String
+  author        User            @relation("ComplaintAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  nick          String          @db.VarChar(64)
+  staticIdValue String?         @db.VarChar(64)
+  text          String          @db.VarChar(2000)
+  status        ComplaintStatus @default(NEW)
+  adminComment  String?         @db.VarChar(2000)
+  reviewerId    String?
+  reviewer      User?           @relation("ComplaintReviewer", fields: [reviewerId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([status])
+  @@index([authorId])
+}
+
+// ───────────────────────── ACHIEVEMENTS / WINS ─────────────────────────
+
+model Achievement {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String   @db.VarChar(64)
+  title    String   @db.VarChar(128)
+  earnedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Win {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([matchId])
+}
+
+// ───────────────────────── NEWS / MEDIA ─────────────────────────
+
+model News {
+  id        String   @id @default(uuid())
+  slug      String   @unique @db.VarChar(128)
+  title     String   @db.VarChar(255)
+  excerpt   String?  @db.VarChar(500)
+  body      String
+  coverUrl  String?
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Media {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(255)
+  type      String   @db.VarChar(32) // "youtube" | "twitch" | "embed" | "link"
+  url       String
+  thumbUrl  String?
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────── AUDIT LOG ─────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(128)
+  entityType String   @db.VarChar(64)
+  entityId   String?
+  payload    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
