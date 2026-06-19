@@ -32,15 +32,21 @@ export async function joinLobby(lobbyId: string, userId: string) {
     throw new ApiError('LOBBY_CLOSED', 'Лобби закрыто', 400);
   }
 
-  const activeElsewhere = await prisma.lobbyMember.findFirst({
-    where: {
-      userId,
-      lobbyId: { not: lobbyId },
-      lobby: { is: { state: { in: ['OPEN', 'READY', 'IN_PROGRESS'] } } },
-    },
+  // Проверка на участие в другом активном лобби (защита от дублей).
+  // Делаем двумя простыми запросами вместо вложенного relation-фильтра,
+  // чтобы не зависеть от конкретной версии сгенерированных Prisma-типов.
+  const myOtherMemberships = await prisma.lobbyMember.findMany({
+    where: { userId, lobbyId: { not: lobbyId } },
+    select: { lobbyId: true },
   });
-  if (activeElsewhere) {
-    throw new ApiError('ALREADY_IN_ANOTHER_LOBBY', 'Вы уже участвуете в другом активном лобби', 409);
+  if (myOtherMemberships.length > 0) {
+    const otherLobbyIds = myOtherMemberships.map((m) => m.lobbyId);
+    const activeElsewhere = await prisma.lobby.findFirst({
+      where: { id: { in: otherLobbyIds }, state: { in: ['OPEN', 'READY', 'IN_PROGRESS'] } },
+    });
+    if (activeElsewhere) {
+      throw new ApiError('ALREADY_IN_ANOTHER_LOBBY', 'Вы уже участвуете в другом активном лобби', 409);
+    }
   }
 
   const existing = await prisma.lobbyMember.findUnique({ where: { lobbyId_userId: { lobbyId, userId } } });

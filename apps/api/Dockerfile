@@ -6,6 +6,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev=false
 
 FROM deps AS build
+ARG CACHE_BUST=1
 COPY . .
 RUN npx prisma generate
 RUN npm run build
