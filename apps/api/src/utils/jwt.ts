@@ -9,14 +9,14 @@ export interface AccessTokenPayload {
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
-     const options: jwt.SignOptions = { expiresIn: env.JWT_ACCESS_TTL as jwt.SignOptions['expiresIn'] };
-     return jwt.sign(payload, env.JWT_ACCESS_SECRET, options);
-   }
+  const options: jwt.SignOptions = { expiresIn: env.JWT_ACCESS_TTL as jwt.SignOptions['expiresIn'] };
+  return jwt.sign(payload, env.JWT_ACCESS_SECRET, options);
+}
 
-   export function signRefreshToken(userId: string): string {
-     const options: jwt.SignOptions = { expiresIn: env.JWT_REFRESH_TTL as jwt.SignOptions['expiresIn'] };
-     return jwt.sign({ sub: userId }, env.JWT_REFRESH_SECRET, options);
-   }
+export function signRefreshToken(userId: string): string {
+  const options: jwt.SignOptions = { expiresIn: env.JWT_REFRESH_TTL as jwt.SignOptions['expiresIn'] };
+  return jwt.sign({ sub: userId }, env.JWT_REFRESH_SECRET, options);
+}
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
   return jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessTokenPayload;

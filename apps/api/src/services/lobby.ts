@@ -33,12 +33,12 @@ export async function joinLobby(lobbyId: string, userId: string) {
   }
 
   const activeElsewhere = await prisma.lobbyMember.findFirst({
-     where: {
-       userId,
-       lobbyId: { not: lobbyId },
-       lobby: { is: { state: { in: ['OPEN', 'READY', 'IN_PROGRESS'] } } },
-     },
-   });
+    where: {
+      userId,
+      lobbyId: { not: lobbyId },
+      lobby: { is: { state: { in: ['OPEN', 'READY', 'IN_PROGRESS'] } } },
+    },
+  });
   if (activeElsewhere) {
     throw new ApiError('ALREADY_IN_ANOTHER_LOBBY', 'Вы уже участвуете в другом активном лобби', 409);
   }
