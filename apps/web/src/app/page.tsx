@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { ZoneAnimation } from '@/components/ZoneAnimation';
+import { TrophyIcon } from '@/components/TrophyIcon';
 
 interface MatchSummary {
   id: string;
@@ -110,6 +111,10 @@ export default function HomePage() {
             WebkitMaskImage: 'radial-gradient(ellipse 70% 70% at 50% 40%,black 20%,transparent 100%)',
           }}
         />
+
+        <div className="relative z-10 mb-7" style={{ animation: 'trophyFloat 5s ease-in-out infinite' }}>
+          <TrophyIcon size={130} />
+        </div>
 
         <div
           className="inline-flex items-center gap-2.5 font-mono text-xs uppercase tracking-widest px-[18px] py-1.5 rounded-full mb-9 relative z-10"
