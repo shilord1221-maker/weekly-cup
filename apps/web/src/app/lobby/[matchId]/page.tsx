@@ -88,7 +88,7 @@ export default function LobbyPage() {
   const [toast, setToast] = useState<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const { data: lobby, isLoading } = useQuery<LobbyData>({
+  const { data: lobby, isLoading, refetch } = useQuery<LobbyData>({
     queryKey: ['lobby', matchId],
     queryFn: () => api.get(`/lobby/${matchId}`, { auth: false }),
     enabled: !!matchId,
@@ -213,7 +213,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/lobby/${matchId}/join`);
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось войти в лобби');
     } finally {
@@ -225,7 +225,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/lobby/${matchId}/leave`);
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } finally {
       setActionLoading(false);
     }
@@ -236,7 +236,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.patch(`/lobby/${matchId}/team`, { teamId });
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось выбрать команду');
     } finally {
@@ -248,7 +248,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/lobby/${matchId}/ready`, { teamId, ready });
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } finally {
       setActionLoading(false);
     }
@@ -258,7 +258,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/lobby/${matchId}/auto-assign`);
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } finally {
       setActionLoading(false);
     }
@@ -269,7 +269,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/matches/${matchId}/start`);
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось запустить матч');
     } finally {
@@ -284,7 +284,7 @@ export default function LobbyPage() {
     try {
       const randomZone = lobby.match.selectedZones[Math.floor(Math.random() * lobby.match.selectedZones.length)];
       await api.post(`/matches/${matchId}/final-zone`, { zoneId: randomZone.id });
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось выбрать финальную зону');
     } finally {
@@ -298,7 +298,7 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/matches/${matchId}/finish`, { winnerTeamId: selectedWinnerTeamId });
-      qc.invalidateQueries({ queryKey: ['lobby', matchId] });
+      await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось завершить матч');
     } finally {
@@ -457,7 +457,7 @@ export default function LobbyPage() {
             </button>
           )}
 
-          {isLive && (
+          {isLive && !!lobby.match.finalZoneOpenedAt && (
             <div className="flex flex-col gap-2">
               <label className="label-field">Победитель</label>
               <div className="flex gap-2 flex-wrap">

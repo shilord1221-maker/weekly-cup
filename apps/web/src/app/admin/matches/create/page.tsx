@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { ZoneMapSelector } from '@/components/ZoneMapSelector';
 
 interface Zone {
   id: string;
@@ -28,6 +27,26 @@ const MODE_OPTIONS = [
   { value: 'MODE_5X5', label: '5×5' },
 ];
 
+// Готовые voice-каналы Discord — организатор назначает прямо при создании матча.
+const VOICE_CHANNELS = [
+  { label: 'Voice 1', url: 'https://discord.com/channels/1503166605855690793/1503166606497284222' },
+  { label: 'Voice 2', url: 'https://discord.com/channels/1503166605855690793/1512570070889398363' },
+  { label: 'Voice 3', url: 'https://discord.com/channels/1503166605855690793/1512570127223226478' },
+  { label: 'Voice 4', url: 'https://discord.com/channels/1503166605855690793/1512570190368346183' },
+  { label: 'Voice 5', url: 'https://discord.com/channels/1503166605855690793/1512570237772632135' },
+  { label: 'Voice 6', url: 'https://discord.com/channels/1503166605855690793/1512570277538697266' },
+  { label: 'Voice 7', url: 'https://discord.com/channels/1503166605855690793/1512570317590106173' },
+  { label: 'Voice 8', url: 'https://discord.com/channels/1503166605855690793/1512570360363749376' },
+  { label: 'Voice 9', url: 'https://discord.com/channels/1503166605855690793/1512570414159757312' },
+  { label: 'Voice 10', url: 'https://discord.com/channels/1503166605855690793/1512572351127224421' },
+  { label: 'Voice 11', url: 'https://discord.com/channels/1503166605855690793/1512572391455326378' },
+  { label: 'Voice 12', url: 'https://discord.com/channels/1503166605855690793/1512572470874345492' },
+  { label: 'Voice 13', url: 'https://discord.com/channels/1503166605855690793/1512572703092248656' },
+  { label: 'Voice 14', url: 'https://discord.com/channels/1503166605855690793/1512572751897038939' },
+  { label: 'Voice 15', url: 'https://discord.com/channels/1503166605855690793/1512572895543431251' },
+  { label: 'Voice 16', url: 'https://discord.com/channels/1503166605855690793/1512897712729755658' },
+];
+
 // Конвертация локального времени, введённого как московское, в UTC ISO-строку для API.
 // МСК = UTC+3 без перехода на летнее время.
 function mskToUtcIso(date: string, time: string): string {
@@ -48,6 +67,7 @@ export default function CreateMatchPage() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
+  const [teamVoices, setTeamVoices] = useState<string[]>([]); // voice URL для каждой команды по индексу
 
   const { data: maps } = useQuery<MapItem[]>({
     queryKey: ['maps'],
@@ -65,19 +85,17 @@ export default function CreateMatchPage() {
     setSelectedZoneIds([]);
   }, [mapId]);
 
+  // Подгоняем массив voice-назначений под текущее кол-во команд
+  useEffect(() => {
+    setTeamVoices((prev) => {
+      const next = [...prev];
+      while (next.length < teamCount) next.push('');
+      return next.slice(0, teamCount);
+    });
+  }, [teamCount]);
+
   const toggleZone = (zoneId: string) => {
     setSelectedZoneIds((prev) => (prev.includes(zoneId) ? prev.filter((z) => z !== zoneId) : [...prev, zoneId]));
-  };
-
-  const isZoneAvailable = (zoneId: string): boolean => {
-    if (!mapDetail) return false;
-    if (selectedZoneIds.length === 0) return true;
-    const zone = mapDetail.zones.find((z) => z.id === zoneId);
-    if (!zone) return false;
-    return selectedZoneIds.some((selId) => {
-      const selZone = mapDetail.zones.find((z) => z.id === selId);
-      return zone.adjacentIds.includes(selId) || selZone?.adjacentIds.includes(zoneId);
-    });
   };
 
   const handleSubmit = async () => {
@@ -93,13 +111,24 @@ export default function CreateMatchPage() {
     setSubmitting(true);
     try {
       const startTime = mskToUtcIso(date, time);
-      const match = await api.post<{ id: string }>('/matches', {
+      const match = await api.post<{ id: string; lobby: { teams: { id: string }[] } }>('/matches', {
         mapId,
         mode,
         startTime,
         teamCount,
         zoneIds: selectedZoneIds.length > 0 ? selectedZoneIds : undefined,
       });
+
+      // Назначаем voice-каналы командам сразу после создания, если указаны
+      const teams = match.lobby?.teams ?? [];
+      await Promise.all(
+        teams.map((team, i) => {
+          const url = teamVoices[i];
+          if (!url) return Promise.resolve();
+          return api.patch(`/lobby/${match.id}/voice-url/${team.id}`, { voiceUrl: url }).catch(() => {});
+        })
+      );
+
       router.push(`/admin/matches/${match.id}`);
     } catch (e) {
       setServerError(e instanceof ApiClientError ? e.message : 'Не удалось создать матч');
@@ -136,35 +165,26 @@ export default function CreateMatchPage() {
           </select>
         </div>
 
-        {/* Зоны — картинка карты для ориентира, кнопки-цвета снизу для самого выбора */}
+        {/* Зоны — фото карты для ориентира, кнопки-цвета снизу для выбора (без ограничения по соседству) */}
         {mapDetail && (
           <div>
             <label className="label-field">Зоны (выбрано: {selectedZoneIds.length})</label>
-            <div className="mb-3">
-              <ZoneMapSelector
-                imageUrl={mapDetail.imageUrl}
-                zones={mapDetail.zones}
-                selectedIds={selectedZoneIds}
-                interactive={false}
-              />
+            <div className="mb-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border2)' }}>
+              <img src={mapDetail.imageUrl} alt={mapDetail.name} className="w-full h-auto block" />
             </div>
             <div className="flex flex-wrap gap-2">
               {mapDetail.zones.map((zone) => {
                 const isSelected = selectedZoneIds.includes(zone.id);
-                const available = isZoneAvailable(zone.id);
                 return (
                   <button
                     key={zone.id}
                     type="button"
-                    onClick={() => (available || isSelected) && toggleZone(zone.id)}
-                    disabled={!available && !isSelected}
+                    onClick={() => toggleZone(zone.id)}
                     className="px-3.5 py-2 rounded-lg text-xs font-medium transition-all"
                     style={{
                       background: isSelected ? 'rgba(79,127,255,.15)' : 'rgba(255,255,255,.03)',
                       border: `1px solid ${isSelected ? 'var(--a)' : 'var(--border2)'}`,
-                      color: isSelected ? 'var(--a)' : available ? 'var(--text)' : 'var(--muted)',
-                      opacity: !available && !isSelected ? 0.4 : 1,
-                      cursor: available || isSelected ? 'pointer' : 'not-allowed',
+                      color: isSelected ? 'var(--a)' : 'var(--text)',
                     }}
                   >
                     {zone.name}
@@ -173,7 +193,7 @@ export default function CreateMatchPage() {
               })}
             </div>
             <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
-              Можно выбрать только зоны, граничащие с уже выбранными (граф соседства). Необязательно — можно выбрать позже.
+              Необязательно — можно выбрать любое количество зон, можно выбрать позже.
             </p>
           </div>
         )}
@@ -210,6 +230,41 @@ export default function CreateMatchPage() {
             className="input-field"
             style={{ width: '120px' }}
           />
+        </div>
+
+        {/* Назначение voice-каналов — прямо здесь, без отдельной страницы */}
+        <div>
+          <label className="label-field">Discord Voice каналы для команд</label>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: teamCount }, (_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-sm w-20 flex-shrink-0" style={{ color: 'var(--muted)' }}>
+                  Team {i + 1}
+                </span>
+                <select
+                  value={teamVoices[i] ?? ''}
+                  onChange={(e) =>
+                    setTeamVoices((prev) => {
+                      const next = [...prev];
+                      next[i] = e.target.value;
+                      return next;
+                    })
+                  }
+                  className="input-field flex-1"
+                >
+                  <option value="">— не назначен —</option>
+                  {VOICE_CHANNELS.map((vc) => (
+                    <option key={vc.url} value={vc.url}>
+                      {vc.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
+            Можно назначить позже на странице матча, если ещё не определились с командами.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

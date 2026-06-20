@@ -8,6 +8,7 @@ import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 export function Header() {
   const [stuck, setStuck] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const router = useRouter();
 
@@ -28,6 +29,13 @@ export function Header() {
     { href: '/#features', label: 'Возможности' },
     { href: '/wins', label: 'Победы' },
     { href: '/news', label: 'Новости' },
+  ];
+
+  const moreLinks = [
+    { href: '/media', label: 'Медиа' },
+    { href: '/maps', label: 'Карты' },
+    { href: '/rules', label: 'Правила' },
+    { href: '/complaints', label: 'Жалобы' },
   ];
 
   return (
@@ -55,6 +63,40 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+
+          <div className="relative">
+            <button
+              onClick={() => setMoreOpen((v) => !v)}
+              className="text-sm font-medium transition-colors hover:text-white flex items-center gap-1"
+              style={{ color: 'var(--muted)' }}
+            >
+              Ещё
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {moreOpen && (
+              <>
+                <div className="fixed inset-0 z-[90]" onClick={() => setMoreOpen(false)} />
+                <div
+                  className="absolute top-full right-0 mt-3 rounded-xl py-2 z-[100] min-w-[160px]"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 16px 40px rgba(0,0,0,.4)' }}
+                >
+                  {moreLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMoreOpen(false)}
+                      className="block px-4 py-2.5 text-sm transition-colors hover:text-white"
+                      style={{ color: 'var(--muted)' }}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           {user ? (
             <div className="flex items-center gap-3">
@@ -108,6 +150,17 @@ export function Header() {
           ✕
         </button>
         {navLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={() => setMobileOpen(false)}
+            className="font-display text-2xl font-semibold uppercase py-3.5"
+            style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
+          >
+            {link.label}
+          </Link>
+        ))}
+        {moreLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}

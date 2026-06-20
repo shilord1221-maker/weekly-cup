@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@/db.js';
 import { requireAuth, requireOrganizerOrAdmin } from '@/middleware/auth.js';
-import { validateZoneSelection, validateFinalZone } from '@/services/zones.js';
+import { validateFinalZone } from '@/services/zones.js';
 import { logAudit } from '@/services/audit.js';
 import { scheduleMatchStart, scheduleMatchReminder, scheduleStartZoneClose, scheduleFinalZoneClose, cancelScheduledJobs } from '@/jobs/matchQueue.js';
 import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchTimers } from '@/services/timers.js';
@@ -75,13 +75,6 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     const map = await prisma.gameMap.findUnique({ where: { id: mapId } });
     if (!map) return reply.code(404).send({ error: 'MAP_NOT_FOUND', message: 'Карта не найдена' });
 
-    if (zoneIds && zoneIds.length > 0) {
-      const validation = await validateZoneSelection(mapId, zoneIds);
-      if (!validation.valid) {
-        return reply.code(400).send({ error: 'INVALID_ZONE_SELECTION', message: validation.reason });
-      }
-    }
-
     const match = await prisma.match.create({
       data: {
         mapId,
@@ -148,11 +141,6 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
 
     const match = await prisma.match.findUnique({ where: { id } });
     if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
-
-    const validation = await validateZoneSelection(match.mapId, parsed.data.zoneIds);
-    if (!validation.valid) {
-      return reply.code(400).send({ error: 'INVALID_ZONE_SELECTION', message: validation.reason });
-    }
 
     await prisma.match.update({
       where: { id },
@@ -258,5 +246,21 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     }
 
     reply.send(match);
+  });
+
+  // ───────── DELETE (Organizer+) ─────────
+  app.delete('/api/matches/:id', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Матч не найден' });
+
+    await clearMatchTimers(id);
+    await cancelScheduledJobs(id);
+    await prisma.match.delete({ where: { id } }); // Lobby/Team/LobbyMember/Win удаляются каскадно через onDelete: Cascade
+
+    await logAudit({ actorId: req.user!.id, action: 'MATCH_DELETED', entityType: 'Match', entityId: id, payload: { mapId: match.mapId, mode: match.mode } });
+
+    io.to(`lobby:${id}`).emit('match:deleted', { matchId: id });
+    reply.send({ success: true });
   });
 }

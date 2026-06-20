@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 
 interface MatchItem {
@@ -32,10 +34,30 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function MatchesPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const qc = useQueryClient();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const isStaff = isOrganizerOrAbove(user?.role);
+
   const { data: matches, isLoading } = useQuery<MatchItem[]>({
     queryKey: ['matches'],
     queryFn: () => api.get('/matches', { auth: false }),
   });
+
+  const handleDelete = async (e: React.MouseEvent, matchId: string, mapName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Удалить матч «${mapName}»? Это действие нельзя отменить.`)) return;
+    setDeletingId(matchId);
+    try {
+      await api.delete(`/matches/${matchId}`);
+      qc.invalidateQueries({ queryKey: ['matches'] });
+    } catch (err) {
+      alert(err instanceof ApiClientError ? err.message : 'Не удалось удалить матч');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-5xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -49,7 +71,7 @@ export default function MatchesPage() {
             Все матчи
           </h1>
         </div>
-        {isOrganizerOrAbove(user?.role) && (
+        {isStaff && (
           <Link href="/admin/matches/create" className="btn-main">
             + Создать матч
           </Link>
@@ -76,11 +98,11 @@ export default function MatchesPage() {
           const mskDate = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
 
           return (
-            <Link
+            <div
               key={m.id}
-              href={`/lobby/${m.id}`}
-              className="grid items-center gap-5 px-6 py-5 rounded-xl no-underline transition-all hover:translate-x-1.5"
-              style={{ gridTemplateColumns: '12px 1fr auto auto auto', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              onClick={() => router.push(`/lobby/${m.id}`)}
+              className="grid items-center gap-5 px-6 py-5 rounded-xl transition-all hover:translate-x-1.5 cursor-pointer"
+              style={{ gridTemplateColumns: isStaff ? '12px 1fr auto auto auto auto' : '12px 1fr auto auto auto', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
             >
               <div
                 className="w-2 h-2 rounded-full"
@@ -107,7 +129,17 @@ export default function MatchesPage() {
               <span className="text-sm hidden sm:block" style={{ color: 'var(--muted)' }}>
                 →
               </span>
-            </Link>
+              {isStaff && (
+                <button
+                  onClick={(e) => handleDelete(e, m.id, m.map.name)}
+                  disabled={deletingId === m.id}
+                  className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors flex-shrink-0"
+                  style={{ color: '#f87171', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}
+                >
+                  {deletingId === m.id ? '...' : 'Удалить'}
+                </button>
+              )}
+            </div>
           );
         })}
       </div>

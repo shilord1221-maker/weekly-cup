@@ -54,84 +54,92 @@ async function main() {
   console.log('Organizer created:', organizer.username);
 
   // ───────── REAL MAPS — 10 карт с зонами и adjacencyMap ─────────
-  // Зоны строятся как сетка нужного размера, соседство — по строкам/столбцам (вверх/вниз/влево/вправо).
+  // Зоны строятся как сетка нужного размера. Названия — чистые цвета на русском (без привязки к стороне карты).
   const mapsConfig: { name: string; imageUrl: string; gridCols: number; gridRows: number; zoneNames: string[] }[] = [
     {
       name: 'Industrial',
       imageUrl: '/maps/industrial.jpg',
       gridCols: 3,
       gridRows: 2,
-      zoneNames: ['Red Block', 'Cyan Block', 'Green Peninsula', 'Yellow District', 'Purple Quarter', 'Blue Bay'],
+      zoneNames: ['Красная', 'Голубая', 'Зелёная', 'Жёлтая', 'Фиолетовая', 'Синяя'],
     },
     {
       name: 'Mirror',
       imageUrl: '/maps/mirror.jpg',
       gridCols: 3,
       gridRows: 2,
-      zoneNames: ['Cyan North', 'Pink Heights', 'Red Center', 'Green Strip', 'Blue Harbor', 'Yellow South'],
+      zoneNames: ['Голубая', 'Розовая', 'Красная', 'Зелёная', 'Синяя', 'Жёлтая'],
     },
     {
       name: 'Sandy Shores',
       imageUrl: '/maps/sandy-shores.jpg',
       gridCols: 3,
       gridRows: 2,
-      zoneNames: ['Yellow Town', 'Cyan Point', 'Blue West', 'Purple Hills', 'Red Ridge', 'Green Coast'],
+      zoneNames: ['Жёлтая', 'Голубая', 'Синяя', 'Фиолетовая', 'Красная', 'Зелёная'],
     },
     {
       name: 'Vinewood',
       imageUrl: '/maps/vinewood.jpg',
       gridCols: 4,
       gridRows: 2,
-      zoneNames: ['Red North', 'Yellow Ridge', 'Magenta West', 'Purple Hills', 'Cyan Center', 'Orange Valley', 'Green Park', 'Blue South'],
+      zoneNames: ['Красная', 'Жёлтая', 'Розовая', 'Фиолетовая', 'Голубая', 'Оранжевая', 'Зелёная', 'Синяя'],
     },
     {
       name: 'City',
       imageUrl: '/maps/city.jpg',
       gridCols: 3,
       gridRows: 2,
-      zoneNames: ['Blue North', 'Magenta West', 'Cyan East', 'Pink District', 'Orange Center', 'Green Block'],
+      zoneNames: ['Синяя', 'Розовая', 'Голубая', 'Малиновая', 'Оранжевая', 'Зелёная'],
     },
     {
       name: 'Farm',
       imageUrl: '/maps/farm.jpg',
       gridCols: 3,
       gridRows: 2,
-      zoneNames: ['Orange Field', 'Pink Barn', 'Cyan Silo', 'Blue West', 'Green Pasture', 'Red South'],
+      zoneNames: ['Оранжевая', 'Розовая', 'Голубая', 'Синяя', 'Зелёная', 'Красная'],
     },
     {
       name: 'Ghetto',
       imageUrl: '/maps/ghetto.jpg',
       gridCols: 3,
       gridRows: 3,
-      zoneNames: ['Red North', 'Cyan East', 'Yellow West', 'Pink Center', 'Green Mid', 'Purple South', 'Orange Corner', 'Blue Block', 'Magenta Row'],
+      zoneNames: ['Красная', 'Голубая', 'Жёлтая', 'Розовая', 'Зелёная', 'Фиолетовая', 'Оранжевая', 'Синяя', 'Малиновая'],
     },
     {
       name: 'Vineyards',
       imageUrl: '/maps/vineyards.jpg',
       gridCols: 3,
       gridRows: 3,
-      zoneNames: ['Purple Hills', 'Pink Valley', 'Orange Grove', 'Orange Field', 'Yellow Rows', 'Cyan Edge', 'Brown Ridge', 'Blue Pond', 'Teal Corner'],
+      zoneNames: ['Фиолетовая', 'Розовая', 'Оранжевая', 'Тёмно-оранжевая', 'Жёлтая', 'Голубая', 'Коричневая', 'Синяя', 'Бирюзовая'],
     },
     {
       name: 'Windmill',
       imageUrl: '/maps/windmill.jpg',
       gridCols: 3,
       gridRows: 3,
-      zoneNames: ['Orange West', 'Cyan North', 'Pink Top', 'Purple Side', 'Brown Center', 'Blue East', 'Green South', 'Yellow Field', 'Red Bottom'],
+      zoneNames: ['Оранжевая', 'Голубая', 'Розовая', 'Фиолетовая', 'Коричневая', 'Синяя', 'Зелёная', 'Жёлтая', 'Красная'],
     },
     {
       name: 'Redwood',
       imageUrl: '/maps/redwood.jpg',
       gridCols: 3,
       gridRows: 3,
-      zoneNames: ['Red West', 'Yellow Slope', 'Blue North', 'Cyan Center', 'Pink Corner', 'Green East', 'Brown South', 'Purple Mid', 'Orange Bottom'],
+      zoneNames: ['Красная', 'Жёлтая', 'Синяя', 'Голубая', 'Розовая', 'Зелёная', 'Коричневая', 'Фиолетовая', 'Оранжевая'],
     },
   ];
 
   for (const cfg of mapsConfig) {
-    const existing = await prisma.gameMap.findFirst({ where: { name: cfg.name } });
+    const existing = await prisma.gameMap.findFirst({ where: { name: cfg.name }, include: { zones: { orderBy: { createdAt: 'asc' } } } });
+
     if (existing) {
-      console.log(`Map "${cfg.name}" already exists, skipping`);
+      // Карта уже есть — обновляем названия зон на актуальные (порядок зон стабилен по createdAt),
+      // не трогая adjacencyMap/координаты, чтобы не сломать уже созданные матчи.
+      for (let i = 0; i < existing.zones.length && i < cfg.zoneNames.length; i++) {
+        if (existing.zones[i].name !== cfg.zoneNames[i]) {
+          await prisma.zone.update({ where: { id: existing.zones[i].id }, data: { name: cfg.zoneNames[i] } });
+        }
+      }
+      console.log(`Map "${cfg.name}" already exists — zone names refreshed`);
       continue;
     }
 
@@ -145,14 +153,15 @@ async function main() {
       const zone = await prisma.zone.create({
         data: {
           mapId: map.id,
-          name: cfg.zoneNames[i] ?? `Zone ${i + 1}`,
+          name: cfg.zoneNames[i] ?? `Зона ${i + 1}`,
           coordinates: { row: Math.floor(i / cfg.gridCols), col: i % cfg.gridCols },
         },
       });
       created.push({ id: zone.id, idx: i });
     }
 
-    // adjacencyMap по сетке: соседи сверху/снизу/слева/справа
+    // adjacencyMap по сетке: соседи сверху/снизу/слева/справа (используется только для совместимости старых данных;
+    // выбор зон при создании матча больше не ограничивается соседством по требованию)
     for (const { id, idx } of created) {
       const row = Math.floor(idx / cfg.gridCols);
       const col = idx % cfg.gridCols;
@@ -166,7 +175,7 @@ async function main() {
       await prisma.zone.update({ where: { id }, data: { adjacentIds } });
     }
 
-    console.log(`Map "${cfg.name}" created with ${created.length} zones and adjacencyMap`);
+    console.log(`Map "${cfg.name}" created with ${created.length} zones`);
   }
 
   // ───────── SAMPLE NEWS ─────────

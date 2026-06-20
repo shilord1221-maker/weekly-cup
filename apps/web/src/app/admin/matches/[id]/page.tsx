@@ -159,7 +159,7 @@ export default function AdminMatchDetailPage() {
             {MODE_LABELS[match.mode]} · {match.status} · {new Date(match.startTime).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })} МСК
           </p>
         </div>
-        <a href={`/lobby/${match.id}`} className="btn-out" target="_blank" rel="noopener noreferrer">
+        <a href={`/lobby/${match.id}`} className="btn-out">
           Открыть лобби →
         </a>
       </div>

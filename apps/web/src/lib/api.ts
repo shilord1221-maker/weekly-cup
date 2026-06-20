@@ -19,15 +19,15 @@ let accessToken: string | null = null;
 export function setAccessToken(token: string | null) {
   accessToken = token;
   if (typeof window !== 'undefined') {
-    if (token) sessionStorage.setItem('wc_access_token', token);
-    else sessionStorage.removeItem('wc_access_token');
+    if (token) localStorage.setItem('wc_access_token', token);
+    else localStorage.removeItem('wc_access_token');
   }
 }
 
 export function getAccessToken(): string | null {
   if (accessToken) return accessToken;
   if (typeof window !== 'undefined') {
-    accessToken = sessionStorage.getItem('wc_access_token');
+    accessToken = localStorage.getItem('wc_access_token');
   }
   return accessToken;
 }
