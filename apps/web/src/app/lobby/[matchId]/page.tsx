@@ -47,6 +47,7 @@ interface LobbyData {
   state: string;
   match: MatchData;
   teams: TeamData[];
+  unassignedMembers: Member[];
 }
 
 const MODE_LABELS: Record<string, string> = { MODE_2X2: '2×2', MODE_3X3: '3×3', MODE_4X4: '4×4', MODE_5X5: '5×5' };
@@ -200,7 +201,9 @@ export default function LobbyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, socket]);
 
-  const myMembership = lobby?.teams.flatMap((t) => t.members.map((m) => ({ ...m, teamId: t.id }))).find((m) => m.userId === user?.id);
+  const myMembership =
+    lobby?.teams.flatMap((t) => t.members.map((m) => ({ ...m, teamId: t.id }))).find((m) => m.userId === user?.id) ??
+    lobby?.unassignedMembers.map((m) => ({ ...m, teamId: null as string | null })).find((m) => m.userId === user?.id);
   const isOrganizerOrAdmin = isOrganizerOrAbove(user?.role);
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -502,6 +505,26 @@ export default function LobbyPage() {
           <button onClick={handleLeave} disabled={actionLoading} className="btn-out">
             Выйти из лобби
           </button>
+        </div>
+      )}
+
+      {lobby.unassignedMembers.length > 0 && (
+        <div className="mb-8 rounded-xl px-6 py-5" style={{ border: '1px dashed var(--border2)', background: 'rgba(255,255,255,.015)' }}>
+          <p className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+            Ждут выбора команды
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {lobby.unassignedMembers.map((m) => (
+              <span key={m.id} className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)' }}>
+                {m.user.username}
+                {m.userId === user?.id && (
+                  <span className="text-[10px] font-mono" style={{ color: 'var(--a)' }}>
+                    вы
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

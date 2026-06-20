@@ -41,7 +41,15 @@ export function registerSocketHandlers(io: SocketServer) {
         where: { matchId },
         include: { teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true } } } } } }, match: true },
       });
-      socket.emit('lobby:state', lobby);
+      if (lobby) {
+        const unassignedMembers = await prisma.lobbyMember.findMany({
+          where: { lobbyId: lobby.id, teamId: null },
+          include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+        });
+        socket.emit('lobby:state', { ...lobby, unassignedMembers });
+      } else {
+        socket.emit('lobby:state', lobby);
+      }
     });
 
     socket.on('lobby:unsubscribe', ({ matchId }: { matchId: string }) => {

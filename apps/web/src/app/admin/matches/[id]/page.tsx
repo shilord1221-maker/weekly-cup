@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { ZoneMapSelector } from '@/components/ZoneMapSelector';
 
 interface Zone {
   id: string;
@@ -72,40 +71,22 @@ export default function AdminMatchDetailPage() {
     );
   }
 
-  const availableSelected = selectedZoneIds.length > 0 ? selectedZoneIds : match.selectedZones.map((z) => z.id);
-
-  const isAdjacentToSelected = (zoneId: string, zone: Zone): boolean => {
-    if (availableSelected.length === 0) return true;
-    return availableSelected.some((selId) => {
-      const selZone = match.map.zones.find((z) => z.id === selId);
-      return zone.adjacentIds.includes(selId) || selZone?.adjacentIds.includes(zoneId);
-    });
-  };
+  const selectedNow = selectedZoneIds.length > 0 ? selectedZoneIds : match.selectedZones.map((z) => z.id);
 
   const toggleZone = (zoneId: string) => {
     setSelectedZoneIds((prev) => {
-      if (prev.includes(zoneId)) return prev.filter((z) => z !== zoneId);
-      return [...prev, zoneId];
+      const base = prev.length > 0 ? prev : match.selectedZones.map((z) => z.id);
+      return base.includes(zoneId) ? base.filter((z) => z !== zoneId) : [...base, zoneId];
     });
   };
 
   const handleSaveZones = async () => {
     setError(null);
     try {
-      await api.post(`/matches/${id}/zones`, { zoneIds: availableSelected });
+      await api.post(`/matches/${id}/zones`, { zoneIds: selectedNow });
       qc.invalidateQueries({ queryKey: ['admin-match', id] });
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : 'Не удалось сохранить зоны');
-    }
-  };
-
-  const handleSetFinalZone = async (zoneId: string) => {
-    setError(null);
-    try {
-      await api.post(`/matches/${id}/final-zone`, { zoneId });
-      qc.invalidateQueries({ queryKey: ['admin-match', id] });
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : 'Не удалось выбрать финальную зону');
     }
   };
 
@@ -138,16 +119,6 @@ export default function AdminMatchDetailPage() {
     }
   };
 
-  const handleFinish = async (winnerTeamId: string) => {
-    setError(null);
-    try {
-      await api.post(`/matches/${id}/finish`, { winnerTeamId });
-      qc.invalidateQueries({ queryKey: ['admin-match', id] });
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : 'Не удалось завершить матч');
-    }
-  };
-
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
       <div className="flex items-center justify-between flex-wrap gap-4 mb-10">
@@ -159,10 +130,14 @@ export default function AdminMatchDetailPage() {
             {MODE_LABELS[match.mode]} · {match.status} · {new Date(match.startTime).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })} МСК
           </p>
         </div>
-        <a href={`/lobby/${match.id}`} className="btn-out">
+        <a href={`/lobby/${match.id}`} className="btn-main">
           Открыть лобби →
         </a>
       </div>
+
+      <p className="text-sm mb-6" style={{ color: 'var(--muted)' }}>
+        Старт матча, выбор финальной зоны и выбор победителя теперь происходят прямо в лобби — там же, где видят игроки.
+      </p>
 
       {error && (
         <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
@@ -170,60 +145,47 @@ export default function AdminMatchDetailPage() {
         </div>
       )}
 
-      {/* ZONE SELECTION — интерактивная карта с реальным изображением */}
+      {/* ZONE SELECTION — фото карты для ориентира, кнопки-цвета для выбора, без ограничения по соседству */}
       <div className="card mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>
-            Выбор зон
+            Выбор зон (выбрано: {selectedNow.length})
           </h2>
           <button onClick={handleSaveZones} className="btn-main" style={{ padding: '8px 18px', fontSize: '13px' }}>
             Сохранить зоны
           </button>
         </div>
-        <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
-          Наведите на зону, чтобы увидеть соседние. Можно выбрать только зоны, граничащие с уже выбранными (граф соседства).
-        </p>
-        <ZoneMapSelector
-          imageUrl={match.map.imageUrl}
-          zones={match.map.zones}
-          selectedIds={availableSelected}
-          finalZoneId={match.finalZone?.id}
-          interactive
-          onToggleZone={toggleZone}
-          isZoneAvailable={(zoneId) => {
-            const zone = match.map.zones.find((z) => z.id === zoneId);
-            if (!zone) return false;
-            return availableSelected.length === 0 || isAdjacentToSelected(zoneId, zone) || availableSelected.includes(zoneId);
-          }}
-        />
-      </div>
-
-      {/* FINAL ZONE */}
-      <div className="card mb-6">
-        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
-          Финальная зона
-        </h2>
-        {match.finalZone ? (
-          <p className="text-sm">
-            Выбрана: <strong>{match.finalZone.name}</strong>
-          </p>
-        ) : (
-          <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
-            Финальная зона пока не выбрана.
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {match.selectedZones.map((z) => (
-            <button key={z.id} onClick={() => handleSetFinalZone(z.id)} className="btn-out" style={{ padding: '8px 16px', fontSize: '13px' }}>
-              Сделать финальной: {z.name}
-            </button>
-          ))}
+        <div className="mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border2)' }}>
+          <img src={match.map.imageUrl} alt={match.map.name} className="w-full h-auto block" />
         </div>
+        <div className="flex flex-wrap gap-2">
+          {match.map.zones.map((zone) => {
+            const isSelected = selectedNow.includes(zone.id);
+            return (
+              <button
+                key={zone.id}
+                type="button"
+                onClick={() => toggleZone(zone.id)}
+                className="px-3.5 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  background: isSelected ? 'rgba(79,127,255,.15)' : 'rgba(255,255,255,.03)',
+                  border: `1px solid ${isSelected ? 'var(--a)' : 'var(--border2)'}`,
+                  color: isSelected ? 'var(--a)' : 'var(--text)',
+                }}
+              >
+                {zone.name}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
+          Можно выбрать любое количество зон в любом порядке.
+        </p>
       </div>
 
       {/* VOICE URLS */}
       {match.lobby && (
-        <div className="card mb-6">
+        <div className="card">
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-2" style={{ color: 'var(--muted)' }}>
             Discord Voice каналы
           </h2>
@@ -253,22 +215,6 @@ export default function AdminMatchDetailPage() {
                   Сохранить
                 </button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* FINISH MATCH */}
-      {match.lobby && match.status !== 'FINISHED' && (
-        <div className="card">
-          <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
-            Завершить матч
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {match.lobby.teams.map((team) => (
-              <button key={team.id} onClick={() => handleFinish(team.id)} className="btn-main" style={{ padding: '10px 20px', fontSize: '13px' }}>
-                🏆 Победитель: {team.name}
-              </button>
             ))}
           </div>
         </div>
