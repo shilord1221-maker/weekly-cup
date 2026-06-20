@@ -53,11 +53,11 @@ export default function HomePage() {
   useEffect(() => {
     let p = 0;
     const interval = setInterval(() => {
-      p += Math.random() * 8 + 2;
+      p += Math.random() * 5 + 1.5;
       if (p >= 100) {
         p = 100;
         clearInterval(interval);
-        setTimeout(() => setLoaderOut(true), 300);
+        setTimeout(() => setLoaderOut(true), 500);
       }
       setPct(Math.round(p));
     }, 80);
@@ -71,25 +71,121 @@ export default function HomePage() {
     <>
       {/* LOADER */}
       <div
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-10 transition-all duration-700"
-        style={{ background: 'var(--bg)', opacity: loaderOut ? 0 : 1, visibility: loaderOut ? 'hidden' : 'visible', pointerEvents: loaderOut ? 'none' : 'auto' }}
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8 overflow-hidden"
+        style={{
+          background: 'radial-gradient(ellipse 80% 60% at 50% 40%,rgba(79,127,255,.07) 0%,var(--bg) 60%)',
+          opacity: loaderOut ? 0 : 1,
+          visibility: loaderOut ? 'hidden' : 'visible',
+          pointerEvents: loaderOut ? 'none' : 'auto',
+          transform: loaderOut ? 'scale(1.08)' : 'scale(1)',
+          transition: 'opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1), visibility 0.8s',
+        }}
       >
-        <div className="text-center">
+        {/* ambient glow orbs */}
+        <div
+          className="absolute rounded-full pointer-events-none"
+          style={{ width: 500, height: 500, background: 'radial-gradient(circle,rgba(201,149,74,.12) 0%,transparent 70%)', filter: 'blur(40px)', animation: 'loaderOrbPulse 4s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute rounded-full pointer-events-none"
+          style={{ width: 380, height: 380, top: '20%', left: '60%', background: 'radial-gradient(circle,rgba(79,127,255,.1) 0%,transparent 70%)', filter: 'blur(50px)', animation: 'loaderOrbPulse 5s ease-in-out infinite 1s' }}
+        />
+
+        {/* sparkle particles around trophy */}
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              width: 3 + (i % 3),
+              height: 3 + (i % 3),
+              background: i % 2 === 0 ? 'var(--gold)' : 'var(--a)',
+              top: `${50 + Math.sin((i / 8) * Math.PI * 2) * 22}%`,
+              left: `${50 + Math.cos((i / 8) * Math.PI * 2) * 22}%`,
+              boxShadow: `0 0 8px ${i % 2 === 0 ? 'var(--gold)' : 'var(--a)'}`,
+              animation: `loaderSparkle 2.4s ease-in-out infinite`,
+              animationDelay: `${i * 0.18}s`,
+            }}
+          />
+        ))}
+
+        {/* TROPHY — dramatic entrance */}
+        <div
+          className="relative z-10"
+          style={{
+            opacity: 0,
+            transform: 'scale(0.4) translateY(30px) rotate(-12deg)',
+            animation: 'loaderTrophyIn 1s 0.15s cubic-bezier(.18,1.2,.3,1) forwards, trophyFloat 5s 1.2s ease-in-out infinite',
+          }}
+        >
+          {/* rotating glow ring behind trophy */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: 200,
+              height: 200,
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%,-50%)',
+              borderRadius: '50%',
+              border: '1px solid rgba(201,149,74,.25)',
+              animation: 'loaderRingSpin 8s linear infinite',
+            }}
+          />
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: 160,
+              height: 160,
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%,-50%)',
+              borderRadius: '50%',
+              border: '1px dashed rgba(79,127,255,.2)',
+              animation: 'loaderRingSpin 12s linear infinite reverse',
+            }}
+          />
+          <TrophyIcon size={120} />
+        </div>
+
+        {/* TEXT — staged reveal */}
+        <div className="text-center relative z-10">
           <div
             className="font-display font-bold text-5xl uppercase tracking-widest"
-            style={{ background: 'linear-gradient(135deg,#fff 30%,var(--a))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+            style={{
+              background: 'linear-gradient(135deg,#fff 20%,var(--a) 60%,var(--gold) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundSize: '200% 100%',
+              opacity: 0,
+              transform: 'translateY(12px)',
+              animation: 'loaderFadeUp 0.7s 0.5s ease-out forwards, loaderGradientShift 3s 1.2s ease-in-out infinite',
+            }}
           >
             WEEKLY CUP
           </div>
-          <div className="font-mono text-xs uppercase tracking-widest mt-1.5" style={{ color: 'var(--muted)' }}>
+          <div
+            className="font-mono text-xs uppercase tracking-widest mt-2"
+            style={{ color: 'var(--muted)', opacity: 0, transform: 'translateY(12px)', animation: 'loaderFadeUp 0.6s 0.7s ease-out forwards' }}
+          >
             Custom Matches Platform
           </div>
         </div>
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-60 h-px overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <div className="h-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--a),var(--a2))', transition: 'width 0.1s' }} />
+
+        {/* PROGRESS */}
+        <div className="flex flex-col items-center gap-3 relative z-10" style={{ opacity: 0, transform: 'translateY(12px)', animation: 'loaderFadeUp 0.6s 0.85s ease-out forwards' }}>
+          <div className="relative w-64 h-[3px] overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${pct}%`,
+                background: 'linear-gradient(90deg,var(--a),var(--a2),var(--gold))',
+                transition: 'width 0.15s ease-out',
+                boxShadow: '0 0 12px rgba(79,127,255,.6)',
+              }}
+            />
           </div>
-          <div className="font-mono text-xs" style={{ color: 'var(--a)' }}>
+          <div className="font-mono text-xs tracking-wider" style={{ color: 'var(--a)' }}>
             {pct}%
           </div>
         </div>
