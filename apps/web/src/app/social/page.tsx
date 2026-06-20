@@ -1,0 +1,78 @@
+'use client';
+
+const SOCIALS = [
+  {
+    name: 'Telegram',
+    desc: 'Анонсы, расписание матчей и новости команды',
+    url: 'https://t.me/weeklycup',
+    color: '#29a9eb',
+    bg: 'rgba(41,169,235,.08)',
+    border: 'rgba(41,169,235,.25)',
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-1.267 8.93-.156.93-.474 1.243-.748 1.27-.638.06-1.122-.422-1.74-.832-.964-.633-1.51-1.026-2.448-1.644-1.084-.717-.38-1.11.235-1.756.165-.17 3.026-2.78 3.082-3.012.007-.03.013-.14-.05-.197-.064-.06-.158-.038-.226-.022-.097.022-1.629 1.034-4.596 3.038-.434.299-.83.444-1.183.436-.39-.008-1.14-.222-1.698-.405-.685-.226-1.228-.346-1.182-.73.024-.2.297-.404.823-.612 3.232-1.408 5.387-2.336 6.464-2.785 3.078-1.274 3.717-1.494 4.135-1.502.092-.002.298.022.43.135.11.094.14.222.156.314.014.083.034.27.018.418z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Discord',
+    desc: 'Голосовые каналы, лобби-уведомления и общение с командой',
+    url: 'https://discord.gg/u53Cdb4QH9',
+    color: '#5865F2',
+    bg: 'rgba(88,101,242,.08)',
+    border: 'rgba(88,101,242,.25)',
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.292a.074.074 0 0 1 .077-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.1.246.198.373.292a.077.077 0 0 1-.006.128 12.299 12.299 0 0 1-1.873.892.076.076 0 0 0-.04.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.876 19.876 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.06.06 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+      </svg>
+    ),
+  },
+];
+
+export default function SocialPage() {
+  return (
+    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-2xl mx-auto" style={{ background: 'var(--bg)' }}>
+      <div className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--a)' }}>
+        <span className="block w-6 h-px" style={{ background: 'var(--a)' }} />
+        Сообщество
+      </div>
+      <h1 className="font-display font-bold uppercase mb-3" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
+        Наши соцсети
+      </h1>
+      <p className="text-sm mb-10" style={{ color: 'var(--muted)' }}>
+        Подписывайся, чтобы не пропускать анонсы матчей и быть в курсе всего, что происходит в Weekly Cup.
+      </p>
+
+      <div className="flex flex-col gap-3">
+        {SOCIALS.map((s) => (
+          <a
+            key={s.name}
+            href={s.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-4 px-6 py-5 rounded-2xl transition-all hover:translate-x-1.5"
+            style={{ background: s.bg, border: `1px solid ${s.border}`, color: 'var(--text)' }}
+          >
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,.04)', color: s.color }}
+            >
+              {s.icon}
+            </div>
+            <div className="flex-1">
+              <div className="font-display font-semibold uppercase tracking-wider mb-1" style={{ fontSize: '16px' }}>
+                {s.name}
+              </div>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                {s.desc}
+              </p>
+            </div>
+            <span className="text-lg flex-shrink-0" style={{ color: 'var(--muted)' }}>
+              →
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}

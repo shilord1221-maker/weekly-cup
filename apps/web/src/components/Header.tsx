@@ -37,6 +37,7 @@ export function Header() {
     { href: '/maps', label: 'Карты' },
     { href: '/rules', label: 'Правила' },
     { href: '/complaints', label: 'Жалобы' },
+    { href: '/social', label: 'Соцсети' },
   ];
 
   return (
@@ -86,6 +87,21 @@ export function Header() {
             );
           })}
 
+          <button
+            disabled
+            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full cursor-not-allowed"
+            style={{ color: 'rgba(96,104,128,.5)' }}
+            title="Скоро — выбор режимов в разработке"
+          >
+            Режимы
+            <span
+              className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-full"
+              style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.12)', letterSpacing: '0.04em' }}
+            >
+              скоро
+            </span>
+          </button>
+
           <div className="relative">
             <button
               onClick={() => setMoreOpen((v) => !v)}
@@ -123,18 +139,17 @@ export function Header() {
 
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-3">
-          {user && (
-            <button
-              className="flex items-center justify-center w-11 h-11 rounded-full transition-all hover:border-white/20"
-              style={{ border: '1px solid var(--border2)', background: 'rgba(8,13,26,.7)', backdropFilter: 'blur(20px)', color: 'var(--muted)' }}
-              aria-label="Уведомления"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-            </button>
-          )}
+          <Link
+            href="/social"
+            className="flex items-center justify-center w-11 h-11 rounded-full transition-all hover:border-white/20"
+            style={{ border: '1px solid var(--border2)', background: 'rgba(8,13,26,.7)', backdropFilter: 'blur(20px)', color: 'var(--muted)' }}
+            aria-label="Соцсети"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </Link>
 
           {isOrganizerOrAbove(user?.role) && (
             <Link
@@ -228,6 +243,20 @@ export function Header() {
             {link.label}
           </Link>
         ))}
+        <div
+          className="flex items-center gap-2 py-3.5"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <span className="font-display text-2xl font-semibold uppercase" style={{ color: 'rgba(96,104,128,.5)' }}>
+            Режимы
+          </span>
+          <span
+            className="font-mono text-[10px] uppercase px-2 py-0.5 rounded-full"
+            style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.12)' }}
+          >
+            скоро
+          </span>
+        </div>
         {moreLinks.map((link) => (
           <Link
             key={link.href}

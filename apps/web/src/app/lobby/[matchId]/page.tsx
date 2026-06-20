@@ -167,7 +167,10 @@ export default function LobbyPage() {
     };
     const onMatchFinished = () => {
       invalidate();
-      showToast('🏆 Матч завершён');
+      playBeep(523, 0.2);
+      setTimeout(() => playBeep(659, 0.2), 150);
+      setTimeout(() => playBeep(784, 0.3), 300);
+      showToast('🏆 Матч завершён — заходите в стак войс');
     };
 
     socket.on('lobby:state', onState);
@@ -377,10 +380,22 @@ export default function LobbyPage() {
       </div>
 
       {isFinished && lobby.match.winnerTeam && (
-        <div className="mb-6 rounded-xl px-6 py-5 text-center" style={{ background: 'rgba(201,149,74,.08)', border: '1px solid rgba(201,149,74,.25)' }}>
+        <div className="mb-6 rounded-xl px-6 py-6 text-center flex flex-col items-center gap-4" style={{ background: 'rgba(201,149,74,.08)', border: '1px solid rgba(201,149,74,.25)' }}>
           <span className="font-display font-bold uppercase" style={{ fontSize: '20px', color: 'var(--gold)' }}>
             🏆 Победитель: {lobby.match.winnerTeam.name}
           </span>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+            Матч завершён — заходите в стак войс, чтобы обсудить игру со всеми.
+          </p>
+          <a
+            href="https://discord.com/channels/1503166605855690793/1509959162031767613"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-all hover:scale-105"
+            style={{ background: 'rgba(88,101,242,.15)', border: '1px solid rgba(88,101,242,.35)', color: '#a5b4fc' }}
+          >
+            💀 Зайти в стак войс
+          </a>
         </div>
       )}
 
@@ -389,14 +404,16 @@ export default function LobbyPage() {
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
             Карта и зоны
           </h2>
-          <ZoneMapSelector
-            imageUrl={lobby.match.map.imageUrl}
-            zones={lobby.match.map.zones}
-            selectedIds={lobby.match.selectedZones.map((z) => z.id)}
-            finalZoneId={lobby.match.finalZone?.id}
-            interactive={false}
-          />
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="max-w-md mx-auto">
+            <ZoneMapSelector
+              imageUrl={lobby.match.map.imageUrl}
+              zones={lobby.match.map.zones}
+              selectedIds={lobby.match.selectedZones.map((z) => z.id)}
+              finalZoneId={lobby.match.finalZone?.id}
+              interactive={false}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3 justify-center">
             {lobby.match.selectedZones.map((z) => (
               <span
                 key={z.id}
