@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 
 interface MatchItem {
   id: string;
@@ -30,6 +31,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function MatchesPage() {
+  const { user } = useAuthStore();
   const { data: matches, isLoading } = useQuery<MatchItem[]>({
     queryKey: ['matches'],
     queryFn: () => api.get('/matches', { auth: false }),
@@ -47,6 +49,11 @@ export default function MatchesPage() {
             Все матчи
           </h1>
         </div>
+        {isOrganizerOrAbove(user?.role) && (
+          <Link href="/admin/matches/create" className="btn-main">
+            + Создать матч
+          </Link>
+        )}
       </div>
 
       {isLoading && <p style={{ color: 'var(--muted)' }}>Загрузка матчей...</p>}

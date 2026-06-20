@@ -10,6 +10,7 @@ export const matchQueue = new Queue('match-events', { connection: { url: env.RED
 type JobData =
   | { kind: 'MATCH_STARTED'; matchId: string }
   | { kind: 'MATCH_REMINDER'; matchId: string }
+  | { kind: 'START_ZONE_CLOSE'; matchId: string }
   | { kind: 'FINAL_ZONE_CLOSE'; matchId: string };
 
 export async function scheduleMatchStart(matchId: string, startTime: Date) {
@@ -35,6 +36,14 @@ export async function scheduleFinalZoneClose(matchId: string, durationMs = 120_0
   await matchQueue.add('final-zone-close', { kind: 'FINAL_ZONE_CLOSE', matchId } satisfies JobData, {
     delay: durationMs,
     jobId: `finalzone-${matchId}-${Date.now()}`,
+    removeOnComplete: true,
+  });
+}
+
+export async function scheduleStartZoneClose(matchId: string, durationMs = 120_000) {
+  await matchQueue.add('start-zone-close', { kind: 'START_ZONE_CLOSE', matchId } satisfies JobData, {
+    delay: durationMs,
+    jobId: `startzone-${matchId}-${Date.now()}`,
     removeOnComplete: true,
   });
 }
@@ -68,6 +77,11 @@ export function createMatchEventsWorker(io: SocketServer) {
         }
         case 'MATCH_REMINDER': {
           io.to(`lobby:${matchId}`).emit('match:reminder', { matchId });
+          break;
+        }
+        case 'START_ZONE_CLOSE': {
+          await prisma.match.update({ where: { id: matchId }, data: { startZoneClosesAt: new Date() } });
+          io.to(`lobby:${matchId}`).emit('lobby:start_zone_closed', { matchId });
           break;
         }
         case 'FINAL_ZONE_CLOSE': {

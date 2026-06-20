@@ -142,6 +142,10 @@ model Match {
   startTime   DateTime // UTC
   finishedAt  DateTime?
 
+  // Окно входа в стартовую зону — открывается кнопкой "Старт" в лобби (2 минуты)
+  startZoneOpenedAt DateTime?
+  startZoneClosesAt DateTime?
+
   selectedZones Zone[] @relation("SelectedZones")
   finalZoneId   String?
   finalZone     Zone?   @relation("FinalZone", fields: [finalZoneId], references: [id])

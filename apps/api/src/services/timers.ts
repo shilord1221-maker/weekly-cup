@@ -18,11 +18,17 @@ export async function setFinalZoneWindow(matchId: string, durationMs = 120_000) 
   return closesAt;
 }
 
+export async function setStartZoneWindow(matchId: string, durationMs = 120_000) {
+  const closesAt = Date.now() + durationMs;
+  await redis.set(key('startzone', matchId), closesAt, 'EX', Math.ceil(durationMs / 1000) + 60);
+  return closesAt;
+}
+
 export async function setReminderTimer(matchId: string, atMs: number) {
   await redis.set(key('reminder', matchId), atMs, 'EX', Math.max(1, Math.floor((atMs - Date.now()) / 1000)) + 60);
 }
 
-export async function getRemainingMs(kind: 'start' | 'finalzone' | 'reminder', matchId: string): Promise<number | null> {
+export async function getRemainingMs(kind: 'start' | 'startzone' | 'finalzone' | 'reminder', matchId: string): Promise<number | null> {
   const value = await redis.get(key(kind, matchId));
   if (!value) return null;
   const remaining = Number(value) - Date.now();
@@ -30,5 +36,5 @@ export async function getRemainingMs(kind: 'start' | 'finalzone' | 'reminder', m
 }
 
 export async function clearMatchTimers(matchId: string) {
-  await redis.del(key('start', matchId), key('finalzone', matchId), key('reminder', matchId));
+  await redis.del(key('start', matchId), key('startzone', matchId), key('finalzone', matchId), key('reminder', matchId));
 }

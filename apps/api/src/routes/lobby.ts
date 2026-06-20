@@ -17,13 +17,21 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
   const { io } = opts;
 
   // ───────── GET LOBBY STATE ─────────
-  app.get('/api/lobby/:matchId', { preHandler: requireAuth }, async (req, reply) => {
+  // Авторизация не обязательна для просмотра — гость должен видеть карту/зоны/составы до входа.
+  app.get('/api/lobby/:matchId', async (req, reply) => {
     const { matchId } = req.params as { matchId: string };
     const lobby = await prisma.lobby.findUnique({
       where: { matchId },
       include: {
-        match: true,
-        teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true } } } } }, orderBy: { slot: 'asc' } },
+        match: {
+          include: {
+            map: { include: { zones: true } },
+            selectedZones: true,
+            finalZone: true,
+            winnerTeam: true,
+          },
+        },
+        teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true, staticId: { select: { value: true } } } } } } }, orderBy: { slot: 'asc' } },
       },
     });
     if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Лобби не найдено' });
