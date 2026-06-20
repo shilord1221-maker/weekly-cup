@@ -53,11 +53,11 @@ export default function HomePage() {
   useEffect(() => {
     let p = 0;
     const interval = setInterval(() => {
-      p += Math.random() * 5 + 1.5;
+      p += Math.random() * 4.5 + 1.2;
       if (p >= 100) {
         p = 100;
         clearInterval(interval);
-        setTimeout(() => setLoaderOut(true), 500);
+        setTimeout(() => setLoaderOut(true), 700);
       }
       setPct(Math.round(p));
     }, 80);
@@ -71,145 +71,71 @@ export default function HomePage() {
     <>
       {/* LOADER */}
       <div
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8 overflow-hidden"
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-7 overflow-hidden"
         style={{
           background: 'var(--bg)',
           opacity: loaderOut ? 0 : 1,
           visibility: loaderOut ? 'hidden' : 'visible',
           pointerEvents: loaderOut ? 'none' : 'auto',
-          transform: loaderOut ? 'scale(1.08)' : 'scale(1)',
-          transition: 'opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1), visibility 0.8s',
+          transform: loaderOut ? 'scale(1.04)' : 'scale(1)',
+          transition: 'opacity 0.7s cubic-bezier(.4,0,.2,1), transform 0.7s cubic-bezier(.4,0,.2,1), visibility 0.7s',
         }}
       >
         {/* solid base + ambient radial tint, layered separately so corners always stay fully opaque */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 100% 100% at 50% 40%,rgba(79,127,255,.09) 0%,transparent 65%)' }}
+          style={{ background: 'radial-gradient(ellipse 100% 100% at 50% 45%,rgba(79,127,255,.08) 0%,transparent 65%)' }}
         />
 
-        {/* ambient glow orbs */}
+        {/* ambient glow orbs — slow, subtle, no flashing */}
         <div
           className="absolute rounded-full pointer-events-none"
-          style={{ width: 500, height: 500, background: 'radial-gradient(circle,rgba(201,149,74,.12) 0%,transparent 70%)', filter: 'blur(40px)', animation: 'loaderOrbPulse 4s ease-in-out infinite' }}
+          style={{ width: 480, height: 480, background: 'radial-gradient(circle,rgba(201,149,74,.1) 0%,transparent 70%)', filter: 'blur(50px)', animation: 'loaderOrbPulse 6s ease-in-out infinite' }}
         />
         <div
           className="absolute rounded-full pointer-events-none"
-          style={{ width: 380, height: 380, top: '20%', left: '60%', background: 'radial-gradient(circle,rgba(79,127,255,.1) 0%,transparent 70%)', filter: 'blur(50px)', animation: 'loaderOrbPulse 5s ease-in-out infinite 1s' }}
+          style={{ width: 360, height: 360, top: '22%', left: '62%', background: 'radial-gradient(circle,rgba(79,127,255,.08) 0%,transparent 70%)', filter: 'blur(55px)', animation: 'loaderOrbPulse 7s ease-in-out infinite 1.5s' }}
         />
 
-        {/* sparkle particles around trophy */}
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full pointer-events-none"
-            style={{
-              width: 3 + (i % 3),
-              height: 3 + (i % 3),
-              background: i % 2 === 0 ? 'var(--gold)' : 'var(--a)',
-              top: `${50 + Math.sin((i / 8) * Math.PI * 2) * 22}%`,
-              left: `${50 + Math.cos((i / 8) * Math.PI * 2) * 22}%`,
-              boxShadow: `0 0 8px ${i % 2 === 0 ? 'var(--gold)' : 'var(--a)'}`,
-              animation: `loaderSparkle 2.4s ease-in-out infinite`,
-              animationDelay: `${i * 0.18}s`,
-            }}
-          />
-        ))}
-
-        {/* TROPHY — flies in huge from above, shrinks down, lands with impact bounce */}
+        {/* TROPHY — rises from below, growing smoothly to full size, gentle settle, no impact effects */}
         <div
           className="relative z-10"
           style={{
             opacity: 0,
-            transform: 'translateY(-380px) scale(3.2) rotate(-25deg)',
-            animation: 'trophyDropIn 1.1s 0.1s cubic-bezier(.22,1,.36,1) forwards, trophyFloat 5s 1.3s ease-in-out infinite',
+            transform: 'translateY(120px) scale(0.15)',
+            animation: 'trophyRiseIn 1.4s 0.2s cubic-bezier(.16,1,.3,1) forwards, trophyFloat 6s 1.8s ease-in-out infinite',
           }}
         >
-          {/* impact flash — bursts outward right as trophy lands */}
-          <div
-            className="absolute pointer-events-none rounded-full"
-            style={{
-              width: 40,
-              height: 40,
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%,-50%) scale(0)',
-              background: 'radial-gradient(circle,rgba(255,243,214,.9) 0%,rgba(201,149,74,.5) 40%,transparent 75%)',
-              animation: 'trophyImpactFlash 0.7s 0.7s ease-out forwards',
-            }}
-          />
-          {/* impact shockwave ring */}
-          <div
-            className="absolute pointer-events-none rounded-full"
-            style={{
-              width: 60,
-              height: 60,
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%,-50%) scale(0)',
-              border: '2px solid rgba(201,149,74,.7)',
-              opacity: 0,
-              animation: 'trophyShockwave 0.8s 0.7s ease-out forwards',
-            }}
-          />
-
-          {/* rotating glow ring behind trophy */}
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: 200,
-              height: 200,
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%,-50%)',
-              borderRadius: '50%',
-              border: '1px solid rgba(201,149,74,.25)',
-              opacity: 0,
-              animation: 'loaderRingSpin 8s linear infinite, loaderFadeUp 0.5s 1.1s ease-out forwards',
-            }}
-          />
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: 160,
-              height: 160,
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%,-50%)',
-              borderRadius: '50%',
-              border: '1px dashed rgba(79,127,255,.2)',
-              opacity: 0,
-              animation: 'loaderRingSpin 12s linear infinite reverse, loaderFadeUp 0.5s 1.15s ease-out forwards',
-            }}
-          />
           <TrophyIcon size={120} />
         </div>
 
-        {/* TEXT — staged reveal */}
+        {/* TITLE — scales up from small to large, centered, in sync with trophy */}
         <div className="text-center relative z-10">
           <div
-            className="font-display font-bold text-5xl uppercase tracking-widest"
+            className="font-display font-bold uppercase tracking-widest"
             style={{
+              fontSize: 'clamp(32px,6vw,52px)',
               background: 'linear-gradient(135deg,#fff 20%,var(--a) 60%,var(--gold) 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundSize: '200% 100%',
               opacity: 0,
-              transform: 'translateY(12px)',
-              animation: 'loaderFadeUp 0.7s 0.5s ease-out forwards, loaderGradientShift 3s 1.2s ease-in-out infinite',
+              transform: 'scale(0.3)',
+              animation: 'loaderTitleScaleIn 1s 0.55s cubic-bezier(.16,1,.3,1) forwards, loaderGradientShift 4s 1.7s ease-in-out infinite',
             }}
           >
             WEEKLY CUP
           </div>
           <div
             className="font-mono text-xs uppercase tracking-widest mt-2"
-            style={{ color: 'var(--muted)', opacity: 0, transform: 'translateY(12px)', animation: 'loaderFadeUp 0.6s 0.7s ease-out forwards' }}
+            style={{ color: 'var(--muted)', opacity: 0, transform: 'translateY(10px)', animation: 'loaderFadeUp 0.6s 1.1s ease-out forwards' }}
           >
             Custom Matches Platform
           </div>
         </div>
 
         {/* PROGRESS */}
-        <div className="flex flex-col items-center gap-3 relative z-10" style={{ opacity: 0, transform: 'translateY(12px)', animation: 'loaderFadeUp 0.6s 0.85s ease-out forwards' }}>
+        <div className="flex flex-col items-center gap-3 relative z-10" style={{ opacity: 0, transform: 'translateY(10px)', animation: 'loaderFadeUp 0.6s 1.25s ease-out forwards' }}>
           <div className="relative w-64 h-[3px] overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <div
               className="h-full rounded-full"

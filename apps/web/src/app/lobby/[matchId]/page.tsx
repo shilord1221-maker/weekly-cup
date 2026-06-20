@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 import { useSocket } from '@/hooks/useSocket';
-import { ZoneMapSelector } from '@/components/ZoneMapSelector';
 
 interface Member {
   id: string;
@@ -404,16 +403,10 @@ export default function LobbyPage() {
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
             Карта и зоны
           </h2>
-          <div className="max-w-md mx-auto">
-            <ZoneMapSelector
-              imageUrl={lobby.match.map.imageUrl}
-              zones={lobby.match.map.zones}
-              selectedIds={lobby.match.selectedZones.map((z) => z.id)}
-              finalZoneId={lobby.match.finalZone?.id}
-              interactive={false}
-            />
+          <div className="max-w-md mx-auto rounded-xl overflow-hidden mb-4" style={{ border: '1px solid var(--border2)' }}>
+            <img src={lobby.match.map.imageUrl} alt={lobby.match.map.name} className="w-full h-auto block" />
           </div>
-          <div className="flex flex-wrap gap-2 mt-3 justify-center">
+          <div className="flex flex-wrap gap-2 justify-center">
             {lobby.match.selectedZones.map((z) => (
               <span
                 key={z.id}
