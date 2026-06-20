@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
+import { useAuthStore, isOrganizerOrAbove, isAdminOrOwner } from '@/store/auth';
 import { useSocket } from '@/hooks/useSocket';
 
 interface Member {
@@ -171,6 +171,10 @@ export default function LobbyPage() {
       setTimeout(() => playBeep(784, 0.3), 300);
       showToast('🏆 Матч завершён — заходите в стак войс');
     };
+    const onKicked = () => {
+      invalidate();
+      showToast('⚠️ Вас кикнули из команды');
+    };
 
     socket.on('lobby:state', onState);
     socket.on('lobby:player_joined', onJoined);
@@ -184,6 +188,7 @@ export default function LobbyPage() {
     socket.on('lobby:final_zone_closed', onFinalZoneClosed);
     socket.on('match:started', onMatchStarted);
     socket.on('match:finished', onMatchFinished);
+    socket.on('notify:kicked', onKicked);
 
     return () => {
       socket.emit('lobby:unsubscribe', { matchId });
@@ -199,6 +204,7 @@ export default function LobbyPage() {
       socket.off('lobby:final_zone_closed', onFinalZoneClosed);
       socket.off('match:started', onMatchStarted);
       socket.off('match:finished', onMatchFinished);
+      socket.off('notify:kicked', onKicked);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, socket]);
@@ -264,6 +270,20 @@ export default function LobbyPage() {
     try {
       await api.post(`/lobby/${matchId}/auto-assign`);
       await refetch();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleKickPlayer = async (userId: string) => {
+    if (!confirm('Кикнуть этого игрока из команды?')) return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await api.post(`/lobby/${matchId}/kick`, { userId });
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось кикнуть игрока');
     } finally {
       setActionLoading(false);
     }
@@ -570,7 +590,7 @@ export default function LobbyPage() {
               <div className="flex flex-col gap-2 mb-5 min-h-[80px]">
                 {team.members.length === 0 && <p className="text-xs italic" style={{ color: 'rgba(96,104,128,.5)' }}>Пока никого</p>}
                 {team.members.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2.5 text-sm py-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <div key={m.id} className="flex items-center gap-2.5 text-sm py-1 group" style={{ borderBottom: '1px solid var(--border)' }}>
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                       style={{ background: 'rgba(79,127,255,.15)', color: 'var(--a)' }}
@@ -587,6 +607,16 @@ export default function LobbyPage() {
                       <span className="ml-auto text-[10px] font-mono" style={{ color: 'var(--a)' }}>
                         вы
                       </span>
+                    )}
+                    {isAdminOrOwner(user?.role) && m.userId !== user?.id && (
+                      <button
+                        onClick={() => handleKickPlayer(m.userId)}
+                        className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: '#f87171' }}
+                        title="Кикнуть из команды (только Admin)"
+                      >
+                        кикнуть
+                      </button>
                     )}
                   </div>
                 ))}

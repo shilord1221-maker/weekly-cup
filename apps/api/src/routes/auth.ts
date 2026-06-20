@@ -16,6 +16,7 @@ const RegisterSchema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
   staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
+  staticIdProofUrl: z.string().url('Укажите ссылку на скриншот (например, через yapix)').optional(),
 });
 
 const LoginSchema = z.object({
@@ -63,6 +64,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const passwordHash = await argon2.hash(password);
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
 
     const user = await prisma.user.create({
       data: {
@@ -70,7 +72,9 @@ export async function authRoutes(app: FastifyInstance) {
         email,
         passwordHash,
         role: 'PLAYER',
-        staticId: { create: { value: staticId } },
+        registrationIp: clientIp,
+        lastLoginIp: clientIp,
+        staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl ?? null } },
       },
       include: { staticId: true },
     });
@@ -116,6 +120,13 @@ export async function authRoutes(app: FastifyInstance) {
     if (!valid) {
       return reply.code(401).send({ error: 'INVALID_CREDENTIALS', message: 'Неверный email или пароль' });
     }
+
+    if (user.isBanned) {
+      return reply.code(403).send({ error: 'BANNED', message: user.bannedReason ? `Вы заблокированы: ${user.bannedReason}` : 'Ваш аккаунт заблокирован' });
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginIp: clientIp } });
 
     const accessToken = signAccessToken({ sub: user.id, role: user.role, username: user.username });
     const refreshToken = signRefreshToken(user.id);

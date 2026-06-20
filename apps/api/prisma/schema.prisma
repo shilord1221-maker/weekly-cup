@@ -63,6 +63,15 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Бан — глобальный запрет на вход. IP сохраняется при регистрации и последних входах,
+  // чтобы можно было банить и по IP (от повторной регистрации с того же устройства).
+  isBanned     Boolean   @default(false)
+  bannedAt     DateTime?
+  bannedReason String?   @db.VarChar(500)
+  bannedById   String?
+  registrationIp String? @db.VarChar(64)
+  lastLoginIp    String? @db.VarChar(64)
+
   staticId        StaticId?
   organizedMatches Match[]        @relation("OrganizerMatches")
   lobbyMemberships LobbyMember[]
@@ -75,8 +84,11 @@ model User {
   notifications    Notification[]
   auditLogs        AuditLog[]
   refreshTokens    RefreshToken[]
+  pollVotes        PollVote[]
 
   @@index([role])
+  @@index([isBanned])
+  @@index([registrationIp])
 }
 
 model RefreshToken {
@@ -94,6 +106,7 @@ model RefreshToken {
 model StaticId {
   id        String   @id @default(uuid())
   value     String   @unique @db.VarChar(64)
+  proofUrl  String? // ссылка на скрин-пруф Static ID (загружается через yapix или аналог)
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -213,6 +226,7 @@ model ChatMessage {
   authorId  String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   text      String   @db.VarChar(500)
+  pollId    String?  // если сообщение — это карточка голосования
   createdAt DateTime @default(now())
 
   @@index([createdAt])
@@ -330,4 +344,42 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ───────────────────────── POLLS (голосование за карту/режим) ─────────────────────────
+
+model Poll {
+  id        String       @id @default(uuid())
+  title     String       @db.VarChar(255)
+  createdById String
+  isClosed  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  closedAt  DateTime?
+
+  options PollOption[]
+
+  @@index([createdAt])
+}
+
+model PollOption {
+  id     String @id @default(uuid())
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label  String @db.VarChar(128) // например "Redwood · 4x4"
+
+  votes PollVote[]
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id       String     @id @default(uuid())
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([optionId, userId])
+  @@index([userId])
 }

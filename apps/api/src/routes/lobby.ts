@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@/db.js';
-import { requireAuth, requireOrganizerOrAdmin } from '@/middleware/auth.js';
+import { requireAuth, requireOrganizerOrAdmin, requireRole } from '@/middleware/auth.js';
 import { joinLobby, leaveLobby, setPlayerTeam, autoAssignPlayers, ApiError } from '@/services/lobby.js';
 import { logAudit } from '@/services/audit.js';
 import type { Server as SocketServer } from 'socket.io';
@@ -153,6 +153,34 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
 
     io.to(`lobby:${matchId}`).emit('lobby:team_changed', { matchId, userId: parsed.data.userId, teamId: parsed.data.teamId });
     reply.send(updated);
+  });
+
+  // ───────── KICK FROM TEAM (только Admin/Owner) — убирает игрока из команды, оставляя в лобби без команды ─────────
+  const KickSchema = z.object({ userId: z.string().uuid() });
+  app.post('/api/lobby/:matchId/kick', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { matchId } = req.params as { matchId: string };
+    const parsed = KickSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const lobby = await prisma.lobby.findUnique({ where: { matchId } });
+    if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const member = await prisma.lobbyMember.findUnique({ where: { lobbyId_userId: { lobbyId: lobby.id, userId: parsed.data.userId } } });
+    if (!member) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Игрок не найден в этом лобби' });
+
+    await prisma.lobbyMember.update({ where: { id: member.id }, data: { teamId: null } });
+
+    await logAudit({
+      actorId: req.user!.id,
+      action: 'PLAYER_KICKED',
+      entityType: 'Lobby',
+      entityId: lobby.id,
+      payload: { userId: parsed.data.userId },
+    });
+
+    io.to(`lobby:${matchId}`).emit('lobby:team_changed', { matchId, userId: parsed.data.userId, teamId: null });
+    io.to(`user:${parsed.data.userId}`).emit('notify:kicked', { matchId });
+    reply.send({ success: true });
   });
 
   // ───────── SET VOICE URL (Organizer+) — Discord invite per team ─────────

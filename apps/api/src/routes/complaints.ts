@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@/db.js';
-import { requireAuth, requireOrganizerOrAdmin } from '@/middleware/auth.js';
+import { requireAuth, requireOrganizerOrAdmin, requireRole } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
 import type { Server as SocketServer } from 'socket.io';
 
@@ -81,6 +81,17 @@ export async function complaintRoutes(app: FastifyInstance, opts: { io: SocketSe
     });
 
     reply.send(complaint);
+  });
+
+  // Удаление жалобы — только Admin/Owner (требуется и текущая roleHierarchy через requireRole('ADMIN'))
+  app.delete('/api/complaints/:id', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const complaint = await prisma.complaint.findUnique({ where: { id } });
+    if (!complaint) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Жалоба не найдена' });
+
+    await prisma.complaint.delete({ where: { id } });
+    await logAudit({ actorId: req.user!.id, action: 'COMPLAINT_DELETED', entityType: 'Complaint', entityId: id });
+    reply.send({ success: true });
   });
 
   // Organizer/Admin/Owner отправляет ответ на жалобу — сохраняется в истории, автор получает уведомление

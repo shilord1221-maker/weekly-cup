@@ -19,6 +19,7 @@ import { newsRoutes, mediaRoutes, profileRoutes, winsRoutes, auditRoutes, userRo
 
 async function main() {
   const app = Fastify({
+    trustProxy: true,
     logger: {
       transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
       level: env.NODE_ENV === 'development' ? 'info' : 'warn',

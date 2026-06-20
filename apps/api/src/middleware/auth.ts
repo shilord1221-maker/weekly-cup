@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyAccessToken } from '@/utils/jwt.js';
+import { prisma } from '@/db.js';
 import type { Role } from '@prisma/client';
 
 declare module 'fastify' {
@@ -23,6 +24,13 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   try {
     const payload = verifyAccessToken(token);
     req.user = { id: payload.sub, role: payload.role, username: payload.username };
+
+    // Проверяем бан на каждый запрос — иначе уже забаненный пользователь работает до истечения
+    // access-токена (до 15 минут), а не сразу теряет доступ.
+    const dbUser = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isBanned: true, bannedReason: true } });
+    if (dbUser?.isBanned) {
+      return reply.code(403).send({ error: 'BANNED', message: dbUser.bannedReason ? `Вы заблокированы: ${dbUser.bannedReason}` : 'Ваш аккаунт заблокирован' });
+    }
   } catch {
     return reply.code(401).send({ error: 'INVALID_TOKEN', message: 'Токен недействителен или истёк' });
   }

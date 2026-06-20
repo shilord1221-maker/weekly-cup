@@ -21,6 +21,11 @@ const RegisterSchema = z.object({
   staticId: z
     .string()
     .regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
+  staticIdProofUrl: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || /^https?:\/\/.+/.test(v), 'Укажите корректную ссылку на скриншот'),
 });
 
 type RegisterForm = z.infer<typeof RegisterSchema>;
@@ -44,7 +49,7 @@ export default function RegisterPage() {
     setServerError(null);
     setSubmitting(true);
     try {
-      await register_(data);
+      await register_({ ...data, staticIdProofUrl: data.staticIdProofUrl?.trim() || undefined });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
@@ -131,6 +136,21 @@ export default function RegisterPage() {
             {errors.staticId && <p className="error-text">{errors.staticId.message}</p>}
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               Обязательное поле. Уникальный игровой идентификатор — используется для подтверждения участия в матчах.
+            </p>
+          </div>
+
+          <div>
+            <label className="label-field">Скриншот-пруф Static ID (необязательно)</label>
+            <input
+              {...register('staticIdProofUrl')}
+              type="text"
+              placeholder="ссылка на скриншот, например через yapix.ru"
+              autoComplete="off"
+              className={`input-field ${errors.staticIdProofUrl ? 'error' : ''}`}
+            />
+            {errors.staticIdProofUrl && <p className="error-text">{errors.staticIdProofUrl.message}</p>}
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+              Загрузите скрин на любой хостинг изображений (например yapix.ru) и вставьте ссылку сюда — это ускорит проверку при спорах.
             </p>
           </div>
 

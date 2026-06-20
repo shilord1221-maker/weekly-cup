@@ -11,6 +11,11 @@ interface UserItem {
   email: string;
   role: 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'PLAYER';
   staticId: string | null;
+  staticIdProofUrl: string | null;
+  isBanned: boolean;
+  bannedReason: string | null;
+  registrationIp: string | null;
+  lastLoginIp: string | null;
   createdAt: string;
 }
 
@@ -25,6 +30,10 @@ export default function AdminUsersPage() {
   const qc = useQueryClient();
   const { user: currentUser } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [banTargetId, setBanTargetId] = useState<string | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [banByIp, setBanByIp] = useState(false);
   const isOwner = currentUser?.role === 'OWNER';
 
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
@@ -32,8 +41,8 @@ export default function AdminUsersPage() {
   const availableRoles = isOwner ? ['PLAYER', 'ORGANIZER', 'ADMIN', 'OWNER'] : ['PLAYER', 'ORGANIZER', 'ADMIN'];
 
   const { data: users, isLoading } = useQuery<UserItem[]>({
-    queryKey: ['admin-users'],
-    queryFn: () => api.get('/users'),
+    queryKey: ['admin-users', search],
+    queryFn: () => api.get(`/users${search ? `?q=${encodeURIComponent(search)}` : ''}`),
   });
 
   const handleRoleChange = async (id: string, role: string) => {
@@ -46,11 +55,42 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleBanConfirm = async () => {
+    if (!banTargetId) return;
+    setError(null);
+    try {
+      await api.post(`/users/${banTargetId}/ban`, { reason: banReason.trim() || undefined, banByIp });
+      setBanTargetId(null);
+      setBanReason('');
+      setBanByIp(false);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : 'Не удалось забанить пользователя');
+    }
+  };
+
+  const handleUnban = async (id: string) => {
+    setError(null);
+    try {
+      await api.post(`/users/${id}/unban`);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : 'Не удалось разбанить пользователя');
+    }
+  };
+
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
-      <h1 className="font-display font-bold uppercase mb-10" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
+      <h1 className="font-display font-bold uppercase mb-6" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
         Пользователи
       </h1>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Поиск по нику или Static ID..."
+        className="input-field mb-6"
+      />
 
       {error && (
         <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
@@ -65,38 +105,108 @@ export default function AdminUsersPage() {
           // Только Owner может менять роль другого Owner — для остальных селектор заблокирован.
           const isLockedForCurrentUser = u.role === 'OWNER' && !isOwner;
           return (
-            <div key={u.id} className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-lg flex-wrap" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+            <div
+              key={u.id}
+              className="flex items-center justify-between gap-4 px-5 py-3.5 rounded-lg flex-wrap"
+              style={{ border: `1px solid ${u.isBanned ? 'rgba(239,68,68,.35)' : 'var(--border)'}`, background: u.isBanned ? 'rgba(239,68,68,.04)' : 'var(--surface)' }}
+            >
               <div>
-                <div className="text-sm font-medium flex items-center gap-2">
+                <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                   {u.username}
                   {u.role === 'OWNER' && (
                     <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.1)' }}>
                       OWNER
                     </span>
                   )}
+                  {u.isBanned && (
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#f87171', background: 'rgba(239,68,68,.1)' }}>
+                      BANNED{u.bannedReason ? `: ${u.bannedReason}` : ''}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs" style={{ color: 'var(--muted)' }}>
                   {u.email} {u.staticId && `· ${u.staticId}`}
+                  {u.staticIdProofUrl && (
+                    <>
+                      {' · '}
+                      <a href={u.staticIdProofUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--a)' }}>
+                        скрин-пруф
+                      </a>
+                    </>
+                  )}
                 </div>
+                {(u.registrationIp || u.lastLoginIp) && (
+                  <div className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(96,104,128,.6)' }}>
+                    IP: {u.lastLoginIp ?? u.registrationIp}
+                  </div>
+                )}
               </div>
-              <select
-                value={u.role}
-                onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                disabled={isLockedForCurrentUser}
-                className="input-field"
-                style={{ width: 'auto', padding: '6px 12px', fontSize: '12px', opacity: isLockedForCurrentUser ? 0.5 : 1, cursor: isLockedForCurrentUser ? 'not-allowed' : 'pointer' }}
-                title={isLockedForCurrentUser ? 'Только Owner может управлять ролью Owner' : undefined}
-              >
-                {availableRoles.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={u.role}
+                  onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                  disabled={isLockedForCurrentUser}
+                  className="input-field"
+                  style={{ width: 'auto', padding: '6px 12px', fontSize: '12px', opacity: isLockedForCurrentUser ? 0.5 : 1, cursor: isLockedForCurrentUser ? 'not-allowed' : 'pointer' }}
+                  title={isLockedForCurrentUser ? 'Только Owner может управлять ролью Owner' : undefined}
+                >
+                  {availableRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+                {u.isBanned ? (
+                  <button
+                    onClick={() => handleUnban(u.id)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                    style={{ color: 'var(--green)', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)' }}
+                  >
+                    Разбанить
+                  </button>
+                ) : (
+                  !isLockedForCurrentUser && (
+                    <button
+                      onClick={() => setBanTargetId(u.id)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                      style={{ color: '#f87171', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}
+                    >
+                      Забанить
+                    </button>
+                  )
+                )}
+              </div>
             </div>
           );
         })}
       </div>
+
+      {!isLoading && (!users || users.length === 0) && <p style={{ color: 'var(--muted)' }}>Ничего не найдено.</p>}
+
+      {/* BAN MODAL */}
+      {banTargetId && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setBanTargetId(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Бан пользователя
+            </h2>
+            <label className="label-field">Причина (необязательно)</label>
+            <textarea value={banReason} onChange={(e) => setBanReason(e.target.value)} rows={3} className="input-field mb-3" placeholder="Причина бана..." />
+            <label className="flex items-center gap-2 text-sm mb-4" style={{ color: 'var(--text)' }}>
+              <input type="checkbox" checked={banByIp} onChange={(e) => setBanByIp(e.target.checked)} />
+              Забанить все аккаунты с этим IP
+            </label>
+            <div className="flex gap-2">
+              <button onClick={() => setBanTargetId(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleBanConfirm} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Забанить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

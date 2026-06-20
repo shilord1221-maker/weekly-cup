@@ -139,8 +139,19 @@ export async function auditRoutes(app: FastifyInstance) {
 }
 
 export async function userRoutes(app: FastifyInstance) {
+  // Поиск по нику или Static ID — для админ-панели
   app.get('/api/users', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { q } = req.query as { q?: string };
+
     const users = await prisma.user.findMany({
+      where: q
+        ? {
+            OR: [
+              { username: { contains: q, mode: 'insensitive' } },
+              { staticId: { value: { contains: q, mode: 'insensitive' } } },
+            ],
+          }
+        : {},
       orderBy: { createdAt: 'desc' },
       include: { staticId: true },
       take: 200,
@@ -152,6 +163,11 @@ export async function userRoutes(app: FastifyInstance) {
         email: u.email,
         role: u.role,
         staticId: u.staticId?.value ?? null,
+        staticIdProofUrl: u.staticId?.proofUrl ?? null,
+        isBanned: u.isBanned,
+        bannedReason: u.bannedReason,
+        registrationIp: u.registrationIp,
+        lastLoginIp: u.lastLoginIp,
         createdAt: u.createdAt,
       }))
     );
@@ -174,5 +190,50 @@ export async function userRoutes(app: FastifyInstance) {
     const user = await prisma.user.update({ where: { id }, data: { role: parsed.data.role } });
     await logAudit({ actorId: req.user!.id, action: 'USER_ROLE_CHANGED', entityType: 'User', entityId: id, payload: { role: parsed.data.role } });
     reply.send({ id: user.id, role: user.role });
+  });
+
+  // Бан пользователя — опционально банит и все остальные аккаунты с тем же IP регистрации/входа
+  const BanSchema = z.object({
+    reason: z.string().max(500).optional(),
+    banByIp: z.boolean().default(false),
+  });
+
+  app.post('/api/users/:id/ban', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = BanSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден' });
+    if (target.role === 'OWNER' && req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только Owner может банить Owner' });
+    }
+
+    const banData = { isBanned: true, bannedAt: new Date(), bannedReason: parsed.data.reason ?? null, bannedById: req.user!.id };
+
+    if (parsed.data.banByIp) {
+      const ips = [target.registrationIp, target.lastLoginIp].filter((ip): ip is string => !!ip);
+      if (ips.length > 0) {
+        await prisma.user.updateMany({
+          where: { OR: [{ registrationIp: { in: ips } }, { lastLoginIp: { in: ips } }] },
+          data: banData,
+        });
+      } else {
+        await prisma.user.update({ where: { id }, data: banData });
+      }
+    } else {
+      await prisma.user.update({ where: { id }, data: banData });
+    }
+
+    await prisma.refreshToken.updateMany({ where: { userId: id }, data: { revoked: true } });
+    await logAudit({ actorId: req.user!.id, action: 'USER_BANNED', entityType: 'User', entityId: id, payload: { reason: parsed.data.reason, banByIp: parsed.data.banByIp } });
+    reply.send({ success: true });
+  });
+
+  app.post('/api/users/:id/unban', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await prisma.user.update({ where: { id }, data: { isBanned: false, bannedAt: null, bannedReason: null, bannedById: null } });
+    await logAudit({ actorId: req.user!.id, action: 'USER_UNBANNED', entityType: 'User', entityId: id });
+    reply.send({ success: true });
   });
 }

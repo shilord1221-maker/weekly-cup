@@ -64,7 +64,17 @@ export function registerSocketHandlers(io: SocketServer) {
         take: 50,
         include: { author: { select: { id: true, username: true, avatarUrl: true } } },
       });
-      socket.emit('chat:history', history.reverse());
+      const withPolls = await Promise.all(
+        history.map(async (msg) => {
+          if (!msg.pollId) return msg;
+          const poll = await prisma.poll.findUnique({
+            where: { id: msg.pollId },
+            include: { options: { include: { votes: true } } },
+          });
+          return { ...msg, poll };
+        })
+      );
+      socket.emit('chat:history', withPolls.reverse());
     });
 
     socket.on('chat:send', async ({ text }: { text: string }) => {
@@ -80,6 +90,58 @@ export function registerSocketHandlers(io: SocketServer) {
       });
 
       io.to('chat:global').emit('chat:message', message);
+    });
+
+    // Удаление сообщения из общего чата — только Admin/Owner
+    socket.on('chat:delete', async ({ messageId }: { messageId: string }) => {
+      if (socket.data.role !== 'ADMIN' && socket.data.role !== 'OWNER') {
+        return socket.emit('chat:error', { message: 'Недостаточно прав для удаления сообщения' });
+      }
+      await prisma.chatMessage.delete({ where: { id: messageId } }).catch(() => {});
+      io.to('chat:global').emit('chat:message_deleted', { messageId });
+    });
+
+    // Создание голосования за карту/режим — только Admin/Owner, публикуется как сообщение в общем чате
+    socket.on('poll:create', async ({ title, options }: { title: string; options: string[] }) => {
+      if (socket.data.role !== 'ADMIN' && socket.data.role !== 'OWNER') {
+        return socket.emit('chat:error', { message: 'Недостаточно прав для создания голосования' });
+      }
+      const cleanOptions = options.map((o) => o.trim()).filter(Boolean).slice(0, 8);
+      if (!title?.trim() || cleanOptions.length < 2) {
+        return socket.emit('chat:error', { message: 'Укажите название и минимум 2 варианта' });
+      }
+
+      const poll = await prisma.poll.create({
+        data: {
+          title: title.trim(),
+          createdById: socket.data.userId!,
+          options: { create: cleanOptions.map((label) => ({ label })) },
+        },
+        include: { options: { include: { votes: true } } },
+      });
+
+      const message = await prisma.chatMessage.create({
+        data: { authorId: socket.data.userId!, text: `📊 ${poll.title}`, pollId: poll.id },
+        include: { author: { select: { id: true, username: true, avatarUrl: true } } },
+      });
+
+      io.to('chat:global').emit('chat:message', { ...message, poll });
+    });
+
+    // Голос за вариант — один голос на весь опрос (повторный голос переносит на новый вариант)
+    socket.on('poll:vote', async ({ pollId, optionId }: { pollId: string; optionId: string }) => {
+      if (!socket.data.userId) {
+        return socket.emit('chat:error', { message: 'Войдите, чтобы голосовать' });
+      }
+      const pollOptions = await prisma.pollOption.findMany({ where: { pollId } });
+      const optionIds = pollOptions.map((o) => o.id);
+
+      // Снимаем предыдущий голос пользователя в этом опросе, если был, и ставим новый
+      await prisma.pollVote.deleteMany({ where: { userId: socket.data.userId, optionId: { in: optionIds } } });
+      await prisma.pollVote.create({ data: { optionId, userId: socket.data.userId } }).catch(() => {});
+
+      const updatedOptions = await prisma.pollOption.findMany({ where: { pollId }, include: { votes: true } });
+      io.to('chat:global').emit('poll:updated', { pollId, options: updatedOptions });
     });
 
     socket.on('disconnect', () => {

@@ -44,7 +44,7 @@ interface AuthState {
   isInitialized: boolean;
   error: string | null;
 
-  register: (data: { username: string; email: string; password: string; staticId: string }) => Promise<void>;
+  register: (data: { username: string; email: string; password: string; staticId: string; staticIdProofUrl?: string }) => Promise<void>;
   login: (data: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
