@@ -73,7 +73,7 @@ export default function HomePage() {
       <div
         className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8 overflow-hidden"
         style={{
-          background: 'radial-gradient(ellipse 80% 60% at 50% 40%,rgba(79,127,255,.07) 0%,var(--bg) 60%)',
+          background: 'var(--bg)',
           opacity: loaderOut ? 0 : 1,
           visibility: loaderOut ? 'hidden' : 'visible',
           pointerEvents: loaderOut ? 'none' : 'auto',
@@ -81,6 +81,12 @@ export default function HomePage() {
           transition: 'opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1), visibility 0.8s',
         }}
       >
+        {/* solid base + ambient radial tint, layered separately so corners always stay fully opaque */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 100% 100% at 50% 40%,rgba(79,127,255,.09) 0%,transparent 65%)' }}
+        />
+
         {/* ambient glow orbs */}
         <div
           className="absolute rounded-full pointer-events-none"
@@ -109,15 +115,43 @@ export default function HomePage() {
           />
         ))}
 
-        {/* TROPHY — dramatic entrance */}
+        {/* TROPHY — flies in huge from above, shrinks down, lands with impact bounce */}
         <div
           className="relative z-10"
           style={{
             opacity: 0,
-            transform: 'scale(0.4) translateY(30px) rotate(-12deg)',
-            animation: 'loaderTrophyIn 1s 0.15s cubic-bezier(.18,1.2,.3,1) forwards, trophyFloat 5s 1.2s ease-in-out infinite',
+            transform: 'translateY(-380px) scale(3.2) rotate(-25deg)',
+            animation: 'trophyDropIn 1.1s 0.1s cubic-bezier(.22,1,.36,1) forwards, trophyFloat 5s 1.3s ease-in-out infinite',
           }}
         >
+          {/* impact flash — bursts outward right as trophy lands */}
+          <div
+            className="absolute pointer-events-none rounded-full"
+            style={{
+              width: 40,
+              height: 40,
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%,-50%) scale(0)',
+              background: 'radial-gradient(circle,rgba(255,243,214,.9) 0%,rgba(201,149,74,.5) 40%,transparent 75%)',
+              animation: 'trophyImpactFlash 0.7s 0.7s ease-out forwards',
+            }}
+          />
+          {/* impact shockwave ring */}
+          <div
+            className="absolute pointer-events-none rounded-full"
+            style={{
+              width: 60,
+              height: 60,
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%,-50%) scale(0)',
+              border: '2px solid rgba(201,149,74,.7)',
+              opacity: 0,
+              animation: 'trophyShockwave 0.8s 0.7s ease-out forwards',
+            }}
+          />
+
           {/* rotating glow ring behind trophy */}
           <div
             className="absolute pointer-events-none"
@@ -129,7 +163,8 @@ export default function HomePage() {
               transform: 'translate(-50%,-50%)',
               borderRadius: '50%',
               border: '1px solid rgba(201,149,74,.25)',
-              animation: 'loaderRingSpin 8s linear infinite',
+              opacity: 0,
+              animation: 'loaderRingSpin 8s linear infinite, loaderFadeUp 0.5s 1.1s ease-out forwards',
             }}
           />
           <div
@@ -142,7 +177,8 @@ export default function HomePage() {
               transform: 'translate(-50%,-50%)',
               borderRadius: '50%',
               border: '1px dashed rgba(79,127,255,.2)',
-              animation: 'loaderRingSpin 12s linear infinite reverse',
+              opacity: 0,
+              animation: 'loaderRingSpin 12s linear infinite reverse, loaderFadeUp 0.5s 1.15s ease-out forwards',
             }}
           />
           <TrophyIcon size={120} />
