@@ -25,7 +25,11 @@ const LoginSchema = z.object({
 
 const ACCESS_COOKIE_OPTS = {
   httpOnly: true,
-  sameSite: 'lax' as const,
+  // Frontend и backend живут на разных поддоменах Railway — это cross-site запрос с точки зрения браузера.
+  // SameSite=Lax тихо блокирует такие cookie, из-за чего refresh_token никогда не доходил до сервера,
+  // и access-токен (живёт 15 минут) истекал без возможности автообновления.
+  // SameSite=None требует Secure=true — это уже обеспечено через HTTPS на Railway в продакшене.
+  sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
   secure: process.env.NODE_ENV === 'production',
   path: '/',
 };
