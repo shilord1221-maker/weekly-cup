@@ -129,14 +129,21 @@ async function main() {
   ];
 
   for (const cfg of mapsConfig) {
-    const existing = await prisma.gameMap.findFirst({ where: { name: cfg.name }, include: { zones: { orderBy: { createdAt: 'asc' } } } });
+    const existing = await prisma.gameMap.findFirst({ where: { name: cfg.name }, include: { zones: true } });
 
     if (existing) {
-      // Карта уже есть — обновляем названия зон на актуальные (порядок зон стабилен по createdAt),
+      // Сортируем зоны по координатам (row, col) — это надёжно восстанавливает исходный порядок создания,
+      // так как зоны создавались последовательно по индексу row*gridCols+col. Zone не имеет поля createdAt.
+      const sortedZones = [...existing.zones].sort((a, b) => {
+        const ca = (a.coordinates as { row: number; col: number } | null) ?? { row: 0, col: 0 };
+        const cb = (b.coordinates as { row: number; col: number } | null) ?? { row: 0, col: 0 };
+        return ca.row * 1000 + ca.col - (cb.row * 1000 + cb.col);
+      });
+      // Карта уже есть — обновляем названия зон на актуальные по порядку координат,
       // не трогая adjacencyMap/координаты, чтобы не сломать уже созданные матчи.
-      for (let i = 0; i < existing.zones.length && i < cfg.zoneNames.length; i++) {
-        if (existing.zones[i].name !== cfg.zoneNames[i]) {
-          await prisma.zone.update({ where: { id: existing.zones[i].id }, data: { name: cfg.zoneNames[i] } });
+      for (let i = 0; i < sortedZones.length && i < cfg.zoneNames.length; i++) {
+        if (sortedZones[i].name !== cfg.zoneNames[i]) {
+          await prisma.zone.update({ where: { id: sortedZones[i].id }, data: { name: cfg.zoneNames[i] } });
         }
       }
       console.log(`Map "${cfg.name}" already exists — zone names refreshed`);
