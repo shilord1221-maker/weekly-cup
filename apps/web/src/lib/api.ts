@@ -6,11 +6,15 @@ export class ApiClientError extends Error {
   code: string;
   status: number;
   issues?: Record<string, string[]>;
-  constructor(code: string, message: string, status: number, issues?: Record<string, string[]>) {
+  /** Полное тело ответа сервера — для случаев, когда нужны доп. поля сверх code/message/issues
+   *  (например amnestyRequestId при конфликте Static ID). */
+  body?: Record<string, unknown>;
+  constructor(code: string, message: string, status: number, issues?: Record<string, string[]>, body?: Record<string, unknown>) {
     super(message);
     this.code = code;
     this.status = status;
     this.issues = issues;
+    this.body = body;
   }
 }
 
@@ -61,7 +65,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
-    throw new ApiClientError(data?.error || 'UNKNOWN_ERROR', data?.message || 'Произошла ошибка', res.status, data?.issues);
+    throw new ApiClientError(data?.error || 'UNKNOWN_ERROR', data?.message || 'Произошла ошибка', res.status, data?.issues, data);
   }
 
   return data as T;

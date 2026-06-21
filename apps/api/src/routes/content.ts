@@ -22,7 +22,7 @@ const MediaSchema = z.object({
 
 export async function newsRoutes(app: FastifyInstance) {
   app.get('/api/news', async (req, reply) => {
-    const news = await prisma.news.findMany({ where: { published: true }, orderBy: { createdAt: 'desc' } });
+    const news = await prisma.news.findMany({ where: { published: true }, orderBy: { createdAt: 'desc' }, take: 100 });
     reply.send(news);
   });
 
@@ -61,7 +61,7 @@ export async function newsRoutes(app: FastifyInstance) {
 
 export async function mediaRoutes(app: FastifyInstance) {
   app.get('/api/media', async (req, reply) => {
-    const media = await prisma.media.findMany({ orderBy: { createdAt: 'desc' } });
+    const media = await prisma.media.findMany({ orderBy: { createdAt: 'desc' }, take: 100 });
     reply.send(media);
   });
 
@@ -115,6 +115,7 @@ export async function winsRoutes(app: FastifyInstance) {
     const wins = await prisma.win.findMany({
       where: { userId: id },
       orderBy: { createdAt: 'desc' },
+      take: 100,
       include: { match: { include: { map: true } }, team: true },
     });
     reply.send(wins);
@@ -122,7 +123,7 @@ export async function winsRoutes(app: FastifyInstance) {
 
   app.get('/api/achievements/:userId', async (req, reply) => {
     const { userId } = req.params as { userId: string };
-    const achievements = await prisma.achievement.findMany({ where: { userId }, orderBy: { earnedAt: 'desc' } });
+    const achievements = await prisma.achievement.findMany({ where: { userId }, orderBy: { earnedAt: 'desc' }, take: 100 });
     reply.send(achievements);
   });
 }

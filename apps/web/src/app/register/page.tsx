@@ -34,6 +34,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const register_ = useAuthStore((s) => s.register);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [proofMismatchError, setProofMismatchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const {
@@ -47,12 +48,24 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterForm) => {
     setServerError(null);
+    setProofMismatchError(null);
     setSubmitting(true);
     try {
       await register_({ ...data, staticIdProofUrl: data.staticIdProofUrl?.trim() || undefined });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
+        const amnestyId = e.body?.amnestyRequestId;
+        if (e.code === 'STATIC_ID_TAKEN' && typeof amnestyId === 'string') {
+          router.push(`/amnesty/${amnestyId}`);
+          return;
+        }
+        // Несовпадение Static ID со скрином — показываем прямо под полем Static ID,
+        // а не общим сообщением сверху формы, чтобы было сразу видно, что не так.
+        if (e.code === 'PROOF_MISMATCH') {
+          setProofMismatchError(e.message);
+          return;
+        }
         setServerError(e.message);
       } else {
         setServerError('Не удалось создать аккаунт. Попробуйте снова.');
@@ -131,11 +144,17 @@ export default function RegisterPage() {
               type="text"
               placeholder="например: 7741209"
               autoComplete="off"
-              className={`input-field ${errors.staticId ? 'error' : ''}`}
+              onChange={(e) => {
+                setProofMismatchError(null);
+                register('staticId').onChange(e);
+              }}
+              className={`input-field ${errors.staticId || proofMismatchError ? 'error' : ''}`}
             />
             {errors.staticId && <p className="error-text">{errors.staticId.message}</p>}
+            {proofMismatchError && <p className="error-text">{proofMismatchError}</p>}
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               Обязательное поле. Уникальный игровой идентификатор — используется для подтверждения участия в матчах.
+              {' '}Если указан скрин-пруф, этот номер должен совпадать с тем, что видно на скрине.
             </p>
           </div>
 

@@ -6,11 +6,12 @@ import rateLimit from '@fastify/rate-limit';
 import { Server as SocketServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { env } from '@/env.js';
-import { redisPub, redisSub } from '@/redis.js';
+import { redis, redisPub, redisSub } from '@/redis.js';
 import { registerSocketHandlers } from '@/sockets/index.js';
 import { createMatchEventsWorker } from '@/jobs/matchQueue.js';
 
 import { authRoutes } from '@/routes/auth.js';
+import { amnestyRoutes } from '@/routes/amnesty.js';
 import { matchRoutes } from '@/routes/matches.js';
 import { lobbyRoutes } from '@/routes/lobby.js';
 import { mapRoutes } from '@/routes/maps.js';
@@ -29,19 +30,23 @@ async function main() {
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, { origin: env.WEB_ORIGIN, credentials: true });
   await app.register(cookie);
-  await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
+  // Лимит привязан к Redis, а не к памяти процесса — иначе сбрасывается при каждом деплое
+  // и не работает корректно, если когда-нибудь будет больше одной реплики.
+  await app.register(rateLimit, { max: 200, timeWindow: '1 minute', redis });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
   // ───────── HTTP SERVER + SOCKET.IO ─────────
   const io = new SocketServer(app.server, {
     cors: { origin: env.WEB_ORIGIN, credentials: true },
+    maxHttpBufferSize: 16 * 1024, // 16KB — защита от мегабайтных payload в одном событии
   });
   io.adapter(createAdapter(redisPub, redisSub));
   registerSocketHandlers(io);
 
   // ───────── ROUTES ─────────
   await app.register(authRoutes);
+  await app.register(amnestyRoutes);
   await app.register((instance) => matchRoutes(instance, { io }));
   await app.register((instance) => lobbyRoutes(instance, { io }));
   await app.register(mapRoutes);

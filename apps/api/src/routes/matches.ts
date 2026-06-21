@@ -213,11 +213,20 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     const parsed = FinishSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
+    const matchWithLobby = await prisma.match.findUnique({ where: { id }, include: { lobby: true } });
+    if (!matchWithLobby?.lobby) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Матч или лобби не найдены' });
+
     const team = await prisma.team.findUnique({
       where: { id: parsed.data.winnerTeamId },
       include: { members: { include: { user: true } }, lobby: true },
     });
     if (!team) return reply.code(404).send({ error: 'TEAM_NOT_FOUND' });
+
+    // Команда обязательно должна принадлежать лобби именно этого матча — иначе можно было бы
+    // указать команду из чужого матча и записать победу не тем людям.
+    if (team.lobbyId !== matchWithLobby.lobby.id) {
+      return reply.code(400).send({ error: 'TEAM_NOT_IN_MATCH', message: 'Эта команда не принадлежит данному матчу' });
+    }
 
     const match = await prisma.match.update({
       where: { id },

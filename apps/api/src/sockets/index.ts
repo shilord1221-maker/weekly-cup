@@ -10,6 +10,31 @@ interface AuthedSocket extends Socket {
   };
 }
 
+/**
+ * Простой троттлер на уровне socket — HTTP rate-limit (@fastify/rate-limit) не покрывает
+ * WebSocket-события вообще, поэтому без этого любой клиент может слать chat:send/poll:vote
+ * без всякого ограничения и забить базу данных запросами в обход HTTP-лимита.
+ */
+function createThrottle(maxPerWindow: number, windowMs: number) {
+  const hits = new Map<string, number[]>();
+  return (key: string): boolean => {
+    const now = Date.now();
+    const arr = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+    if (arr.length >= maxPerWindow) {
+      hits.set(key, arr);
+      return false;
+    }
+    arr.push(now);
+    hits.set(key, arr);
+    return true;
+  };
+}
+
+const canSendChat = createThrottle(10, 10_000); // 10 сообщений за 10 секунд
+const canVote = createThrottle(15, 10_000);
+const canSubscribeLobby = createThrottle(20, 10_000);
+const canCreatePoll = createThrottle(5, 60_000);
+
 export function registerSocketHandlers(io: SocketServer) {
   io.use((socket: AuthedSocket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
@@ -36,6 +61,9 @@ export function registerSocketHandlers(io: SocketServer) {
 
     // ───────── LOBBY ROOM ─────────
     socket.on('lobby:subscribe', async ({ matchId }: { matchId: string }) => {
+      const throttleKey = socket.data.userId ?? socket.id;
+      if (!canSubscribeLobby(throttleKey)) return;
+
       socket.join(`lobby:${matchId}`);
       const lobby = await prisma.lobby.findUnique({
         where: { matchId },
@@ -81,6 +109,9 @@ export function registerSocketHandlers(io: SocketServer) {
       if (!socket.data.userId) {
         return socket.emit('chat:error', { message: 'Войдите, чтобы писать в чат' });
       }
+      if (!canSendChat(socket.data.userId)) {
+        return socket.emit('chat:error', { message: 'Слишком много сообщений, подождите немного' });
+      }
       const trimmed = text?.trim().slice(0, 500);
       if (!trimmed) return;
 
@@ -105,6 +136,9 @@ export function registerSocketHandlers(io: SocketServer) {
     socket.on('poll:create', async ({ title, options }: { title: string; options: string[] }) => {
       if (socket.data.role !== 'ADMIN' && socket.data.role !== 'OWNER') {
         return socket.emit('chat:error', { message: 'Недостаточно прав для создания голосования' });
+      }
+      if (!canCreatePoll(socket.data.userId!)) {
+        return socket.emit('chat:error', { message: 'Слишком много голосований, подождите немного' });
       }
       const cleanOptions = options.map((o) => o.trim()).filter(Boolean).slice(0, 8);
       if (!title?.trim() || cleanOptions.length < 2) {
@@ -132,6 +166,9 @@ export function registerSocketHandlers(io: SocketServer) {
     socket.on('poll:vote', async ({ pollId, optionId }: { pollId: string; optionId: string }) => {
       if (!socket.data.userId) {
         return socket.emit('chat:error', { message: 'Войдите, чтобы голосовать' });
+      }
+      if (!canVote(socket.data.userId)) {
+        return socket.emit('chat:error', { message: 'Слишком много голосов, подождите немного' });
       }
       const pollOptions = await prisma.pollOption.findMany({ where: { pollId } });
       const optionIds = pollOptions.map((o) => o.id);

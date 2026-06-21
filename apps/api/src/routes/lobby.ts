@@ -138,6 +138,15 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
     const lobby = await prisma.lobby.findUnique({ where: { matchId } });
     if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
 
+    // teamId должен принадлежать именно этому лобби — иначе игрока можно перенести
+    // в команду совершенно другого матча.
+    if (parsed.data.teamId) {
+      const team = await prisma.team.findUnique({ where: { id: parsed.data.teamId } });
+      if (!team || team.lobbyId !== lobby.id) {
+        return reply.code(400).send({ error: 'TEAM_NOT_IN_LOBBY', message: 'Эта команда не принадлежит данному лобби' });
+      }
+    }
+
     const updated = await prisma.lobbyMember.update({
       where: { lobbyId_userId: { lobbyId: lobby.id, userId: parsed.data.userId } },
       data: { teamId: parsed.data.teamId },
@@ -186,11 +195,21 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
   // ───────── SET VOICE URL (Organizer+) — Discord invite per team ─────────
   const VoiceSchema = z.object({ voiceUrl: z.string().url() });
   app.patch('/api/lobby/:matchId/voice-url/:teamId', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
-    const { teamId } = req.params as { matchId: string; teamId: string };
+    const { matchId, teamId } = req.params as { matchId: string; teamId: string };
     const parsed = VoiceSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Укажите корректную ссылку на Discord' });
 
-    const team = await prisma.team.update({ where: { id: teamId }, data: { voiceUrl: parsed.data.voiceUrl } });
-    reply.send(team);
+    const lobby = await prisma.lobby.findUnique({ where: { matchId } });
+    if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    // Команда должна принадлежать именно этому лобби — иначе можно было бы менять voice-ссылку
+    // произвольной команды другого матча, подобрав/угадав её id.
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team || team.lobbyId !== lobby.id) {
+      return reply.code(404).send({ error: 'TEAM_NOT_FOUND', message: 'Команда не найдена в этом лобби' });
+    }
+
+    const updated = await prisma.team.update({ where: { id: teamId }, data: { voiceUrl: parsed.data.voiceUrl } });
+    reply.send(updated);
   });
 }

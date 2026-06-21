@@ -51,6 +51,12 @@ enum ComplaintStatus {
   REJECTED
 }
 
+enum AmnestyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ───────────────────────── CORE ─────────────────────────
 
 model User {
@@ -85,6 +91,8 @@ model User {
   auditLogs        AuditLog[]
   refreshTokens    RefreshToken[]
   pollVotes        PollVote[]
+  amnestyConflicts AmnestyRequest[] @relation("AmnestyConflictUser")
+  amnestyReviews   AmnestyRequest[] @relation("AmnestyReviewer")
 
   @@index([role])
   @@index([isBanned])
@@ -242,6 +250,37 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+}
+
+// ───────────────────────── AMNESTY (конфликт Static ID при регистрации) ─────────────────────────
+
+model AmnestyRequest {
+  id     String        @id @default(uuid())
+  status AmnestyStatus @default(PENDING)
+
+  // Данные, с которыми человек пытался зарегистрироваться — нужны, чтобы создать аккаунт,
+  // если админ одобрит заявку (пароль уже хеширован на момент попытки регистрации).
+  username     String @db.VarChar(32)
+  email        String @db.VarChar(255)
+  passwordHash String
+  staticId     String @db.VarChar(64)
+  proofUrl     String?
+  detectedStaticId String? // что реально распознал ИИ на скрине (может отличаться от введённого)
+
+  // Аккаунт, с которым произошёл конфликт по Static ID
+  conflictUserId String?
+  conflictUser   User?   @relation("AmnestyConflictUser", fields: [conflictUserId], references: [id], onDelete: SetNull)
+
+  reviewerId String?
+  reviewer   User?   @relation("AmnestyReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  adminComment String? @db.VarChar(1000)
+
+  registrationIp String? @db.VarChar(64)
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+
+  @@index([status])
+  @@index([staticId])
 }
 
 // ───────────────────────── COMPLAINTS ─────────────────────────

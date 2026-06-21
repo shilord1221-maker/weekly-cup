@@ -38,6 +38,7 @@ export async function complaintRoutes(app: FastifyInstance, opts: { io: SocketSe
     const complaints = await prisma.complaint.findMany({
       where: isStaff ? {} : { authorId: req.user!.id },
       orderBy: { createdAt: 'desc' },
+      take: 200,
       include: {
         author: { select: { id: true, username: true } },
         reviewer: { select: { id: true, username: true } },
