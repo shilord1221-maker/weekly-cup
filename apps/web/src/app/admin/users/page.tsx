@@ -14,8 +14,8 @@ interface UserItem {
   staticIdProofUrl: string | null;
   isBanned: boolean;
   bannedReason: string | null;
-  registrationIp: string | null;
-  lastLoginIp: string | null;
+  registrationIp?: string | null;
+  lastLoginIp?: string | null;
   createdAt: string;
 }
 

@@ -84,10 +84,14 @@ export function registerSocketHandlers(io: SocketServer) {
       socket.leave(`lobby:${matchId}`);
     });
 
-    // ───────── GLOBAL CHAT ─────────
-    socket.on('chat:join', async () => {
-      socket.join('chat:global');
+    // ───────── CHAT (общий и в лобби — используют общую логику с разными "комнатами") ─────────
+    // chatRoom: 'chat:global' для общего чата, 'chat:lobby:<matchId>' для чата внутри конкретного лобби
+    socket.on('chat:join', async ({ matchId }: { matchId?: string } = {}) => {
+      const room = matchId ? `chat:lobby:${matchId}` : 'chat:global';
+      socket.join(room);
+
       const history = await prisma.chatMessage.findMany({
+        where: matchId ? { lobbyMatchId: matchId } : { lobbyMatchId: null },
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: { author: { select: { id: true, username: true, avatarUrl: true } } },
@@ -102,10 +106,14 @@ export function registerSocketHandlers(io: SocketServer) {
           return { ...msg, poll };
         })
       );
-      socket.emit('chat:history', withPolls.reverse());
+      socket.emit(matchId ? 'lobbyChat:history' : 'chat:history', withPolls.reverse());
     });
 
-    socket.on('chat:send', async ({ text }: { text: string }) => {
+    socket.on('chat:leave', ({ matchId }: { matchId?: string } = {}) => {
+      socket.leave(matchId ? `chat:lobby:${matchId}` : 'chat:global');
+    });
+
+    socket.on('chat:send', async ({ text, matchId }: { text: string; matchId?: string }) => {
       if (!socket.data.userId) {
         return socket.emit('chat:error', { message: 'Войдите, чтобы писать в чат' });
       }
@@ -116,20 +124,22 @@ export function registerSocketHandlers(io: SocketServer) {
       if (!trimmed) return;
 
       const message = await prisma.chatMessage.create({
-        data: { authorId: socket.data.userId, text: trimmed },
+        data: { authorId: socket.data.userId, text: trimmed, lobbyMatchId: matchId ?? null },
         include: { author: { select: { id: true, username: true, avatarUrl: true } } },
       });
 
-      io.to('chat:global').emit('chat:message', message);
+      const room = matchId ? `chat:lobby:${matchId}` : 'chat:global';
+      io.to(room).emit(matchId ? 'lobbyChat:message' : 'chat:message', message);
     });
 
-    // Удаление сообщения из общего чата — только Admin/Owner
-    socket.on('chat:delete', async ({ messageId }: { messageId: string }) => {
+    // Удаление сообщения — только Admin/Owner, работает и для общего чата, и для чата лобби
+    socket.on('chat:delete', async ({ messageId, matchId }: { messageId: string; matchId?: string }) => {
       if (socket.data.role !== 'ADMIN' && socket.data.role !== 'OWNER') {
         return socket.emit('chat:error', { message: 'Недостаточно прав для удаления сообщения' });
       }
       await prisma.chatMessage.delete({ where: { id: messageId } }).catch(() => {});
-      io.to('chat:global').emit('chat:message_deleted', { messageId });
+      const room = matchId ? `chat:lobby:${matchId}` : 'chat:global';
+      io.to(room).emit(matchId ? 'lobbyChat:message_deleted' : 'chat:message_deleted', { messageId });
     });
 
     // Создание голосования за карту/режим — только Admin/Owner, публикуется как сообщение в общем чате

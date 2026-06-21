@@ -12,7 +12,7 @@ interface AmnestyItem {
   staticId: string;
   proofUrl: string | null;
   detectedStaticId: string | null;
-  registrationIp: string | null;
+  registrationIp?: string | null;
   createdAt: string;
   conflictUser: { id: string; username: string; email: string; createdAt: string } | null;
   reviewer: { id: string; username: string } | null;

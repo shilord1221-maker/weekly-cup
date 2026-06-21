@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isOrganizerOrAbove, isAdminOrOwner } from '@/store/auth';
 import { useSocket } from '@/hooks/useSocket';
+import { ChatPanel } from '@/components/ChatPanel';
 
 interface Member {
   id: string;
@@ -653,6 +654,11 @@ export default function LobbyPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* ЧАТ ЛОББИ — отдельная комната от общего чата, доступна всем в этом матче */}
+      <div className="card mt-8">
+        <ChatPanel matchId={lobby.match.id} height="500px" title="Чат лобби" />
       </div>
     </div>
   );

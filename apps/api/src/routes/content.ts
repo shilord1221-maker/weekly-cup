@@ -157,6 +157,7 @@ export async function userRoutes(app: FastifyInstance) {
       include: { staticId: true },
       take: 200,
     });
+    const isOwner = req.user!.role === 'OWNER';
     reply.send(
       users.map((u) => ({
         id: u.id,
@@ -167,8 +168,8 @@ export async function userRoutes(app: FastifyInstance) {
         staticIdProofUrl: u.staticId?.proofUrl ?? null,
         isBanned: u.isBanned,
         bannedReason: u.bannedReason,
-        registrationIp: u.registrationIp,
-        lastLoginIp: u.lastLoginIp,
+        // IP-адреса видны только Owner — Admin и Organizer не должны иметь доступ к этим данным.
+        ...(isOwner ? { registrationIp: u.registrationIp, lastLoginIp: u.lastLoginIp } : {}),
         createdAt: u.createdAt,
       }))
     );

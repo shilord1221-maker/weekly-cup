@@ -15,7 +15,12 @@ export async function amnestyRoutes(app: FastifyInstance) {
         reviewer: { select: { id: true, username: true } },
       },
     });
-    reply.send(requests);
+
+    const isOwner = req.user!.role === 'OWNER';
+    reply.send(
+      // IP-адрес регистрации видят только Owner — у Admin его не должно быть даже в ответе API.
+      isOwner ? requests : requests.map(({ registrationIp, ...rest }) => rest)
+    );
   });
 
   // Статус конкретной заявки — публично доступен по id, чтобы фронт мог показать игроку

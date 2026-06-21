@@ -235,9 +235,12 @@ model ChatMessage {
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   text      String   @db.VarChar(500)
   pollId    String?  // если сообщение — это карточка голосования
+  // null — сообщение в общем чате; иначе — id матча, чьё лобби-чат содержит это сообщение
+  lobbyMatchId String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+  @@index([lobbyMatchId])
 }
 
 model Notification {
