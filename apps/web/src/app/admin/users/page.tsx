@@ -34,6 +34,9 @@ export default function AdminUsersPage() {
   const [banTargetId, setBanTargetId] = useState<string | null>(null);
   const [banReason, setBanReason] = useState('');
   const [banByIp, setBanByIp] = useState(false);
+  const [staticIdTarget, setStaticIdTarget] = useState<UserItem | null>(null);
+  const [staticIdInput, setStaticIdInput] = useState('');
+  const [staticIdError, setStaticIdError] = useState<string | null>(null);
   const isOwner = currentUser?.role === 'OWNER';
 
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
@@ -76,6 +79,18 @@ export default function AdminUsersPage() {
       qc.invalidateQueries({ queryKey: ['admin-users'] });
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : 'Не удалось разбанить пользователя');
+    }
+  };
+
+  const handleSaveStaticId = async () => {
+    if (!staticIdTarget) return;
+    setStaticIdError(null);
+    try {
+      await api.patch(`/users/${staticIdTarget.id}/static-id`, { staticId: staticIdInput.trim() });
+      setStaticIdTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setStaticIdError(e instanceof ApiClientError ? e.message : 'Не удалось изменить Static ID');
     }
   };
 
@@ -132,6 +147,21 @@ export default function AdminUsersPage() {
                       <a href={u.staticIdProofUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--a)' }}>
                         скрин-пруф
                       </a>
+                    </>
+                  )}
+                  {isOwner && (
+                    <>
+                      {' · '}
+                      <button
+                        onClick={() => {
+                          setStaticIdTarget(u);
+                          setStaticIdInput(u.staticId ?? '');
+                          setStaticIdError(null);
+                        }}
+                        style={{ color: 'var(--a)' }}
+                      >
+                        изменить Static ID
+                      </button>
                     </>
                   )}
                 </div>
@@ -202,6 +232,33 @@ export default function AdminUsersPage() {
               </button>
               <button onClick={handleBanConfirm} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
                 Забанить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STATIC ID MODAL — только Owner */}
+      {staticIdTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setStaticIdTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Изменить Static ID — {staticIdTarget.username}
+            </h2>
+            <label className="label-field">Новый Static ID</label>
+            <input
+              value={staticIdInput}
+              onChange={(e) => setStaticIdInput(e.target.value)}
+              className="input-field mb-3"
+              placeholder="например: 7741209"
+            />
+            {staticIdError && <p className="error-text mb-3">{staticIdError}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => setStaticIdTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleSaveStaticId} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Сохранить
               </button>
             </div>
           </div>

@@ -262,36 +262,6 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
-  // ───────── BIND / UPDATE STATIC ID ─────────
-  const StaticIdSchema = z.object({
-    staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
-  });
-
-  app.patch('/api/auth/static-id', { preHandler: requireAuth }, async (req, reply) => {
-    const parsed = StaticIdSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Некорректный Static ID' });
-    }
-
-    const taken = await prisma.staticId.findUnique({ where: { value: parsed.data.staticId } });
-    if (taken && taken.userId !== req.user!.id) {
-      return reply.code(409).send({ error: 'STATIC_ID_TAKEN', message: 'Этот Static ID уже привязан к другому аккаунту' });
-    }
-
-    const result = await prisma.staticId.upsert({
-      where: { userId: req.user!.id },
-      update: { value: parsed.data.staticId },
-      create: { userId: req.user!.id, value: parsed.data.staticId },
-    });
-
-    await logAudit({
-      actorId: req.user!.id,
-      action: 'STATIC_ID_UPDATED',
-      entityType: 'StaticId',
-      entityId: result.id,
-      payload: { value: parsed.data.staticId },
-    });
-
-    reply.send({ staticId: result.value });
-  });
+  // Static ID больше нельзя менять самому игроку — это закреплённый игровой идентификатор,
+  // изменить его может только Owner через админ-панель (см. PATCH /api/users/:id/static-id ниже).
 }

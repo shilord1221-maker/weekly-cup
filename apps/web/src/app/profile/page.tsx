@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { api, ApiClientError } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useAuthStore, roleLabel, type Role } from '@/store/auth';
 
 interface ProfileData {
@@ -21,34 +20,16 @@ interface ProfileData {
 export default function ProfilePage() {
   const { user, isInitialized } = useAuthStore();
   const router = useRouter();
-  const [editingStaticId, setEditingStaticId] = useState(false);
-  const [staticIdInput, setStaticIdInput] = useState('');
-  const [staticIdError, setStaticIdError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isInitialized && !user) router.push('/login');
   }, [isInitialized, user, router]);
 
-  const { data: profile, refetch } = useQuery<ProfileData>({
+  const { data: profile } = useQuery<ProfileData>({
     queryKey: ['profile'],
     queryFn: () => api.get('/profile'),
     enabled: !!user,
   });
-
-  const handleSaveStaticId = async () => {
-    setStaticIdError(null);
-    setSaving(true);
-    try {
-      await api.patch('/auth/static-id', { staticId: staticIdInput });
-      setEditingStaticId(false);
-      refetch();
-    } catch (e) {
-      setStaticIdError(e instanceof ApiClientError ? e.message : 'Не удалось сохранить Static ID');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (!user || !profile) {
     return (
@@ -79,41 +60,47 @@ export default function ProfilePage() {
 
       {/* STATIC ID */}
       <div className="card mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>
-            Static ID
-          </h2>
-          {!editingStaticId && (
-            <button
-              onClick={() => {
-                setEditingStaticId(true);
-                setStaticIdInput(profile.staticId?.value ?? '');
-              }}
-              className="text-xs font-medium"
-              style={{ color: 'var(--a)' }}
-            >
-              Изменить
-            </button>
-          )}
-        </div>
-
-        {!editingStaticId ? (
-          <p className="font-mono text-lg">{profile.staticId?.value ?? '— не привязан —'}</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <input value={staticIdInput} onChange={(e) => setStaticIdInput(e.target.value)} className="input-field" placeholder="Введите Static ID" />
-            {staticIdError && <p className="error-text">{staticIdError}</p>}
-            <div className="flex gap-2">
-              <button onClick={handleSaveStaticId} disabled={saving} className="btn-main" style={{ padding: '10px 20px', fontSize: '13px' }}>
-                Сохранить
-              </button>
-              <button onClick={() => setEditingStaticId(false)} className="btn-out" style={{ padding: '10px 20px', fontSize: '13px' }}>
-                Отмена
-              </button>
-            </div>
-          </div>
-        )}
+        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+          Static ID
+        </h2>
+        <p className="font-mono text-lg mb-2">{profile.staticId?.value ?? '— не привязан —'}</p>
+        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+          Static ID закреплён за аккаунтом и не может быть изменён самостоятельно. Если он указан неверно, обратитесь в{' '}
+          <Link href="/social" style={{ color: 'var(--a)' }}>
+            поддержку
+          </Link>
+          .
+        </p>
       </div>
+
+      {/* SUPPORT */}
+      <a
+        href="https://t.me/Weeklycupsupport"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="card mb-6 flex items-center justify-between gap-4 transition-all hover:translate-x-1"
+        style={{ textDecoration: 'none' }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(41,169,235,.1)', color: '#29a9eb' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-1.267 8.93-.156.93-.474 1.243-.748 1.27-.638.06-1.122-.422-1.74-.832-.964-.633-1.51-1.026-2.448-1.644-1.084-.717-.38-1.11.235-1.756.165-.17 3.026-2.78 3.082-3.012.007-.03.013-.14-.05-.197-.064-.06-.158-.038-.226-.022-.097.022-1.629 1.034-4.596 3.038-.434.299-.83.444-1.183.436-.39-.008-1.14-.222-1.698-.405-.685-.226-1.228-.346-1.182-.73.024-.2.297-.404.823-.612 3.232-1.408 5.387-2.336 6.464-2.785 3.078-1.274 3.717-1.494 4.135-1.502.092-.002.298.022.43.135.11.094.14.222.156.314.014.083.034.27.018.418z" />
+            </svg>
+          </div>
+          <div>
+            <div className="font-display font-semibold uppercase tracking-wider mb-0.5" style={{ fontSize: '14px', color: 'var(--text)' }}>
+              Поддержка
+            </div>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+              Вопросы по аккаунту, Static ID, спорные ситуации
+            </p>
+          </div>
+        </div>
+        <span style={{ color: 'var(--muted)' }}>→</span>
+      </a>
 
       {/* ACHIEVEMENTS */}
       <div className="card mb-6">

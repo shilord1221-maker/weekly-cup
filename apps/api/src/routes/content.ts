@@ -238,4 +238,46 @@ export async function userRoutes(app: FastifyInstance) {
     await logAudit({ actorId: req.user!.id, action: 'USER_UNBANNED', entityType: 'User', entityId: id });
     reply.send({ success: true });
   });
+
+  // Изменение Static ID игрока — строго Owner, не доступно даже Admin/Organizer.
+  // Static ID — это закреплённый игровой идентификатор, самостоятельная смена игроком запрещена.
+  const StaticIdSchema = z.object({
+    staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
+  });
+
+  app.patch('/api/users/:id/static-id', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только Owner может изменять Static ID' });
+    }
+
+    const { id } = req.params as { id: string };
+    const parsed = StaticIdSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Некорректный Static ID' });
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден' });
+
+    const taken = await prisma.staticId.findUnique({ where: { value: parsed.data.staticId } });
+    if (taken && taken.userId !== id) {
+      return reply.code(409).send({ error: 'STATIC_ID_TAKEN', message: 'Этот Static ID уже привязан к другому аккаунту' });
+    }
+
+    const result = await prisma.staticId.upsert({
+      where: { userId: id },
+      update: { value: parsed.data.staticId },
+      create: { userId: id, value: parsed.data.staticId },
+    });
+
+    await logAudit({
+      actorId: req.user!.id,
+      action: 'STATIC_ID_CHANGED_BY_OWNER',
+      entityType: 'StaticId',
+      entityId: result.id,
+      payload: { value: parsed.data.staticId, targetUserId: id },
+    });
+
+    reply.send({ staticId: result.value });
+  });
 }
