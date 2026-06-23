@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isAdminOrOwner } from '@/store/auth';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 interface MediaItem {
   id: string;
@@ -145,10 +146,7 @@ export default function MediaPage() {
             <label className="label-field">Ссылка на видео</label>
             <input value={url} onChange={(e) => setUrl(e.target.value)} className="input-field" placeholder="https://youtube.com/watch?v=..." />
           </div>
-          <div>
-            <label className="label-field">Ссылка на превью (необязательно)</label>
-            <input value={thumbUrl} onChange={(e) => setThumbUrl(e.target.value)} className="input-field" placeholder="https://..." />
-          </div>
+          <ImageUploadField label="Превью (необязательно)" value={thumbUrl} onChange={setThumbUrl} folder="media-thumbs" />
           <button type="submit" disabled={submitting} className="btn-main justify-center">
             {submitting ? 'Публикуем...' : 'Опубликовать'}
           </button>
@@ -229,8 +227,9 @@ export default function MediaPage() {
             </select>
             <label className="label-field">Ссылка на видео</label>
             <input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} className="input-field mb-3" />
-            <label className="label-field">Ссылка на превью</label>
-            <input value={editThumbUrl} onChange={(e) => setEditThumbUrl(e.target.value)} className="input-field mb-4" />
+            <div className="mb-4">
+              <ImageUploadField label="Превью" value={editThumbUrl} onChange={setEditThumbUrl} folder="media-thumbs" />
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setEditTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
                 Отмена

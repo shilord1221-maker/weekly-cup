@@ -102,3 +102,28 @@ export const api = {
     request<T>(path, { ...options, method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'DELETE' }),
 };
+
+/**
+ * Загружает файл на сервер через multipart/form-data. Отдельная функция, а не api.post —
+ * нельзя ставить Content-Type: application/json для файлового запроса, браузер сам
+ * проставляет правильный multipart boundary, когда тело — FormData.
+ */
+export async function uploadFile(file: File, folder: string): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('folder', folder);
+  formData.append('file', file);
+
+  const token = getAccessToken();
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiClientError(data?.error || 'UPLOAD_FAILED', data?.message || 'Не удалось загрузить файл', res.status, undefined, data);
+  }
+  return data as { url: string };
+}

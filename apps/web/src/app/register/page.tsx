@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuthStore } from '@/store/auth';
 import { ApiClientError } from '@/lib/api';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 // Ник и Static ID — обязательные поля. Без них форма не отправится.
 const RegisterSchema = z.object({
@@ -21,11 +22,6 @@ const RegisterSchema = z.object({
   staticId: z
     .string()
     .regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
-  staticIdProofUrl: z
-    .string()
-    .trim()
-    .optional()
-    .refine((v) => !v || /^https?:\/\/.+/.test(v), 'Укажите корректную ссылку на скриншот'),
 });
 
 type RegisterForm = z.infer<typeof RegisterSchema>;
@@ -35,6 +31,7 @@ export default function RegisterPage() {
   const register_ = useAuthStore((s) => s.register);
   const [serverError, setServerError] = useState<string | null>(null);
   const [proofMismatchError, setProofMismatchError] = useState<string | null>(null);
+  const [staticIdProofUrl, setStaticIdProofUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const {
@@ -51,7 +48,7 @@ export default function RegisterPage() {
     setProofMismatchError(null);
     setSubmitting(true);
     try {
-      await register_({ ...data, staticIdProofUrl: data.staticIdProofUrl?.trim() || undefined });
+      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim() || undefined });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
@@ -158,20 +155,13 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          <div>
-            <label className="label-field">Скриншот-пруф Static ID (необязательно)</label>
-            <input
-              {...register('staticIdProofUrl')}
-              type="text"
-              placeholder="ссылка на скриншот, например через yapix.ru"
-              autoComplete="off"
-              className={`input-field ${errors.staticIdProofUrl ? 'error' : ''}`}
-            />
-            {errors.staticIdProofUrl && <p className="error-text">{errors.staticIdProofUrl.message}</p>}
-            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-              Загрузите скрин на любой хостинг изображений (например yapix.ru) и вставьте ссылку сюда — это ускорит проверку при спорах.
-            </p>
-          </div>
+          <ImageUploadField
+            label="Скриншот-пруф Static ID (необязательно)"
+            value={staticIdProofUrl}
+            onChange={setStaticIdProofUrl}
+            folder="static-id-proofs"
+            helperText="Загрузите скрин с вашим Static ID — это ускорит проверку при спорах."
+          />
 
           <button type="submit" disabled={submitting} className="btn-main justify-center mt-2">
             {submitting ? 'Создаём аккаунт...' : 'Создать аккаунт'}

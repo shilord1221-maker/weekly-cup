@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import { Server as SocketServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { env } from '@/env.js';
@@ -17,6 +18,7 @@ import { lobbyRoutes } from '@/routes/lobby.js';
 import { mapRoutes } from '@/routes/maps.js';
 import { complaintRoutes } from '@/routes/complaints.js';
 import { newsRoutes, mediaRoutes, profileRoutes, winsRoutes, auditRoutes, userRoutes } from '@/routes/content.js';
+import { uploadRoutes } from '@/routes/upload.js';
 
 async function main() {
   const app = Fastify({
@@ -30,6 +32,9 @@ async function main() {
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, { origin: env.WEB_ORIGIN, credentials: true });
   await app.register(cookie);
+  // Лимит файла — 8MB, совпадает с пределом в storage.ts; защищает от гигантских multipart-запросов
+  // ещё на уровне парсинга, до того как файл попадёт в код обработчика.
+  await app.register(multipart, { limits: { fileSize: 8 * 1024 * 1024 } });
   // Лимит привязан к Redis, а не к памяти процесса — иначе сбрасывается при каждом деплое
   // и не работает корректно, если когда-нибудь будет больше одной реплики.
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute', redis });
@@ -46,6 +51,7 @@ async function main() {
 
   // ───────── ROUTES ─────────
   await app.register(authRoutes);
+  await app.register(uploadRoutes);
   await app.register(amnestyRoutes);
   await app.register((instance) => matchRoutes(instance, { io }));
   await app.register((instance) => lobbyRoutes(instance, { io }));

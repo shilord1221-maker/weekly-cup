@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiClientError } from '@/lib/api';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 const GRID_SIZE = 5;
 
 export default function CreateMapPage() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [imageUrl, setImageUrl] = useState('https://placehold.co/800x800/0b1022/e8ecf8?text=New+Map');
+  const [imageUrl, setImageUrl] = useState('');
   const [zoneNames, setZoneNames] = useState<string[]>(Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => `Зона ${i + 1}`));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -21,6 +22,10 @@ export default function CreateMapPage() {
   const handleCreateMap = async () => {
     if (!name.trim()) {
       setError('Укажите название карты');
+      return;
+    }
+    if (!imageUrl.trim()) {
+      setError('Загрузите изображение карты');
       return;
     }
     setStep('zones');
@@ -83,10 +88,7 @@ export default function CreateMapPage() {
             <label className="label-field">Название карты</label>
             <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder="Например: Erangel" />
           </div>
-          <div>
-            <label className="label-field">URL изображения</label>
-            <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="input-field" />
-          </div>
+          <ImageUploadField label="Изображение карты" value={imageUrl} onChange={setImageUrl} folder="map-images" required />
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
             На следующем шаге вы зададите названия зон 5×5 — соседство (adjacencyMap) рассчитается автоматически по сетке.
           </p>
