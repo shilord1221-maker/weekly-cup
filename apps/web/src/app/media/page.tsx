@@ -24,6 +24,7 @@ export default function MediaPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const canPublish = isAdminOrOwner(user?.role);
+  const isOwner = user?.role === 'OWNER';
 
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -32,6 +33,14 @@ export default function MediaPage() {
   const [thumbUrl, setThumbUrl] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<MediaItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editType, setEditType] = useState('youtube');
+  const [editUrl, setEditUrl] = useState('');
+  const [editThumbUrl, setEditThumbUrl] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const { data: media, isLoading } = useQuery<MediaItem[]>({
     queryKey: ['media'],
@@ -57,6 +66,44 @@ export default function MediaPage() {
       setServerError(e instanceof ApiClientError ? e.message : 'Не удалось добавить медиа');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEdit = (item: MediaItem, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditTarget(item);
+    setEditTitle(item.title);
+    setEditType(item.type);
+    setEditUrl(item.url);
+    setEditThumbUrl(item.thumbUrl ?? '');
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    setEditError(null);
+    setEditSaving(true);
+    try {
+      await api.patch(`/media/${editTarget.id}`, { title: editTitle, type: editType, url: editUrl, thumbUrl: editThumbUrl || undefined });
+      setEditTarget(null);
+      qc.invalidateQueries({ queryKey: ['media'] });
+    } catch (e) {
+      setEditError(e instanceof ApiClientError ? e.message : 'Не удалось сохранить изменения');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string, mediaTitle: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Удалить «${mediaTitle}»? Это действие нельзя отменить.`)) return;
+    try {
+      await api.delete(`/media/${id}`);
+      qc.invalidateQueries({ queryKey: ['media'] });
+    } catch (e) {
+      alert(e instanceof ApiClientError ? e.message : 'Не удалось удалить медиа');
     }
   };
 
@@ -112,32 +159,89 @@ export default function MediaPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {media?.map((item) => (
-          <a
-            key={item.id}
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-2xl overflow-hidden transition-transform hover:-translate-y-1"
-            style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}
-          >
-            <div className="aspect-video w-full flex items-center justify-center" style={{ background: 'var(--surface2)' }}>
-              {item.thumbUrl ? (
-                <img src={item.thumbUrl} alt={item.title} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-3xl">▶️</span>
-              )}
-            </div>
-            <div className="p-4">
-              <div className="font-medium text-sm mb-1">{item.title}</div>
-              <span className="font-mono text-[10px] uppercase" style={{ color: 'var(--muted)' }}>
-                {item.type}
-              </span>
-            </div>
-          </a>
+          <div key={item.id} className="relative group">
+            {isOwner && (
+              <div className="absolute top-2 right-2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => openEdit(item, e)}
+                  className="text-[10px] font-medium px-2.5 py-1 rounded-md"
+                  style={{ background: 'rgba(8,13,26,.85)', color: 'var(--a)', border: '1px solid var(--border2)' }}
+                >
+                  изменить
+                </button>
+                <button
+                  onClick={(e) => handleDelete(item.id, item.title, e)}
+                  className="text-[10px] font-medium px-2.5 py-1 rounded-md"
+                  style={{ background: 'rgba(8,13,26,.85)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}
+                >
+                  удалить
+                </button>
+              </div>
+            )}
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-2xl overflow-hidden transition-transform hover:-translate-y-1"
+              style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}
+            >
+              <div className="aspect-video w-full flex items-center justify-center" style={{ background: 'var(--surface2)' }}>
+                {item.thumbUrl ? (
+                  <img src={item.thumbUrl} alt={item.title} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl">▶️</span>
+                )}
+              </div>
+              <div className="p-4">
+                <div className="font-medium text-sm mb-1">{item.title}</div>
+                <span className="font-mono text-[10px] uppercase" style={{ color: 'var(--muted)' }}>
+                  {item.type}
+                </span>
+              </div>
+            </a>
+          </div>
         ))}
       </div>
 
       {!isLoading && (!media || media.length === 0) && <p style={{ color: 'var(--muted)' }}>Медиа пока не загружено.</p>}
+
+      {/* EDIT MODAL — только Owner */}
+      {editTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setEditTarget(null)}>
+          <div className="card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Редактировать медиа
+            </h2>
+            {editError && (
+              <div className="text-sm rounded-lg px-4 py-3 mb-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+                {editError}
+              </div>
+            )}
+            <label className="label-field">Название</label>
+            <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="input-field mb-3" />
+            <label className="label-field">Тип</label>
+            <select value={editType} onChange={(e) => setEditType(e.target.value)} className="input-field mb-3">
+              {MEDIA_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <label className="label-field">Ссылка на видео</label>
+            <input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} className="input-field mb-3" />
+            <label className="label-field">Ссылка на превью</label>
+            <input value={editThumbUrl} onChange={(e) => setEditThumbUrl(e.target.value)} className="input-field mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => setEditTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleSaveEdit} disabled={editSaving} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {editSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

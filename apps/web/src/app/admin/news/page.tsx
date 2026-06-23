@@ -6,11 +6,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { api, ApiClientError } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
 
 interface NewsItem {
   id: string;
   slug: string;
   title: string;
+  excerpt: string | null;
+  body: string;
   published: boolean;
   createdAt: string;
 }
@@ -28,7 +31,16 @@ type NewsForm = z.infer<typeof NewsSchema>;
 
 export default function AdminNewsPage() {
   const qc = useQueryClient();
+  const { user } = useAuthStore();
+  const isOwner = user?.role === 'OWNER';
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const [editTarget, setEditTarget] = useState<NewsItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editExcerpt, setEditExcerpt] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const { data: news, isLoading } = useQuery<NewsItem[]>({
     queryKey: ['admin-news'],
@@ -61,6 +73,29 @@ export default function AdminNewsPage() {
       qc.invalidateQueries({ queryKey: ['admin-news'] });
     } catch (e) {
       setServerError(e instanceof ApiClientError ? e.message : 'Не удалось удалить новость');
+    }
+  };
+
+  const openEdit = (item: NewsItem) => {
+    setEditTarget(item);
+    setEditTitle(item.title);
+    setEditExcerpt(item.excerpt ?? '');
+    setEditBody(item.body);
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    setEditError(null);
+    setEditSaving(true);
+    try {
+      await api.patch(`/news/${editTarget.id}`, { title: editTitle, excerpt: editExcerpt || undefined, body: editBody });
+      setEditTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin-news'] });
+    } catch (e) {
+      setEditError(e instanceof ApiClientError ? e.message : 'Не удалось сохранить изменения');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -112,23 +147,64 @@ export default function AdminNewsPage() {
       {isLoading && <p style={{ color: 'var(--muted)' }}>Загрузка...</p>}
       <div className="flex flex-col gap-2">
         {news?.map((n) => (
-          <div key={n.id} className="flex items-center justify-between px-5 py-3 rounded-lg text-sm" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+          <div key={n.id} className="flex items-center justify-between px-5 py-3 rounded-lg text-sm flex-wrap gap-2" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
             <span>{n.title}</span>
             <div className="flex items-center gap-3">
               <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
                 {new Date(n.createdAt).toLocaleDateString('ru-RU')}
               </span>
-              <button
-                onClick={() => handleDelete(n.id, n.title)}
-                className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
-                style={{ color: '#f87171', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}
-              >
-                Удалить
-              </button>
+              {isOwner && (
+                <>
+                  <button
+                    onClick={() => openEdit(n)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                    style={{ color: 'var(--a)', background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.18)' }}
+                  >
+                    Изменить
+                  </button>
+                  <button
+                    onClick={() => handleDelete(n.id, n.title)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                    style={{ color: '#f87171', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}
+                  >
+                    Удалить
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* EDIT MODAL — только Owner */}
+      {editTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setEditTarget(null)}>
+          <div className="card max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Редактировать новость
+            </h2>
+            {editError && (
+              <div className="text-sm rounded-lg px-4 py-3 mb-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+                {editError}
+              </div>
+            )}
+            <label className="label-field">Заголовок</label>
+            <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="input-field mb-3" />
+            <label className="label-field">Краткое описание</label>
+            <input value={editExcerpt} onChange={(e) => setEditExcerpt(e.target.value)} className="input-field mb-3" />
+            <label className="label-field">Текст</label>
+            <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={6} className="input-field mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => setEditTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleSaveEdit} disabled={editSaving} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {editSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

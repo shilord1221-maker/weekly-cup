@@ -42,13 +42,26 @@ export async function newsRoutes(app: FastifyInstance) {
     reply.code(201).send(news);
   });
 
-  app.patch('/api/news/:id', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+  app.patch('/api/news/:id', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Редактировать новости может только Owner' });
+    }
     const { id } = req.params as { id: string };
-    const news = await prisma.news.update({ where: { id }, data: req.body as any });
+    const parsed = NewsSchema.partial().safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', issues: parsed.error.flatten().fieldErrors });
+
+    const existing = await prisma.news.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const news = await prisma.news.update({ where: { id }, data: parsed.data });
+    await logAudit({ actorId: req.user!.id, action: 'NEWS_UPDATED', entityType: 'News', entityId: id, payload: parsed.data });
     reply.send(news);
   });
 
-  app.delete('/api/news/:id', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+  app.delete('/api/news/:id', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Удалять новости может только Owner' });
+    }
     const { id } = req.params as { id: string };
     const news = await prisma.news.findUnique({ where: { id } });
     if (!news) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Новость не найдена' });
@@ -72,6 +85,36 @@ export async function mediaRoutes(app: FastifyInstance) {
     const media = await prisma.media.create({ data: parsed.data });
     await logAudit({ actorId: req.user!.id, action: 'MEDIA_CREATED', entityType: 'Media', entityId: media.id });
     reply.code(201).send(media);
+  });
+
+  // Редактирование и удаление медиа — строго Owner (намеренно строже, чем создание, которое доступно Admin)
+  app.patch('/api/media/:id', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Редактировать медиа может только Owner' });
+    }
+    const { id } = req.params as { id: string };
+    const parsed = MediaSchema.partial().safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const existing = await prisma.media.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const media = await prisma.media.update({ where: { id }, data: parsed.data });
+    await logAudit({ actorId: req.user!.id, action: 'MEDIA_UPDATED', entityType: 'Media', entityId: id, payload: parsed.data });
+    reply.send(media);
+  });
+
+  app.delete('/api/media/:id', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Удалять медиа может только Owner' });
+    }
+    const { id } = req.params as { id: string };
+    const existing = await prisma.media.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Медиа не найдено' });
+
+    await prisma.media.delete({ where: { id } });
+    await logAudit({ actorId: req.user!.id, action: 'MEDIA_DELETED', entityType: 'Media', entityId: id, payload: { title: existing.title } });
+    reply.send({ success: true });
   });
 }
 
