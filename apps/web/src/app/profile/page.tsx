@@ -17,6 +17,8 @@ interface ProfileData {
   discordUsername: string | null;
   discordAvatar: string | null;
   discordLinkedAt: string | null;
+  referralCode: string;
+  referralCount: number;
   achievements: { id: string; title: string; earnedAt: string }[];
   wins: { id: string; createdAt: string; match: { map: { name: string } } }[];
 }
@@ -53,6 +55,7 @@ function ProfilePageContent() {
   const [discordActionError, setDiscordActionError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
+  const [referralCopied, setReferralCopied] = useState(false);
 
   useEffect(() => {
     if (isInitialized && !user) router.push('/login');
@@ -115,6 +118,8 @@ function ProfilePageContent() {
       </div>
     );
   }
+
+  const referralLink = typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${profile.referralCode}` : `/register?ref=${profile.referralCode}`;
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -191,6 +196,37 @@ function ProfilePageContent() {
         )}
 
         {discordActionError && <p className="error-text mt-3">{discordActionError}</p>}
+      </div>
+
+      {/* REFERRAL */}
+      <div className="card mb-6">
+        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+          Реферальная ссылка
+        </h2>
+        <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+          Приведено игроков: <strong style={{ color: 'var(--text)' }}>{profile.referralCount}</strong>
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            readOnly
+            value={referralLink}
+            onFocus={(e) => e.target.select()}
+            className="input-field flex-1"
+            style={{ minWidth: '220px' }}
+          />
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(referralLink).then(() => {
+                setReferralCopied(true);
+                setTimeout(() => setReferralCopied(false), 2000);
+              });
+            }}
+            className="btn-out flex-shrink-0"
+            style={{ padding: '10px 18px', fontSize: '13px' }}
+          >
+            {referralCopied ? 'Скопировано ✓' : 'Скопировать'}
+          </button>
+        </div>
       </div>
 
       {/* STATIC ID */}

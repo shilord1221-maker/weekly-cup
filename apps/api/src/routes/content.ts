@@ -133,13 +133,15 @@ export async function profileRoutes(app: FastifyInstance) {
         discordUsername: true,
         discordAvatar: true,
         discordLinkedAt: true,
+        referralCode: true,
         staticId: true,
         achievements: { orderBy: { earnedAt: 'desc' } },
         wins: { include: { match: { include: { map: true } } }, orderBy: { createdAt: 'desc' }, take: 20 },
+        _count: { select: { referrals: true } },
       },
     });
     if (!user) return reply.code(404).send({ error: 'NOT_FOUND' });
-    reply.send(user);
+    reply.send({ ...user, referralCount: user._count.referrals });
   });
 
   app.patch('/api/profile', { preHandler: requireAuth }, async (req, reply) => {
@@ -336,5 +338,32 @@ export async function userRoutes(app: FastifyInstance) {
     });
 
     reply.send({ staticId: result.value });
+  });
+
+  // Реферальный топ — кто привёл больше всего игроков. Видят Admin/Owner (через requireRole иерархию).
+  app.get('/api/users/referral-leaderboard', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const referrers = await prisma.user.groupBy({
+      by: ['referredById'],
+      where: { referredById: { not: null } },
+      _count: { referredById: true },
+    });
+
+    const referrerIds = referrers.map((r) => r.referredById).filter((id): id is string => !!id);
+    const referrerUsers = await prisma.user.findMany({
+      where: { id: { in: referrerIds } },
+      select: { id: true, username: true, role: true, referralCode: true, createdAt: true },
+    });
+    const userById = new Map(referrerUsers.map((u) => [u.id, u]));
+
+    const leaderboard = referrers
+      .map((r) => {
+        const u = userById.get(r.referredById!);
+        if (!u) return null;
+        return { id: u.id, username: u.username, role: u.role, referralCode: u.referralCode, referredAt: u.createdAt, count: r._count.referredById };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null)
+      .sort((a, b) => b.count - a.count);
+
+    reply.send(leaderboard);
   });
 }

@@ -23,14 +23,19 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
 
   try {
     const payload = verifyAccessToken(token);
-    req.user = { id: payload.sub, role: payload.role, username: payload.username };
 
-    // Проверяем бан на каждый запрос — иначе уже забаненный пользователь работает до истечения
-    // access-токена (до 15 минут), а не сразу теряет доступ.
-    const dbUser = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isBanned: true, bannedReason: true } });
-    if (dbUser?.isBanned) {
+    // Роль и бан-статус берём из БД, а не из самого JWT — иначе при повышении до
+    // Organizer/Admin/Owner пользователь продолжал бы получать 403 до тех пор,
+    // пока не разлогинится и не зайдёт заново (старый токен ещё несёт прежнюю роль).
+    const dbUser = await prisma.user.findUnique({ where: { id: payload.sub }, select: { role: true, isBanned: true, bannedReason: true } });
+    if (!dbUser) {
+      return reply.code(401).send({ error: 'INVALID_TOKEN', message: 'Пользователь не найден' });
+    }
+    if (dbUser.isBanned) {
       return reply.code(403).send({ error: 'BANNED', message: dbUser.bannedReason ? `Вы заблокированы: ${dbUser.bannedReason}` : 'Ваш аккаунт заблокирован' });
     }
+
+    req.user = { id: payload.sub, role: dbUser.role, username: payload.username };
   } catch {
     return reply.code(401).send({ error: 'INVALID_TOKEN', message: 'Токен недействителен или истёк' });
   }

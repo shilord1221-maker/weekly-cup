@@ -9,13 +9,26 @@ import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchT
 import { syncVoiceRole } from '@/services/discordBot.js';
 import type { Server as SocketServer } from 'socket.io';
 
-const CreateMatchSchema = z.object({
-  mapId: z.string().uuid(),
-  mode: z.enum(['MODE_2X2', 'MODE_3X3', 'MODE_4X4', 'MODE_5X5']),
-  startTime: z.string().datetime(), // ISO UTC string from client
-  teamCount: z.coerce.number().int().min(2).max(16).default(4),
-  zoneIds: z.array(z.string().uuid()).optional(), // зоны можно выбрать сразу при создании матча
-});
+// Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно).
+const MODE_TEAM_LIMITS: Record<string, number> = {
+  MODE_2X2: 24,
+  MODE_3X3: 16,
+  MODE_4X4: 12,
+  MODE_5X5: 10,
+};
+
+const CreateMatchSchema = z
+  .object({
+    mapId: z.string().uuid(),
+    mode: z.enum(['MODE_2X2', 'MODE_3X3', 'MODE_4X4', 'MODE_5X5']),
+    startTime: z.string().datetime(), // ISO UTC string from client
+    teamCount: z.coerce.number().int().min(2).max(24).default(4),
+    zoneIds: z.array(z.string().uuid()).optional(), // зоны можно выбрать сразу при создании матча
+  })
+  .refine((data) => data.teamCount <= (MODE_TEAM_LIMITS[data.mode] ?? 24), {
+    message: 'Превышен лимит команд для выбранного режима',
+    path: ['teamCount'],
+  });
 
 const ZonesSchema = z.object({
   zoneIds: z.array(z.string().uuid()).min(1),

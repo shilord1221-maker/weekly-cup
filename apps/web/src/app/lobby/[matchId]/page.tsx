@@ -106,7 +106,9 @@ export default function LobbyPage() {
       const gain = ctx.createGain();
       osc.frequency.value = freq;
       osc.type = 'sine';
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      // Громкость поднята с 0.15 до 0.45 — звук должен быть отчётливо слышен, чтобы люди
+      // не пропускали момент открытия финальной зоны, даже если свёрнули вкладку/окно.
+      gain.gain.setValueAtTime(0.45, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -210,6 +212,27 @@ export default function LobbyPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, socket]);
+
+  // Голосовое озвучивание финальной зоны — чтобы игроки не пропускали момент,
+  // даже если свернули вкладку или альтабнулись в игру и не смотрят на экран.
+  const announcedZoneIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const finalZone = lobby?.match.finalZone;
+    if (!finalZone || announcedZoneIdRef.current === finalZone.id) return;
+    announcedZoneIdRef.current = finalZone.id;
+
+    try {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return;
+      const utterance = new SpeechSynthesisUtterance(`Финальная зона: ${finalZone.name}`);
+      utterance.lang = 'ru-RU';
+      utterance.rate = 1;
+      utterance.volume = 1;
+      window.speechSynthesis.cancel(); // обрываем предыдущую фразу, если она ещё звучит
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Web Speech API недоступен в этом браузере — молча игнорируем, звуковые сигналы (playBeep) всё равно сработают
+    }
+  }, [lobby?.match.finalZone]);
 
   const myMembership =
     lobby?.teams.flatMap((t) => t.members.map((m) => ({ ...m, teamId: t.id }))).find((m) => m.userId === user?.id) ??

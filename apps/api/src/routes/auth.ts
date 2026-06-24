@@ -6,6 +6,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken, refreshTokenExpi
 import { requireAuth } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
 import { verifyStaticIdProof } from '@/services/proofCheck.js';
+import { generateUniqueReferralCode } from '@/services/referral.js';
 
 // Ник и Static ID — обязательные поля при регистрации.
 const RegisterSchema = z.object({
@@ -18,6 +19,7 @@ const RegisterSchema = z.object({
   password: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
   staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
   staticIdProofUrl: z.string().url('Укажите ссылку на скриншот (например, через yapix)').optional(),
+  referralCode: z.string().max(16).optional(),
 });
 
 const LoginSchema = z.object({
@@ -113,6 +115,15 @@ export async function authRoutes(app: FastifyInstance) {
 
       const passwordHash = await argon2.hash(password);
 
+      // Реферал — ищем по коду, если он был передан (например через ?ref=ABCD1234 на странице регистрации).
+      // Неверный/несуществующий код не блокирует регистрацию — просто пользователь считается «без реферала».
+      let referredById: string | null = null;
+      if (parsed.data.referralCode) {
+        const referrer = await prisma.user.findUnique({ where: { referralCode: parsed.data.referralCode.toUpperCase() }, select: { id: true } });
+        referredById = referrer?.id ?? null;
+      }
+      const referralCode = await generateUniqueReferralCode();
+
       const user = await prisma.user.create({
         data: {
           username,
@@ -121,6 +132,8 @@ export async function authRoutes(app: FastifyInstance) {
           role: 'PLAYER',
           registrationIp: clientIp,
           lastLoginIp: clientIp,
+          referralCode,
+          referredById,
           staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl ?? null } },
         },
         include: { staticId: true },

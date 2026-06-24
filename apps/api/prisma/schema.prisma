@@ -88,6 +88,13 @@ model User {
   // какую роль снимать, даже если discord_id или состояние команды изменилось между запросами.
   discordCurrentVoiceRole String? @db.VarChar(64)
 
+  // Реферальная система — у каждого пользователя есть свой неизменный код для приглашений.
+  // referredById — кто привёл этого пользователя (null для тех, кто пришёл сам, без ссылки).
+  referralCode String  @unique @db.VarChar(16)
+  referredById String?
+  referredBy   User?   @relation("ReferralTree", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals    User[]  @relation("ReferralTree")
+
   staticId        StaticId?
   organizedMatches Match[]        @relation("OrganizerMatches")
   lobbyMemberships LobbyMember[]
@@ -108,6 +115,7 @@ model User {
   @@index([isBanned])
   @@index([registrationIp])
   @@index([discordId])
+  @@index([referredById])
 }
 
 model RefreshToken {

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,13 +26,31 @@ const RegisterSchema = z.object({
 
 type RegisterForm = z.infer<typeof RegisterSchema>;
 
+// useSearchParams() требует Suspense-границу в Next.js App Router при статической генерации.
 export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+          <p style={{ color: 'var(--muted)' }}>Загрузка...</p>
+        </div>
+      }
+    >
+      <RegisterFormContent />
+    </Suspense>
+  );
+}
+
+function RegisterFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const register_ = useAuthStore((s) => s.register);
   const [serverError, setServerError] = useState<string | null>(null);
   const [proofMismatchError, setProofMismatchError] = useState<string | null>(null);
   const [staticIdProofUrl, setStaticIdProofUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Реферальный код из ссылки вида /register?ref=ABCD1234 — передаём его на сервер при регистрации.
+  const referralCode = searchParams.get('ref') ?? undefined;
 
   const {
     register,
@@ -48,7 +66,7 @@ export default function RegisterPage() {
     setProofMismatchError(null);
     setSubmitting(true);
     try {
-      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim() || undefined });
+      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim() || undefined, referralCode });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
@@ -134,7 +152,7 @@ export default function RegisterPage() {
 
           <div>
             <label className="label-field">
-              Static ID <span style={{ color: 'var(--a)' }}>*</span>
+              Static ID на сервере MCL <span style={{ color: 'var(--a)' }}>*</span>
             </label>
             <input
               {...register('staticId')}

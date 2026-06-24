@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
+import { MODE_TEAM_LIMITS, VOICE_CHANNELS_BY_MODE } from '@/lib/discordVoiceChannels';
 
 interface Zone {
   id: string;
@@ -25,26 +26,6 @@ const MODE_OPTIONS = [
   { value: 'MODE_3X3', label: '3×3' },
   { value: 'MODE_4X4', label: '4×4' },
   { value: 'MODE_5X5', label: '5×5' },
-];
-
-// Готовые voice-каналы Discord — организатор назначает прямо при создании матча.
-const VOICE_CHANNELS = [
-  { label: 'Voice 1', url: 'https://discord.com/channels/1503166605855690793/1503166606497284222' },
-  { label: 'Voice 2', url: 'https://discord.com/channels/1503166605855690793/1512570070889398363' },
-  { label: 'Voice 3', url: 'https://discord.com/channels/1503166605855690793/1512570127223226478' },
-  { label: 'Voice 4', url: 'https://discord.com/channels/1503166605855690793/1512570190368346183' },
-  { label: 'Voice 5', url: 'https://discord.com/channels/1503166605855690793/1512570237772632135' },
-  { label: 'Voice 6', url: 'https://discord.com/channels/1503166605855690793/1512570277538697266' },
-  { label: 'Voice 7', url: 'https://discord.com/channels/1503166605855690793/1512570317590106173' },
-  { label: 'Voice 8', url: 'https://discord.com/channels/1503166605855690793/1512570360363749376' },
-  { label: 'Voice 9', url: 'https://discord.com/channels/1503166605855690793/1512570414159757312' },
-  { label: 'Voice 10', url: 'https://discord.com/channels/1503166605855690793/1512572351127224421' },
-  { label: 'Voice 11', url: 'https://discord.com/channels/1503166605855690793/1512572391455326378' },
-  { label: 'Voice 12', url: 'https://discord.com/channels/1503166605855690793/1512572470874345492' },
-  { label: 'Voice 13', url: 'https://discord.com/channels/1503166605855690793/1512572703092248656' },
-  { label: 'Voice 14', url: 'https://discord.com/channels/1503166605855690793/1512572751897038939' },
-  { label: 'Voice 15', url: 'https://discord.com/channels/1503166605855690793/1512572895543431251' },
-  { label: 'Voice 16', url: 'https://discord.com/channels/1503166605855690793/1512897712729755658' },
 ];
 
 // Конвертация локального времени, введённого как московское, в UTC ISO-строку для API.
@@ -205,7 +186,11 @@ export default function CreateMatchPage() {
               <button
                 key={m.value}
                 type="button"
-                onClick={() => setMode(m.value)}
+                onClick={() => {
+                  setMode(m.value);
+                  const limit = MODE_TEAM_LIMITS[m.value] ?? 24;
+                  setTeamCount((prev) => Math.min(prev, limit));
+                }}
                 className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1"
                 style={{
                   background: mode === m.value ? 'var(--a)' : 'rgba(255,255,255,.03)',
@@ -224,12 +209,15 @@ export default function CreateMatchPage() {
           <input
             type="number"
             min={2}
-            max={16}
+            max={MODE_TEAM_LIMITS[mode] ?? 24}
             value={teamCount}
-            onChange={(e) => setTeamCount(Math.max(2, Math.min(16, Number(e.target.value) || 2)))}
+            onChange={(e) => setTeamCount(Math.max(2, Math.min(MODE_TEAM_LIMITS[mode] ?? 24, Number(e.target.value) || 2)))}
             className="input-field"
             style={{ width: '120px' }}
           />
+          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+            Максимум для режима {MODE_OPTIONS.find((m) => m.value === mode)?.label}: {MODE_TEAM_LIMITS[mode] ?? 24} команд.
+          </p>
         </div>
 
         {/* Назначение voice-каналов — прямо здесь, без отдельной страницы */}
@@ -253,7 +241,7 @@ export default function CreateMatchPage() {
                   className="input-field flex-1"
                 >
                   <option value="">— не назначен —</option>
-                  {VOICE_CHANNELS.map((vc) => (
+                  {(VOICE_CHANNELS_BY_MODE[mode] ?? []).map((vc) => (
                     <option key={vc.url} value={vc.url}>
                       {vc.label}
                     </option>

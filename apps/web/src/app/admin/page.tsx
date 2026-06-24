@@ -33,6 +33,7 @@ export default function AdminPage() {
     { href: '/admin/news', label: 'Новости', desc: 'Публикация и удаление новостей', icon: '📰', show: isAdmin },
     { href: '/admin/users', label: 'Пользователи', desc: 'Управление ролями', icon: '👥', show: isAdmin },
     { href: '/admin/amnesty', label: 'Амнистия', desc: 'Конфликты Static ID при регистрации', icon: '🛡️', show: isAdmin },
+    { href: '/admin/referrals', label: 'Топ рефералов', desc: 'Кто привёл больше всего игроков', icon: '🔗', show: isAdmin },
     { href: '/admin/audit-log', label: 'Audit Log', desc: 'История всех действий', icon: '🧾', show: isAdmin },
     { href: '/admin/settings', label: 'Настройки системы', desc: 'Доступно только Owner', icon: '⚙️', show: isOwner },
   ].filter((l) => l.show);
