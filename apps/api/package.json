@@ -1,5 +1,5 @@
 {
-  "name": "weekly-cup-api",
+  "name": "weekly-pracs-api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",
+    "discord.js": "^14.16.3",
     "@aws-sdk/client-s3": "^3.640.0",
     "@fastify/cookie": "^9.3.1",
     "@fastify/cors": "^9.0.1",

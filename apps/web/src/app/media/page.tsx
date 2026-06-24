@@ -130,7 +130,7 @@ export default function MediaPage() {
           )}
           <div>
             <label className="label-field">Название</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input-field" placeholder="Например: Финал Weekly Cup #47" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input-field" placeholder="Например: Финал Weekly Pracs #47" />
           </div>
           <div>
             <label className="label-field">Тип</label>

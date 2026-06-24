@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { api } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, roleLabel, type Role } from '@/store/auth';
 
 interface ProfileData {
@@ -13,13 +13,46 @@ interface ProfileData {
   email: string;
   role: Role;
   staticId: { value: string } | null;
+  discordId: string | null;
+  discordUsername: string | null;
+  discordAvatar: string | null;
+  discordLinkedAt: string | null;
   achievements: { id: string; title: string; earnedAt: string }[];
   wins: { id: string; createdAt: string; match: { map: { name: string } } }[];
 }
 
+const DISCORD_ERROR_MESSAGES: Record<string, string> = {
+  missing_params: 'Авторизация Discord прервалась — попробуйте снова.',
+  invalid_state: 'Ссылка авторизации устарела — попробуйте привязать Discord ещё раз.',
+  already_linked: 'Этот Discord аккаунт уже привязан к другому профилю на сайте.',
+  exchange_failed: 'Не удалось получить данные от Discord — попробуйте снова.',
+};
+
+// useSearchParams() требует Suspense-границу в Next.js App Router при статической генерации —
+// без этого сборка падает с ошибкой "useSearchParams() should be wrapped in a suspense boundary".
 export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+          <p style={{ color: 'var(--muted)' }}>Загрузка профиля...</p>
+        </div>
+      }
+    >
+      <ProfilePageContent />
+    </Suspense>
+  );
+}
+
+function ProfilePageContent() {
   const { user, isInitialized } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const qc = useQueryClient();
+  const [discordBanner, setDiscordBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [discordActionError, setDiscordActionError] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
 
   useEffect(() => {
     if (isInitialized && !user) router.push('/login');
@@ -30,6 +63,50 @@ export default function ProfilePage() {
     queryFn: () => api.get('/profile'),
     enabled: !!user,
   });
+
+  // Discord OAuth callback возвращает сюда с ?discord=success или ?discord=error&reason=...
+  useEffect(() => {
+    const discordStatus = searchParams.get('discord');
+    if (!discordStatus) return;
+
+    if (discordStatus === 'success') {
+      setDiscordBanner({ type: 'success', text: 'Discord успешно привязан.' });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    } else if (discordStatus === 'error') {
+      const reason = searchParams.get('reason') ?? '';
+      setDiscordBanner({ type: 'error', text: DISCORD_ERROR_MESSAGES[reason] ?? 'Не удалось привязать Discord — попробуйте снова.' });
+    }
+
+    // Убираем query-параметры из адресной строки, чтобы баннер не показывался повторно при обновлении страницы
+    router.replace('/profile');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleLinkDiscord = async () => {
+    setDiscordActionError(null);
+    setLinking(true);
+    try {
+      const { url } = await api.get<{ url: string }>('/discord/link');
+      window.location.href = url;
+    } catch (e) {
+      setDiscordActionError(e instanceof ApiClientError ? e.message : 'Не удалось начать привязку Discord');
+      setLinking(false);
+    }
+  };
+
+  const handleUnlinkDiscord = async () => {
+    if (!confirm('Отвязать Discord? Вы не сможете участвовать в лобби, пока не привяжете аккаунт заново.')) return;
+    setDiscordActionError(null);
+    setUnlinking(true);
+    try {
+      await api.post('/discord/unlink');
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    } catch (e) {
+      setDiscordActionError(e instanceof ApiClientError ? e.message : 'Не удалось отвязать Discord');
+    } finally {
+      setUnlinking(false);
+    }
+  };
 
   if (!user || !profile) {
     return (
@@ -56,6 +133,64 @@ export default function ProfilePage() {
             {profile.email} · {roleLabel(profile.role)}
           </p>
         </div>
+      </div>
+
+      {discordBanner && (
+        <div
+          className="mb-6 text-sm rounded-lg px-4 py-3"
+          style={
+            discordBanner.type === 'success'
+              ? { background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: '#4ade80' }
+              : { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }
+          }
+        >
+          {discordBanner.text}
+        </div>
+      )}
+
+      {/* DISCORD */}
+      <div className="card mb-6">
+        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+          Discord
+        </h2>
+
+        {profile.discordId ? (
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              {profile.discordAvatar ? (
+                <img src={profile.discordAvatar} alt="" className="w-10 h-10 rounded-full" />
+              ) : (
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(88,101,242,.15)', color: '#5865F2' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.292a.074.074 0 0 1 .077-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.1.246.198.373.292a.077.077 0 0 1-.006.128 12.299 12.299 0 0 1-1.873.892.076.076 0 0 0-.04.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.876 19.876 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.06.06 0 0 0-.031-.029z" />
+                  </svg>
+                </div>
+              )}
+              <div>
+                <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                  {profile.discordUsername}
+                </div>
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-0.5" style={{ color: 'var(--green)', background: 'rgba(34,197,94,.08)' }}>
+                  Привязан
+                </span>
+              </div>
+            </div>
+            <button onClick={handleUnlinkDiscord} disabled={unlinking} className="btn-out" style={{ padding: '8px 16px', fontSize: '13px' }}>
+              {unlinking ? 'Отвязываем...' : 'Отвязать'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+              Для участия в лобби необходимо привязать Discord аккаунт и находиться на официальном Discord сервере.
+            </p>
+            <button onClick={handleLinkDiscord} disabled={linking} className="btn-main" style={{ padding: '10px 20px', fontSize: '13px' }}>
+              {linking ? 'Переходим в Discord...' : 'Привязать Discord'}
+            </button>
+          </div>
+        )}
+
+        {discordActionError && <p className="error-text mt-3">{discordActionError}</p>}
       </div>
 
       {/* STATIC ID */}

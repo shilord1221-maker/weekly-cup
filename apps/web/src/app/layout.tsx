@@ -4,7 +4,7 @@ import { Providers } from '@/components/Providers';
 import { Header } from '@/components/Header';
 
 export const metadata: Metadata = {
-  title: 'Weekly Cup — Custom Matches',
+  title: 'Weekly Pracs — Custom Matches',
   description: 'Турнирная платформа кастомных матчей: лобби, зоны, голосовые каналы Discord и живая статистика.',
 };
 

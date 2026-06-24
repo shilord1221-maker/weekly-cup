@@ -122,7 +122,17 @@ export async function profileRoutes(app: FastifyInstance) {
   app.get('/api/profile', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      include: {
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        avatarUrl: true,
+        createdAt: true,
+        discordId: true,
+        discordUsername: true,
+        discordAvatar: true,
+        discordLinkedAt: true,
         staticId: true,
         achievements: { orderBy: { earnedAt: 'desc' } },
         wins: { include: { match: { include: { map: true } } }, orderBy: { createdAt: 'desc' }, take: 20 },
@@ -137,7 +147,11 @@ export async function profileRoutes(app: FastifyInstance) {
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
-    const user = await prisma.user.update({ where: { id: req.user!.id }, data: parsed.data });
+    const user = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: parsed.data,
+      select: { id: true, username: true, email: true, role: true, avatarUrl: true },
+    });
     reply.send(user);
   });
 }

@@ -53,7 +53,7 @@ export default function SocialPage() {
         Наши соцсети
       </h1>
       <p className="text-sm mb-10" style={{ color: 'var(--muted)' }}>
-        Подписывайся, чтобы не пропускать анонсы матчей и быть в курсе всего, что происходит в Weekly Cup.
+        Подписывайся, чтобы не пропускать анонсы матчей и быть в курсе всего, что происходит в Weekly Pracs.
       </p>
 
       <div className="flex flex-col gap-3">

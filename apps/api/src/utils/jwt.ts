@@ -30,3 +30,15 @@ export function refreshTokenExpiryDate(): Date {
   // 30 дней по умолчанию, синхронизировано с JWT_REFRESH_TTL=30d
   return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 }
+
+/** Подписанный state для Discord OAuth2 — связывает callback с конкретным пользователем сайта.
+ *  Короткоживущий (10 минут), отдельно от access/refresh токенов по назначению. */
+export function signDiscordOAuthState(userId: string): string {
+  return jwt.sign({ sub: userId, purpose: 'discord-oauth' }, env.JWT_ACCESS_SECRET, { expiresIn: '10m' });
+}
+
+export function verifyDiscordOAuthState(token: string): { sub: string } {
+  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { sub: string; purpose: string };
+  if (payload.purpose !== 'discord-oauth') throw new Error('Invalid state purpose');
+  return payload;
+}

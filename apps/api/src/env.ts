@@ -22,6 +22,15 @@ const EnvSchema = z.object({
   S3_SECRET_KEY: z.string().optional(),
   // Публичный домен, через который раздаются загруженные файлы (R2 public bucket URL или кастомный домен)
   S3_PUBLIC_URL: z.string().optional(),
+  // Discord OAuth2 (привязка аккаунта) + Bot (выдача Voice-ролей, проверка членства на сервере).
+  // Все опциональны — если не заданы, привязка Discord и связанные проверки лобби отключаются.
+  DISCORD_CLIENT_ID: z.string().optional(),
+  DISCORD_CLIENT_SECRET: z.string().optional(),
+  DISCORD_TOKEN: z.string().optional(),
+  DISCORD_GUILD_ID: z.string().optional(),
+  // URL, на который Discord вернёт пользователя после авторизации — должен совпадать
+  // с тем, что указан в Discord Developer Portal → OAuth2 → Redirects.
+  DISCORD_REDIRECT_URI: z.string().optional(),
 });
 
 export const env = EnvSchema.parse(process.env);

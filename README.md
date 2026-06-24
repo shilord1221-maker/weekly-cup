@@ -1,4 +1,4 @@
-# Weekly Cup — Custom Matches Platform
+# Weekly Pracs — Custom Matches Platform
 
 Турнирная платформа кастомных матчей: лобби, выбор зон по графу соседства (adjacencyMap), Discord Voice Channels, realtime-чат и живая лента побед.
 

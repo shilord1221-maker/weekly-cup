@@ -7,7 +7,6 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { ZoneAnimation } from '@/components/ZoneAnimation';
-import { TrophyIcon } from '@/components/TrophyIcon';
 
 interface MatchSummary {
   id: string;
@@ -97,7 +96,7 @@ export default function HomePage() {
           style={{ width: 360, height: 360, top: '22%', left: '62%', background: 'radial-gradient(circle,rgba(79,127,255,.08) 0%,transparent 70%)', filter: 'blur(55px)', animation: 'loaderOrbPulse 7s ease-in-out infinite 1.5s' }}
         />
 
-        {/* TROPHY — rises from below, growing smoothly to full size, gentle settle, no impact effects */}
+        {/* LOGO — rises from below, growing smoothly to full size, gentle settle, no impact effects */}
         <div
           className="relative z-10"
           style={{
@@ -106,7 +105,7 @@ export default function HomePage() {
             animation: 'trophyRiseIn 1.4s 0.2s cubic-bezier(.16,1,.3,1) forwards, trophyFloat 6s 1.8s ease-in-out infinite',
           }}
         >
-          <TrophyIcon size={120} />
+          <img src="/branding/logo.png" alt="Weekly Pracs" style={{ width: 120, height: 120, borderRadius: '50%', objectFit: 'cover' }} />
         </div>
 
         {/* TITLE — scales up from small to large, centered, in sync with trophy */}
@@ -124,7 +123,7 @@ export default function HomePage() {
               animation: 'loaderTitleScaleIn 1s 0.55s cubic-bezier(.16,1,.3,1) forwards, loaderGradientShift 4s 1.7s ease-in-out infinite',
             }}
           >
-            WEEKLY CUP
+            WEEKLY PRACS
           </div>
           <div
             className="font-mono text-xs uppercase tracking-widest mt-2"
@@ -171,7 +170,7 @@ export default function HomePage() {
         />
 
         <div className="relative z-10 mb-7" style={{ animation: 'trophyFloat 5s ease-in-out infinite' }}>
-          <TrophyIcon size={130} />
+          <img src="/branding/logo.png" alt="Weekly Pracs" style={{ width: 130, height: 130, borderRadius: '50%', objectFit: 'cover' }} />
         </div>
 
         <div
@@ -222,7 +221,7 @@ export default function HomePage() {
           {[...Array(2)].map((_, rep) => (
             <div key={rep} className="flex">
               <TickerItem>
-                <LiveDot /> <b style={{ color: 'var(--a)' }}>LIVE</b> Weekly Cup · кастомные матчи каждую неделю
+                <LiveDot /> <b style={{ color: 'var(--a)' }}>LIVE</b> Weekly Pracs · кастомные матчи каждую неделю
               </TickerItem>
               <TickerItem>🗺️ Зоны выбираются по adjacencyMap — без хардкода</TickerItem>
               <TickerItem>🔊 Discord Voice — отдельный канал на команду</TickerItem>
@@ -378,7 +377,7 @@ export default function HomePage() {
           <Link href="/complaints" className="hover:text-white transition-colors">Жалобы</Link>
         </div>
         <div className="font-mono text-[11px]" style={{ color: 'rgba(96,104,128,.4)' }}>
-          © 2025 Weekly Cup
+          © 2025 Weekly Pracs
         </div>
       </footer>
     </>
@@ -593,7 +592,7 @@ function MatchRow({ match }: { match: MatchSummary }) {
       />
       <div className="flex flex-col gap-0.5">
         <div className="font-display font-semibold uppercase" style={{ fontSize: '17px', letterSpacing: '0.04em' }}>
-          {match.map?.name ?? 'Карта'} — Weekly Cup
+          {match.map?.name ?? 'Карта'} — Weekly Pracs
         </div>
         <div className="text-xs" style={{ color: 'var(--muted)' }}>
           {isLive ? 'Идёт сейчас' : isFinished ? 'Матч завершён' : 'Скоро начнётся'}

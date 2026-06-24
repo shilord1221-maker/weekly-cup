@@ -246,7 +246,7 @@ async function main() {
     update: {},
     create: {
       slug: 'welcome-to-weekly-cup',
-      title: 'Добро пожаловать на Weekly Cup',
+      title: 'Добро пожаловать на Weekly Pracs',
       excerpt: 'Платформа кастомных матчей запущена',
       body: 'Регистрируйся, привязывай Static ID и присоединяйся к ближайшему матчу.',
       published: true,

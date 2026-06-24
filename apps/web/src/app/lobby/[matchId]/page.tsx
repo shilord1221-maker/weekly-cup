@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
@@ -216,18 +217,21 @@ export default function LobbyPage() {
   const isOrganizerOrAdmin = isOrganizerOrAbove(user?.role);
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionErrorCode, setActionErrorCode] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedWinnerTeamId, setSelectedWinnerTeamId] = useState('');
 
   const handleJoin = async () => {
     if (!user) return;
     setActionError(null);
+    setActionErrorCode(null);
     setActionLoading(true);
     try {
       await api.post(`/lobby/${matchId}/join`);
       await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось войти в лобби');
+      setActionErrorCode(e instanceof ApiClientError ? e.code : null);
     } finally {
       setActionLoading(false);
     }
@@ -245,12 +249,14 @@ export default function LobbyPage() {
 
   const handleChooseTeam = async (teamId: string) => {
     setActionError(null);
+    setActionErrorCode(null);
     setActionLoading(true);
     try {
       await api.patch(`/lobby/${matchId}/team`, { teamId });
       await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось выбрать команду');
+      setActionErrorCode(e instanceof ApiClientError ? e.code : null);
     } finally {
       setActionLoading(false);
     }
@@ -468,8 +474,13 @@ export default function LobbyPage() {
       )}
 
       {actionError && (
-        <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
-          {actionError}
+        <div className="mb-6 text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+          <span>{actionError}</span>
+          {actionErrorCode === 'DISCORD_NOT_LINKED' && (
+            <Link href="/profile" className="btn-main flex-shrink-0" style={{ padding: '6px 14px', fontSize: '12px' }}>
+              Привязать Discord
+            </Link>
+          )}
         </div>
       )}
 

@@ -78,6 +78,16 @@ model User {
   registrationIp String? @db.VarChar(64)
   lastLoginIp    String? @db.VarChar(64)
 
+  // Привязка Discord — обязательна для участия в лобби. discordId уникален: один Discord-аккаунт
+  // не может быть привязан к двум разным пользователям сайта.
+  discordId       String? @unique @db.VarChar(32)
+  discordUsername String? @db.VarChar(64)
+  discordAvatar   String? @db.VarChar(255)
+  discordLinkedAt DateTime?
+  // Текущая Voice-роль, выданная боту — храним, чтобы при следующей синхронизации точно знать,
+  // какую роль снимать, даже если discord_id или состояние команды изменилось между запросами.
+  discordCurrentVoiceRole String? @db.VarChar(64)
+
   staticId        StaticId?
   organizedMatches Match[]        @relation("OrganizerMatches")
   lobbyMemberships LobbyMember[]
@@ -97,6 +107,7 @@ model User {
   @@index([role])
   @@index([isBanned])
   @@index([registrationIp])
+  @@index([discordId])
 }
 
 model RefreshToken {

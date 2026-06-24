@@ -61,8 +61,8 @@ export function Header() {
 
         {/* MOBILE LOGO (visible only on small screens, replaces home button) */}
         <Link href="/" className="md:hidden font-display font-bold text-lg uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text)' }}>
-          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: 'var(--a)', boxShadow: '0 0 10px var(--a)' }} />
-          WEEKLY <span style={{ color: 'var(--a)' }}>CUP</span>
+          <img src="/branding/logo.png" alt="Weekly Pracs" className="w-6 h-6 rounded-full object-cover" />
+          WEEKLY <span style={{ color: 'var(--a)' }}>PRACS</span>
         </Link>
 
         {/* CENTER PILL NAV */}

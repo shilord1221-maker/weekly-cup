@@ -19,6 +19,8 @@ import { mapRoutes } from '@/routes/maps.js';
 import { complaintRoutes } from '@/routes/complaints.js';
 import { newsRoutes, mediaRoutes, profileRoutes, winsRoutes, auditRoutes, userRoutes } from '@/routes/content.js';
 import { uploadRoutes } from '@/routes/upload.js';
+import { discordRoutes } from '@/routes/discord.js';
+import { startDiscordBot } from '@/services/discordBot.js';
 
 async function main() {
   const app = Fastify({
@@ -63,13 +65,20 @@ async function main() {
   await app.register(winsRoutes);
   await app.register(auditRoutes);
   await app.register(userRoutes);
+  await app.register(discordRoutes);
+
+  // ───────── DISCORD BOT (запускается вместе с проектом; не блокирует старт сайта,
+  // если Discord временно недоступен — ошибка логируется, остальной сайт работает) ─────────
+  startDiscordBot().catch((err) => {
+    console.error('[discord] Не удалось запустить бота при старте:', err);
+  });
 
   // ───────── BACKGROUND WORKER (запуск в этом же процессе для простоты MVP;
   // при масштабировании выносится в отдельный процесс/контейнер) ─────────
   createMatchEventsWorker(io);
 
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
-  app.log.info(`Weekly Cup API запущен на порту ${env.PORT}`);
+  app.log.info(`Weekly Pracs API запущен на порту ${env.PORT}`);
 }
 
 main().catch((err) => {
