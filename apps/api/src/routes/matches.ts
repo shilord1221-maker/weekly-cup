@@ -6,7 +6,6 @@ import { validateFinalZone } from '@/services/zones.js';
 import { logAudit } from '@/services/audit.js';
 import { scheduleMatchStart, scheduleMatchReminder, scheduleStartZoneClose, scheduleFinalZoneClose, cancelScheduledJobs } from '@/jobs/matchQueue.js';
 import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchTimers } from '@/services/timers.js';
-import { syncVoiceRole } from '@/services/discordBot.js';
 import type { Server as SocketServer } from 'socket.io';
 
 // Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно).
@@ -274,21 +273,8 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
   // ───────── DELETE (Organizer+) ─────────
   app.delete('/api/matches/:id', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const match = await prisma.match.findUnique({
-      where: { id },
-      include: { lobby: { include: { teams: { include: { members: { include: { user: { select: { discordId: true } } } } } } } } },
-    });
+    const match = await prisma.match.findUnique({ where: { id } });
     if (!match) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Матч не найден' });
-
-    // Снимаем Voice-роли у всех участников лобби перед удалением — иначе они останутся
-    // висеть на Discord-сервере навсегда, ведь LobbyMember-записи удалятся каскадно (п.5)
-    if (match.lobby) {
-      const discordIds = match.lobby.teams.flatMap((t) => t.members.map((m) => m.user.discordId)).filter((id): id is string => !!id);
-      await Promise.all(discordIds.map((discordId) => syncVoiceRole(discordId, null).catch((err) => req.log.warn({ err }, '[discord] cleanup on match delete failed'))));
-      if (discordIds.length > 0) {
-        await prisma.user.updateMany({ where: { discordId: { in: discordIds } }, data: { discordCurrentVoiceRole: null } }).catch(() => {});
-      }
-    }
 
     await clearMatchTimers(id);
     await cancelScheduledJobs(id);

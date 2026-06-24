@@ -170,6 +170,7 @@ export function registerSocketHandlers(io: SocketServer) {
       });
 
       io.to('chat:global').emit('chat:message', { ...message, poll });
+      io.emit('poll:created', poll);
     });
 
     // Голос за вариант — один голос на весь опрос (повторный голос переносит на новый вариант)

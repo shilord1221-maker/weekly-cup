@@ -32,9 +32,8 @@ export async function joinLobby(lobbyId: string, userId: string) {
     throw new ApiError('LOBBY_CLOSED', 'Лобби закрыто', 400);
   }
 
-  // Проверка на участие в другом активном лобби (защита от дублей).
-  // Делаем двумя простыми запросами вместо вложенного relation-фильтра,
-  // чтобы не зависеть от конкретной версии сгенерированных Prisma-типов.
+  // Проверка на участие в другом РЕАЛЬНО ИДУЩЕМ лобби — в нескольких просто открытых/ожидающих
+  // лобби одновременно быть можно, блокировка только если где-то матч уже стартовал (IN_PROGRESS).
   const myOtherMemberships = await prisma.lobbyMember.findMany({
     where: { userId, lobbyId: { not: lobbyId } },
     select: { lobbyId: true },
@@ -42,10 +41,10 @@ export async function joinLobby(lobbyId: string, userId: string) {
   if (myOtherMemberships.length > 0) {
     const otherLobbyIds = myOtherMemberships.map((m) => m.lobbyId);
     const activeElsewhere = await prisma.lobby.findFirst({
-      where: { id: { in: otherLobbyIds }, state: { in: ['OPEN', 'READY', 'IN_PROGRESS'] } },
+      where: { id: { in: otherLobbyIds }, state: 'IN_PROGRESS' },
     });
     if (activeElsewhere) {
-      throw new ApiError('ALREADY_IN_ANOTHER_LOBBY', 'Вы уже участвуете в другом активном лобби', 409);
+      throw new ApiError('ALREADY_IN_ANOTHER_LOBBY', 'Вы уже участвуете в другом идущем матче', 409);
     }
   }
 

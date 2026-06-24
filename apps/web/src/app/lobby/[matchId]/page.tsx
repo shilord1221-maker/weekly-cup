@@ -18,7 +18,6 @@ interface TeamData {
   id: string;
   name: string;
   slot: number;
-  voiceUrl: string | null;
   isReady: boolean;
   members: Member[];
 }
@@ -173,7 +172,7 @@ export default function LobbyPage() {
       playBeep(523, 0.2);
       setTimeout(() => playBeep(659, 0.2), 150);
       setTimeout(() => playBeep(784, 0.3), 300);
-      showToast('🏆 Матч завершён — заходите в стак войс');
+      showToast('🏆 Матч завершён');
     };
     const onKicked = () => {
       invalidate();
@@ -411,15 +410,6 @@ export default function LobbyPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href="https://discord.com/channels/1503166605855690793/1509959162031767613"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-medium transition-all hover:translate-x-0.5"
-            style={{ background: 'rgba(88,101,242,.1)', border: '1px solid rgba(88,101,242,.25)', color: '#a5b4fc' }}
-          >
-            💀 Стак войс (после смерти)
-          </a>
           {isOrganizerOrAdmin && lobby.match.status !== 'FINISHED' && (
             <button onClick={handleAutoAssign} disabled={actionLoading} className="btn-out">
               🎲 Авто-раскидать
@@ -434,17 +424,8 @@ export default function LobbyPage() {
             🏆 Победитель: {lobby.match.winnerTeam.name}
           </span>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Матч завершён — заходите в стак войс, чтобы обсудить игру со всеми.
+            Матч завершён.
           </p>
-          <a
-            href="https://discord.com/channels/1503166605855690793/1509959162031767613"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-all hover:scale-105"
-            style={{ background: 'rgba(88,101,242,.15)', border: '1px solid rgba(88,101,242,.35)', color: '#a5b4fc' }}
-          >
-            💀 Зайти в стак войс
-          </a>
         </div>
       )}
 
@@ -672,17 +653,6 @@ export default function LobbyPage() {
                   >
                     {team.isReady ? 'Снять готовность' : 'Мы готовы'}
                   </button>
-                )}
-                {team.voiceUrl && (
-                  <a
-                    href={team.voiceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-medium transition-all hover:translate-x-0.5"
-                    style={{ background: 'rgba(88,101,242,.1)', border: '1px solid rgba(88,101,242,.25)', color: '#a5b4fc' }}
-                  >
-                    🔊 Join Voice
-                  </a>
                 )}
               </div>
             </div>

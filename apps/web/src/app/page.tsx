@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { ZoneAnimation } from '@/components/ZoneAnimation';
+import { PollBanner } from '@/components/PollBanner';
 
 interface MatchSummary {
   id: string;
@@ -298,8 +299,13 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ACTIVE POLLS */}
+      <div className="relative z-10 pt-16" style={{ background: 'var(--surface)' }}>
+        <PollBanner />
+      </div>
+
       {/* MATCHES PREVIEW — real data, fallback to placeholder */}
-      <section className="px-10 py-28 relative z-10" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+      <section className="px-10 pb-28 relative z-10" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <div className="max-w-[1240px] mx-auto">
           <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
             <div>

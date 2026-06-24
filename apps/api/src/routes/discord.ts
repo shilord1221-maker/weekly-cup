@@ -4,7 +4,6 @@ import { requireAuth } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
 import { isDiscordOAuthConfigured, buildDiscordAuthUrl, exchangeDiscordCode, discordAvatarUrl } from '@/services/discordOAuth.js';
 import { signDiscordOAuthState, verifyDiscordOAuthState } from '@/utils/jwt.js';
-import { syncVoiceRole } from '@/services/discordBot.js';
 import { env } from '@/env.js';
 
 export async function discordRoutes(app: FastifyInstance) {
@@ -67,8 +66,6 @@ export async function discordRoutes(app: FastifyInstance) {
     if (!user?.discordId) {
       return reply.code(400).send({ error: 'NOT_LINKED', message: 'Discord не привязан' });
     }
-
-    await syncVoiceRole(user.discordId, null).catch(() => {});
 
     await prisma.user.update({
       where: { id: req.user!.id },

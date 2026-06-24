@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { MODE_TEAM_LIMITS, VOICE_CHANNELS_BY_MODE } from '@/lib/discordVoiceChannels';
+import { MODE_TEAM_LIMITS } from '@/lib/discordVoiceChannels';
 
 interface Zone {
   id: string;
@@ -48,7 +48,6 @@ export default function CreateMatchPage() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
-  const [teamVoices, setTeamVoices] = useState<string[]>([]); // voice URL для каждой команды по индексу
 
   const { data: maps } = useQuery<MapItem[]>({
     queryKey: ['maps'],
@@ -99,16 +98,6 @@ export default function CreateMatchPage() {
         teamCount,
         zoneIds: selectedZoneIds.length > 0 ? selectedZoneIds : undefined,
       });
-
-      // Назначаем voice-каналы командам сразу после создания, если указаны
-      const teams = match.lobby?.teams ?? [];
-      await Promise.all(
-        teams.map((team, i) => {
-          const url = teamVoices[i];
-          if (!url) return Promise.resolve();
-          return api.patch(`/lobby/${match.id}/voice-url/${team.id}`, { voiceUrl: url }).catch(() => {});
-        })
-      );
 
       router.push(`/admin/matches/${match.id}`);
     } catch (e) {
@@ -217,41 +206,6 @@ export default function CreateMatchPage() {
           />
           <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
             Максимум для режима {MODE_OPTIONS.find((m) => m.value === mode)?.label}: {MODE_TEAM_LIMITS[mode] ?? 24} команд.
-          </p>
-        </div>
-
-        {/* Назначение voice-каналов — прямо здесь, без отдельной страницы */}
-        <div>
-          <label className="label-field">Discord Voice каналы для команд</label>
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: teamCount }, (_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-sm w-20 flex-shrink-0" style={{ color: 'var(--muted)' }}>
-                  Team {i + 1}
-                </span>
-                <select
-                  value={teamVoices[i] ?? ''}
-                  onChange={(e) =>
-                    setTeamVoices((prev) => {
-                      const next = [...prev];
-                      next[i] = e.target.value;
-                      return next;
-                    })
-                  }
-                  className="input-field flex-1"
-                >
-                  <option value="">— не назначен —</option>
-                  {(VOICE_CHANNELS_BY_MODE[mode] ?? []).map((vc) => (
-                    <option key={vc.url} value={vc.url}>
-                      {vc.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
-            Можно назначить позже на странице матча, если ещё не определились с командами.
           </p>
         </div>
 
