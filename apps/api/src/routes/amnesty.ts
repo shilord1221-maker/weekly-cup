@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/db.js';
 import { requireAuth, requireRole } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
+import { generateUniqueReferralCode } from '@/services/referral.js';
 
 export async function amnestyRoutes(app: FastifyInstance) {
   // Список заявок — видят только Admin/Owner (requireRole уже пропускает OWNER через иерархию)
@@ -55,6 +56,7 @@ export async function amnestyRoutes(app: FastifyInstance) {
 
     // При одобрении Static ID переходит новому аккаунту — старый аккаунт лишается этого Static ID,
     // чтобы не было дублей. Это осознанное решение: одобрение значит "это реальный владелец ID".
+    const referralCode = await generateUniqueReferralCode();
     const newUser = await prisma.$transaction(async (tx) => {
       await tx.staticId.deleteMany({ where: { value: amnesty.staticId } });
       return tx.user.create({
@@ -65,6 +67,7 @@ export async function amnestyRoutes(app: FastifyInstance) {
           role: 'PLAYER',
           registrationIp: amnesty.registrationIp,
           lastLoginIp: amnesty.registrationIp,
+          referralCode,
           staticId: { create: { value: amnesty.staticId, proofUrl: amnesty.proofUrl } },
         },
         include: { staticId: true },

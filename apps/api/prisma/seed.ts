@@ -18,6 +18,7 @@ async function main() {
       email: 'owner@weeklycup.gg',
       passwordHash: ownerPassword,
       role: 'OWNER',
+      referralCode: 'OWNER0001',
       staticId: { create: { value: '00001' } },
     },
   });
@@ -33,6 +34,7 @@ async function main() {
       email: 'admin@weeklycup.gg',
       passwordHash: adminPassword,
       role: 'ADMIN',
+      referralCode: 'ADMIN0001',
       staticId: { create: { value: '00002' } },
     },
   });
@@ -48,6 +50,7 @@ async function main() {
       email: 'organizer@weeklycup.gg',
       passwordHash: orgPassword,
       role: 'ORGANIZER',
+      referralCode: 'ORG000001',
       staticId: { create: { value: '00003' } },
     },
   });
