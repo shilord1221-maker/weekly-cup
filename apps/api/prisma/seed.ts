@@ -256,6 +256,28 @@ async function main() {
     },
   });
 
+  // ───────── BACKFILL referralCode ─────────
+  // Поле было добавлено позже, когда в базе уже были реальные пользователи (поэтому оно
+  // опционально в схеме — иначе Prisma не может добавить required-колонку в непустую таблицу).
+  // Здесь догоняем всех, у кого код ещё не проставлен — безопасно повторять при каждом деплое,
+  // трогает только строки с referralCode IS NULL.
+  const usersWithoutCode = await prisma.user.findMany({ where: { referralCode: null }, select: { id: true } });
+  if (usersWithoutCode.length > 0) {
+    const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const existingCodes = new Set(
+      (await prisma.user.findMany({ where: { referralCode: { not: null } }, select: { referralCode: true } })).map((u) => u.referralCode)
+    );
+    for (const u of usersWithoutCode) {
+      let code: string;
+      do {
+        code = Array.from({ length: 8 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
+      } while (existingCodes.has(code));
+      existingCodes.add(code);
+      await prisma.user.update({ where: { id: u.id }, data: { referralCode: code } });
+    }
+    console.log(`Backfilled referralCode for ${usersWithoutCode.length} existing user(s).`);
+  }
+
   console.log('Seeding complete.');
 }
 

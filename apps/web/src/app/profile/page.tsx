@@ -17,7 +17,7 @@ interface ProfileData {
   discordUsername: string | null;
   discordAvatar: string | null;
   discordLinkedAt: string | null;
-  referralCode: string;
+  referralCode: string | null;
   referralCount: number;
   achievements: { id: string; title: string; earnedAt: string }[];
   wins: { id: string; createdAt: string; match: { map: { name: string } } }[];
@@ -119,7 +119,11 @@ function ProfilePageContent() {
     );
   }
 
-  const referralLink = typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${profile.referralCode}` : `/register?ref=${profile.referralCode}`;
+  const referralLink = profile.referralCode
+    ? typeof window !== 'undefined'
+      ? `${window.location.origin}/register?ref=${profile.referralCode}`
+      : `/register?ref=${profile.referralCode}`
+    : null;
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -206,27 +210,33 @@ function ProfilePageContent() {
         <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
           Приведено игроков: <strong style={{ color: 'var(--text)' }}>{profile.referralCount}</strong>
         </p>
-        <div className="flex items-center gap-2 flex-wrap">
-          <input
-            readOnly
-            value={referralLink}
-            onFocus={(e) => e.target.select()}
-            className="input-field flex-1"
-            style={{ minWidth: '220px' }}
-          />
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(referralLink).then(() => {
-                setReferralCopied(true);
-                setTimeout(() => setReferralCopied(false), 2000);
-              });
-            }}
-            className="btn-out flex-shrink-0"
-            style={{ padding: '10px 18px', fontSize: '13px' }}
-          >
-            {referralCopied ? 'Скопировано ✓' : 'Скопировать'}
-          </button>
-        </div>
+        {referralLink ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              readOnly
+              value={referralLink}
+              onFocus={(e) => e.target.select()}
+              className="input-field flex-1"
+              style={{ minWidth: '220px' }}
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(referralLink).then(() => {
+                  setReferralCopied(true);
+                  setTimeout(() => setReferralCopied(false), 2000);
+                });
+              }}
+              className="btn-out flex-shrink-0"
+              style={{ padding: '10px 18px', fontSize: '13px' }}
+            >
+              {referralCopied ? 'Скопировано ✓' : 'Скопировать'}
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+            Ссылка появится через несколько минут — обновите страницу.
+          </p>
+        )}
       </div>
 
       {/* STATIC ID */}
