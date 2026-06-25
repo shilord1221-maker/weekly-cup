@@ -14,6 +14,9 @@ interface UserItem {
   staticIdProofUrl: string | null;
   isBanned: boolean;
   bannedReason: string | null;
+  isSuspended: boolean;
+  suspendedReason: string | null;
+  suspendedUntil: string | null;
   registrationIp?: string | null;
   lastLoginIp?: string | null;
   createdAt: string;
@@ -25,18 +28,27 @@ const ROLE_LABELS: Record<string, string> = {
   ORGANIZER: 'Organizer',
   PLAYER: 'Player',
 };
+const ROLE_LABEL_ORDER = ['OWNER', 'ADMIN', 'ORGANIZER', 'PLAYER'];
 
 export default function AdminUsersPage() {
   const qc = useQueryClient();
   const { user: currentUser } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [bannedFilter, setBannedFilter] = useState('');
   const [banTargetId, setBanTargetId] = useState<string | null>(null);
   const [banReason, setBanReason] = useState('');
   const [banByIp, setBanByIp] = useState(false);
+  const [suspendTargetId, setSuspendTargetId] = useState<string | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendDays, setSuspendDays] = useState('');
   const [staticIdTarget, setStaticIdTarget] = useState<UserItem | null>(null);
   const [staticIdInput, setStaticIdInput] = useState('');
   const [staticIdError, setStaticIdError] = useState<string | null>(null);
+  const [usernameTarget, setUsernameTarget] = useState<UserItem | null>(null);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const isOwner = currentUser?.role === 'OWNER';
 
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
@@ -44,8 +56,25 @@ export default function AdminUsersPage() {
   const availableRoles = isOwner ? ['PLAYER', 'ORGANIZER', 'ADMIN', 'OWNER'] : ['PLAYER', 'ORGANIZER', 'ADMIN'];
 
   const { data: users, isLoading } = useQuery<UserItem[]>({
-    queryKey: ['admin-users', search],
-    queryFn: () => api.get(`/users${search ? `?q=${encodeURIComponent(search)}` : ''}`),
+    queryKey: ['admin-users', search, roleFilter, bannedFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (search) params.set('q', search);
+      if (roleFilter) params.set('role', roleFilter);
+      if (bannedFilter) params.set('banned', bannedFilter);
+      const qs = params.toString();
+      return api.get(`/users${qs ? `?${qs}` : ''}`);
+    },
+  });
+
+  interface CountStats {
+    total: number;
+    banned: number;
+    byRole: Record<string, number>;
+  }
+  const { data: stats } = useQuery<CountStats>({
+    queryKey: ['admin-users-count'],
+    queryFn: () => api.get('/users/count'),
   });
 
   const handleRoleChange = async (id: string, role: string) => {
@@ -82,6 +111,31 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleSuspendConfirm = async () => {
+    if (!suspendTargetId) return;
+    setError(null);
+    try {
+      const durationDays = suspendDays.trim() ? Number(suspendDays) : undefined;
+      await api.post(`/users/${suspendTargetId}/suspend`, { reason: suspendReason.trim() || undefined, durationDays });
+      setSuspendTargetId(null);
+      setSuspendReason('');
+      setSuspendDays('');
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : 'Не удалось отстранить пользователя');
+    }
+  };
+
+  const handleUnsuspend = async (id: string) => {
+    setError(null);
+    try {
+      await api.post(`/users/${id}/unsuspend`);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : 'Не удалось снять отстранение');
+    }
+  };
+
   const handleSaveStaticId = async () => {
     if (!staticIdTarget) return;
     setStaticIdError(null);
@@ -91,6 +145,18 @@ export default function AdminUsersPage() {
       qc.invalidateQueries({ queryKey: ['admin-users'] });
     } catch (e) {
       setStaticIdError(e instanceof ApiClientError ? e.message : 'Не удалось изменить Static ID');
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    if (!usernameTarget) return;
+    setUsernameError(null);
+    try {
+      await api.patch(`/users/${usernameTarget.id}/username`, { username: usernameInput.trim() });
+      setUsernameTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setUsernameError(e instanceof ApiClientError ? e.message : 'Не удалось изменить ник');
     }
   };
 
@@ -104,8 +170,40 @@ export default function AdminUsersPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Поиск по нику или Static ID..."
-        className="input-field mb-6"
+        className="input-field mb-4"
       />
+
+      {stats && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className="font-mono text-xs px-3 py-1.5 rounded-full" style={{ color: 'var(--text)', background: 'rgba(255,255,255,.04)' }}>
+            Всего: <strong>{stats.total}</strong>
+          </span>
+          <span className="font-mono text-xs px-3 py-1.5 rounded-full" style={{ color: '#f87171', background: 'rgba(239,68,68,.06)' }}>
+            Забанено: <strong>{stats.banned}</strong>
+          </span>
+          {ROLE_LABEL_ORDER.map((r) => (
+            <span key={r} className="font-mono text-xs px-3 py-1.5 rounded-full" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.03)' }}>
+              {ROLE_LABELS[r]}: <strong>{stats.byRole[r] ?? 0}</strong>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input-field" style={{ width: 'auto' }}>
+          <option value="">Все роли</option>
+          {ROLE_LABEL_ORDER.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </option>
+          ))}
+        </select>
+        <select value={bannedFilter} onChange={(e) => setBannedFilter(e.target.value)} className="input-field" style={{ width: 'auto' }}>
+          <option value="">Все статусы</option>
+          <option value="true">Забаненные</option>
+          <option value="false">Не забаненные</option>
+        </select>
+      </div>
 
       {error && (
         <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
@@ -138,6 +236,12 @@ export default function AdminUsersPage() {
                       BANNED{u.bannedReason ? `: ${u.bannedReason}` : ''}
                     </span>
                   )}
+                  {u.isSuspended && (
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.1)' }}>
+                      SUSPENDED{u.suspendedReason ? `: ${u.suspendedReason}` : ''}
+                      {u.suspendedUntil && ` до ${new Date(u.suspendedUntil).toLocaleDateString('ru-RU')}`}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs" style={{ color: 'var(--muted)' }}>
                   {u.email} {u.staticId && `· ${u.staticId}`}
@@ -161,6 +265,17 @@ export default function AdminUsersPage() {
                         style={{ color: 'var(--a)' }}
                       >
                         изменить Static ID
+                      </button>
+                      {' · '}
+                      <button
+                        onClick={() => {
+                          setUsernameTarget(u);
+                          setUsernameInput(u.username);
+                          setUsernameError(null);
+                        }}
+                        style={{ color: 'var(--a)' }}
+                      >
+                        изменить ник
                       </button>
                     </>
                   )}
@@ -205,6 +320,25 @@ export default function AdminUsersPage() {
                     </button>
                   )
                 )}
+                {u.isSuspended ? (
+                  <button
+                    onClick={() => handleUnsuspend(u.id)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                    style={{ color: 'var(--green)', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)' }}
+                  >
+                    Вернуть в игры
+                  </button>
+                ) : (
+                  !isLockedForCurrentUser && (
+                    <button
+                      onClick={() => setSuspendTargetId(u.id)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                      style={{ color: 'var(--gold)', background: 'rgba(201,149,74,0.06)', border: '1px solid rgba(201,149,74,0.18)' }}
+                    >
+                      Отстранить от игр
+                    </button>
+                  )
+                )}
               </div>
             </div>
           );
@@ -238,6 +372,38 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* SUSPEND MODAL */}
+      {suspendTargetId && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setSuspendTargetId(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Отстранение от игр
+            </h2>
+            <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+              Аккаунт останется рабочим (вход, чат), но участие в лобби и матчах будет запрещено.
+            </p>
+            <label className="label-field">Причина (необязательно)</label>
+            <textarea value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} rows={3} className="input-field mb-3" placeholder="Причина отстранения..." />
+            <label className="label-field">Срок в днях (необязательно — пусто = бессрочно)</label>
+            <input
+              value={suspendDays}
+              onChange={(e) => setSuspendDays(e.target.value.replace(/\D/g, ''))}
+              placeholder="например: 7"
+              inputMode="numeric"
+              className="input-field mb-4"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setSuspendTargetId(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleSuspendConfirm} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отстранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* STATIC ID MODAL — только Owner */}
       {staticIdTarget && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setStaticIdTarget(null)}>
@@ -258,6 +424,33 @@ export default function AdminUsersPage() {
                 Отмена
               </button>
               <button onClick={handleSaveStaticId} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* USERNAME MODAL — только Owner; обычные игроки меняют ник только через поддержку */}
+      {usernameTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setUsernameTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Изменить ник — {usernameTarget.username}
+            </h2>
+            <label className="label-field">Новый ник</label>
+            <input
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              className="input-field mb-3"
+              placeholder="например: PlayerName"
+            />
+            {usernameError && <p className="error-text mb-3">{usernameError}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => setUsernameTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleSaveUsername} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
                 Сохранить
               </button>
             </div>

@@ -276,7 +276,7 @@ function ProfilePageContent() {
               Поддержка
             </div>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              Вопросы по аккаунту, Static ID, спорные ситуации
+              Вопросы по аккаунту, смена ника, Static ID, спорные ситуации
             </p>
           </div>
         </div>

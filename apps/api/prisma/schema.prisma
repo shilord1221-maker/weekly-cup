@@ -31,6 +31,7 @@ enum MatchStatus {
   DRAFT
   SCHEDULED
   LIVE
+  PAUSED
   FINISHED
   CANCELLED
 }
@@ -77,6 +78,15 @@ model User {
   bannedById   String?
   registrationIp String? @db.VarChar(64)
   lastLoginIp    String? @db.VarChar(64)
+
+  // Отстранение от игр — мягче полного бана: аккаунт остаётся рабочим (можно заходить на сайт,
+  // писать в чат и т.д.), но запрещено участвовать в лобби/командах/матчах. suspendedUntil = null
+  // означает бессрочное отстранение (до ручного снятия), иначе — дата, после которой оно снимается само.
+  isSuspended       Boolean   @default(false)
+  suspendedAt       DateTime?
+  suspendedUntil    DateTime?
+  suspendedReason   String?   @db.VarChar(500)
+  suspendedById     String?
 
   // Привязка Discord — обязательна для участия в лобби. discordId уникален: один Discord-аккаунт
   // не может быть привязан к двум разным пользователям сайта.
@@ -182,9 +192,20 @@ model Match {
   startTime   DateTime // UTC
   finishedAt  DateTime?
 
-  // Окно входа в стартовую зону — открывается кнопкой "Старт" в лобби (2 минуты)
+  // Окно входа в стартовую зону — открывается кнопкой "Старт" в лобби (по умолчанию 2 минуты,
+  // организатор может задать своё значение через zoneEntrySeconds)
   startZoneOpenedAt DateTime?
   startZoneClosesAt DateTime?
+
+  // Длительность окна на заход в зону (в секундах) — кастомизируется организатором,
+  // применяется и к стартовой, и к финальной зоне. По умолчанию 120 секунд (2 минуты).
+  zoneEntrySeconds Int @default(120)
+
+  // Пауза матча — приостанавливает отсчёт таймера зоны. pausedAt фиксирует момент паузы,
+  // remainingZoneSeconds сохраняет сколько секунд оставалось до закрытия зоны на тот момент,
+  // чтобы при снятии паузы выставить новый closesAt от текущего момента, а не от старого.
+  pausedAt              DateTime?
+  remainingZoneSeconds  Int?
 
   selectedZones Zone[] @relation("SelectedZones")
   finalZoneId   String?
@@ -240,6 +261,12 @@ model LobbyMember {
   team     Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   userId   String
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Динамический ID — личный номер игрока на сервере в этой конкретной игровой сессии
+  // (в отличие от Static ID, который закреплён за аккаунтом навсегда). Вводится при входе в лобби.
+  dynamicId String? @db.VarChar(16)
+  // Отмечается кнопкой "Мы умерли" самим игроком/командой — организатор видит, сколько
+  // живых команд/игроков осталось, без необходимости спрашивать в чате или по войсу.
+  isEliminated Boolean @default(false)
   joinedAt DateTime @default(now())
 
   @@unique([lobbyId, userId])

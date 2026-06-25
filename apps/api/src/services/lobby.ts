@@ -20,12 +20,47 @@ export function teamCountForMode(mode: MatchMode): number {
 }
 
 /**
+ * Проверяет отстранение игрока от игр — мягче полного бана, аккаунт остаётся рабочим,
+ * но участие в лобби/командах/матчах запрещено. Если suspendedUntil уже прошёл, отстранение
+ * снимается автоматически здесь же, без необходимости ручного действия администратора.
+ */
+async function ensureNotSuspended(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isSuspended: true, suspendedUntil: true, suspendedReason: true },
+  });
+  if (!user?.isSuspended) return;
+
+  if (user.suspendedUntil && user.suspendedUntil.getTime() <= Date.now()) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isSuspended: false, suspendedAt: null, suspendedUntil: null, suspendedReason: null, suspendedById: null },
+    });
+    return;
+  }
+
+  throw new ApiError(
+    'SUSPENDED',
+    user.suspendedReason ? `Вы отстранены от игр: ${user.suspendedReason}` : 'Вы отстранены от участия в играх',
+    403
+  );
+}
+
+/**
  * Игрок присоединяется к лобби. Без команды — просто участник лобби (зрительская зона/очередь).
+ * dynamicId — личный игровой номер на сервере для этой сессии (обязателен, валидируется и здесь,
+ * и на уровне роута через Zod — двойная проверка, раз это поле важно для организаторов).
  * Гарантии:
  * - один пользователь не может быть в лобби дважды (unique [lobbyId, userId])
  * - один пользователь не может быть одновременно в двух LIVE/IN_PROGRESS матчах
  */
-export async function joinLobby(lobbyId: string, userId: string) {
+export async function joinLobby(lobbyId: string, userId: string, dynamicId: string) {
+  if (!/^\d{2,8}$/.test(dynamicId)) {
+    throw new ApiError('INVALID_DYNAMIC_ID', 'Динамический ID должен состоять из 2–8 цифр', 400);
+  }
+
+  await ensureNotSuspended(userId);
+
   const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId }, include: { match: true } });
   if (!lobby) throw new ApiError('LOBBY_NOT_FOUND', 'Лобби не найдено', 404);
   if (lobby.state === 'FINISHED' || lobby.state === 'CANCELLED') {
@@ -49,9 +84,13 @@ export async function joinLobby(lobbyId: string, userId: string) {
   }
 
   const existing = await prisma.lobbyMember.findUnique({ where: { lobbyId_userId: { lobbyId, userId } } });
-  if (existing) return existing;
+  if (existing) {
+    // Повторный вход (например, после обновления страницы) — обновляем dynamicId на случай,
+    // если игрок перезашёл на сервер и получил новый номер.
+    return prisma.lobbyMember.update({ where: { id: existing.id }, data: { dynamicId } });
+  }
 
-  return prisma.lobbyMember.create({ data: { lobbyId, userId } });
+  return prisma.lobbyMember.create({ data: { lobbyId, userId, dynamicId } });
 }
 
 export async function leaveLobby(lobbyId: string, userId: string) {
@@ -64,6 +103,8 @@ export async function leaveLobby(lobbyId: string, userId: string) {
  * - дублирование/участие в нескольких командах одновременно (upsert по lobbyId+userId гарантирует одну запись)
  */
 export async function setPlayerTeam(lobbyId: string, userId: string, teamId: string) {
+  await ensureNotSuspended(userId);
+
   const [lobby, team, member] = await Promise.all([
     prisma.lobby.findUnique({ where: { id: lobbyId }, include: { match: true } }),
     prisma.team.findUnique({ where: { id: teamId }, include: { members: true } }),

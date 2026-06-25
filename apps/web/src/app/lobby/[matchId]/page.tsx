@@ -12,6 +12,8 @@ import { ChatPanel } from '@/components/ChatPanel';
 interface Member {
   id: string;
   userId: string;
+  dynamicId?: string | null;
+  isEliminated?: boolean;
   user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null };
 }
 interface TeamData {
@@ -136,6 +138,7 @@ export default function LobbyPage() {
     };
     const onLeft = () => invalidate();
     const onTeamChanged = () => invalidate();
+    const onEliminatedChanged = () => invalidate();
     const onReadyChanged = (p: { ready: boolean }) => {
       invalidate();
       showToast(p.ready ? '✅ Команда готова' : '⏳ Команда не готова');
@@ -183,6 +186,7 @@ export default function LobbyPage() {
     socket.on('lobby:player_joined', onJoined);
     socket.on('lobby:player_left', onLeft);
     socket.on('lobby:team_changed', onTeamChanged);
+    socket.on('lobby:eliminated_changed', onEliminatedChanged);
     socket.on('lobby:ready_changed', onReadyChanged);
     socket.on('lobby:auto_assigned', onAutoAssigned);
     socket.on('lobby:zones_selected', onZonesSelected);
@@ -199,6 +203,7 @@ export default function LobbyPage() {
       socket.off('lobby:player_joined', onJoined);
       socket.off('lobby:player_left', onLeft);
       socket.off('lobby:team_changed', onTeamChanged);
+      socket.off('lobby:eliminated_changed', onEliminatedChanged);
       socket.off('lobby:ready_changed', onReadyChanged);
       socket.off('lobby:auto_assigned', onAutoAssigned);
       socket.off('lobby:zones_selected', onZonesSelected);
@@ -242,18 +247,32 @@ export default function LobbyPage() {
   const [actionErrorCode, setActionErrorCode] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedWinnerTeamId, setSelectedWinnerTeamId] = useState('');
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [dynamicIdInput, setDynamicIdInput] = useState('');
+  const [dynamicIdError, setDynamicIdError] = useState<string | null>(null);
+  const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
 
-  const handleJoin = async () => {
+  const handleOpenJoinModal = () => {
+    setDynamicIdInput('');
+    setDynamicIdError(null);
+    setShowJoinModal(true);
+  };
+
+  const handleConfirmJoin = async () => {
     if (!user) return;
+    if (!/^\d{2,8}$/.test(dynamicIdInput)) {
+      setDynamicIdError('Введите ID — только цифры, от 2 до 8 знаков');
+      return;
+    }
     setActionError(null);
     setActionErrorCode(null);
     setActionLoading(true);
     try {
-      await api.post(`/lobby/${matchId}/join`);
+      await api.post(`/lobby/${matchId}/join`, { dynamicId: dynamicIdInput });
+      setShowJoinModal(false);
       await refetch();
     } catch (e) {
-      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось войти в лобби');
-      setActionErrorCode(e instanceof ApiClientError ? e.code : null);
+      setDynamicIdError(e instanceof ApiClientError ? e.message : 'Не удалось войти в лобби');
     } finally {
       setActionLoading(false);
     }
@@ -318,16 +337,64 @@ export default function LobbyPage() {
     }
   };
 
+  const [customZoneSeconds, setCustomZoneSeconds] = useState('');
+
   const handleStartMatch = async () => {
     setActionError(null);
     setActionLoading(true);
     try {
-      await api.post(`/matches/${matchId}/start`);
+      const seconds = customZoneSeconds.trim() ? Number(customZoneSeconds) : undefined;
+      await api.post(`/matches/${matchId}/start`, seconds ? { zoneEntrySeconds: seconds } : undefined);
       await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось запустить матч');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handlePauseMatch = async () => {
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await api.post(`/matches/${matchId}/pause`);
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось поставить матч на паузу');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResumeMatch = async () => {
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await api.post(`/matches/${matchId}/resume`);
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось снять матч с паузы');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCopyAllIds = (label: string, ids: string[]) => {
+    const text = ids.filter(Boolean).join('\n');
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedFeedback(label);
+      setTimeout(() => setCopiedFeedback(null), 2000);
+    });
+  };
+
+  const handleToggleEliminated = async (eliminated: boolean) => {
+    setActionError(null);
+    try {
+      await api.post(`/lobby/${matchId}/eliminated`, { eliminated });
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось обновить статус');
     }
   };
 
@@ -384,6 +451,7 @@ export default function LobbyPage() {
   const mskTime = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(startDate);
   const canStart = lobby.match.status === 'SCHEDULED' && isOrganizerOrAdmin;
   const isLive = lobby.match.status === 'LIVE';
+  const isPaused = lobby.match.status === 'PAUSED';
   const isFinished = lobby.match.status === 'FINISHED';
   const hasZones = lobby.match.selectedZones.length > 0;
 
@@ -494,9 +562,69 @@ export default function LobbyPage() {
             Управление матчем
           </h2>
 
+          {(isLive || isPaused) && (
+            <div className="rounded-lg px-4 py-3 flex flex-wrap items-center gap-3" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border2)' }}>
+              <span className="font-display font-bold" style={{ fontSize: '18px', color: 'var(--green)' }}>
+                {lobby.teams.flatMap((t) => t.members).filter((m) => !m.isEliminated).length}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                живых игроков из {lobby.teams.flatMap((t) => t.members).length}
+              </span>
+              <div className="flex flex-wrap gap-1.5 ml-auto">
+                {lobby.teams.map((t) => {
+                  const alive = t.members.filter((m) => !m.isEliminated).length;
+                  if (t.members.length === 0) return null;
+                  return (
+                    <span
+                      key={t.id}
+                      className="font-mono text-[10px] px-2 py-1 rounded-full"
+                      style={{ color: alive === 0 ? '#f87171' : 'var(--muted)', background: alive === 0 ? 'rgba(239,68,68,.08)' : 'rgba(255,255,255,.03)' }}
+                    >
+                      {t.name}: {alive}/{t.members.length}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {canStart && (
-            <button onClick={handleStartMatch} disabled={actionLoading} className="btn-main justify-center">
-              ▶ Старт
+            <div className="flex gap-2 items-center flex-wrap">
+              <input
+                value={customZoneSeconds}
+                onChange={(e) => setCustomZoneSeconds(e.target.value.replace(/\D/g, ''))}
+                placeholder="120"
+                inputMode="numeric"
+                className="input-field"
+                style={{ width: '100px' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                секунд на заход в зону (по умолчанию 120)
+              </span>
+              <button onClick={handleStartMatch} disabled={actionLoading} className="btn-main justify-center flex-1" style={{ minWidth: '140px' }}>
+                ▶ Старт
+              </button>
+            </div>
+          )}
+
+          {isLive && (
+            <button onClick={handlePauseMatch} disabled={actionLoading} className="btn-out justify-center">
+              ⏸ Поставить на паузу
+            </button>
+          )}
+
+          {isPaused && (
+            <button onClick={handleResumeMatch} disabled={actionLoading} className="btn-main justify-center">
+              ▶ Продолжить
+            </button>
+          )}
+
+          {(isLive || isPaused) && (
+            <button
+              onClick={() => handleCopyAllIds('all', lobby.teams.flatMap((t) => t.members.map((m) => m.dynamicId ?? '')))}
+              className="btn-out justify-center"
+            >
+              {copiedFeedback === 'all' ? '✓ Скопировано' : '📋 Скопировать все ID'}
             </button>
           )}
 
@@ -539,7 +667,7 @@ export default function LobbyPage() {
       {user && !myMembership && !isFinished && (
         <div className="mb-8 rounded-xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
           <p style={{ color: 'var(--muted)' }}>Вы пока не в лобби</p>
-          <button onClick={handleJoin} disabled={actionLoading} className="btn-main">
+          <button onClick={handleOpenJoinModal} disabled={actionLoading} className="btn-main">
             Войти в лобби
           </button>
         </div>
@@ -548,9 +676,20 @@ export default function LobbyPage() {
       {user && myMembership && (
         <div className="mb-8 rounded-xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
           <p style={{ color: 'var(--text)' }}>Вы в лобби {myMembership.teamId ? '· команда выбрана' : '· выберите команду ниже'}</p>
-          <button onClick={handleLeave} disabled={actionLoading} className="btn-out">
-            Выйти из лобби
-          </button>
+          <div className="flex items-center gap-2">
+            {(isLive || isPaused) && myMembership.teamId && (
+              <button
+                onClick={() => handleToggleEliminated(!myMembership.isEliminated)}
+                className={myMembership.isEliminated ? 'btn-out' : 'btn-main'}
+                style={{ padding: '10px 18px', fontSize: '13px' }}
+              >
+                {myMembership.isEliminated ? '✅ Я жив' : '💀 Мы умерли'}
+              </button>
+            )}
+            <button onClick={handleLeave} disabled={actionLoading} className="btn-out">
+              Выйти из лобби
+            </button>
+          </div>
         </div>
       )}
 
@@ -591,32 +730,56 @@ export default function LobbyPage() {
                   {team.name}
                   {isWinner && <span>🏆</span>}
                 </div>
-                <span
-                  className="font-mono text-[11px] px-2.5 py-1 rounded-full"
-                  style={{
-                    color: team.isReady ? 'var(--green)' : 'var(--muted)',
-                    background: team.isReady ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)',
-                    border: `1px solid ${team.isReady ? 'rgba(34,197,94,.2)' : 'var(--border2)'}`,
-                  }}
-                >
-                  {team.isReady ? 'READY ✓' : `${team.members.length}/${capacity}`}
-                </span>
+                <div className="flex items-center gap-2">
+                  {isOrganizerOrAdmin && team.members.length > 0 && (
+                    <button
+                      onClick={() => handleCopyAllIds(team.id, team.members.map((m) => m.dynamicId ?? ''))}
+                      className="font-mono text-[10px] px-2 py-1 rounded-full transition-colors"
+                      style={{ color: 'var(--a)', background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.18)' }}
+                      title="Скопировать ID этой команды"
+                    >
+                      {copiedFeedback === team.id ? '✓' : '📋 ID'}
+                    </button>
+                  )}
+                  <span
+                    className="font-mono text-[11px] px-2.5 py-1 rounded-full"
+                    style={{
+                      color: team.isReady ? 'var(--green)' : 'var(--muted)',
+                      background: team.isReady ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)',
+                      border: `1px solid ${team.isReady ? 'rgba(34,197,94,.2)' : 'var(--border2)'}`,
+                    }}
+                  >
+                    {team.isReady ? 'READY ✓' : `${team.members.length}/${capacity}`}
+                  </span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2 mb-5 min-h-[80px]">
                 {team.members.length === 0 && <p className="text-xs italic" style={{ color: 'rgba(96,104,128,.5)' }}>Пока никого</p>}
                 {team.members.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2.5 text-sm py-1 group" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2.5 text-sm py-1 group"
+                    style={{ borderBottom: '1px solid var(--border)', opacity: m.isEliminated ? 0.45 : 1 }}
+                  >
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                       style={{ background: 'rgba(79,127,255,.15)', color: 'var(--a)' }}
                     >
                       {m.user.username.slice(0, 2).toUpperCase()}
                     </div>
-                    <span>{m.user.username}</span>
+                    <span style={{ textDecoration: m.isEliminated ? 'line-through' : 'none' }}>
+                      {m.isEliminated && '💀 '}
+                      {m.user.username}
+                    </span>
                     {m.user.staticId && (
                       <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
                         {m.user.staticId.value}
+                      </span>
+                    )}
+                    {isOrganizerOrAdmin && m.dynamicId && (
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--a)', background: 'rgba(79,127,255,.08)' }}>
+                        ID: {m.dynamicId}
                       </span>
                     )}
                     {m.userId === user?.id && (
@@ -664,6 +827,41 @@ export default function LobbyPage() {
       <div className="card mt-8">
         <ChatPanel matchId={lobby.match.id} height="500px" title="Чат лобби" />
       </div>
+
+      {/* JOIN MODAL — динамический ID запрашивается перед входом в лобби */}
+      {showJoinModal && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setShowJoinModal(false)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-2" style={{ color: 'var(--muted)' }}>
+              Вход в лобби
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text)' }}>
+              Укажите ваш текущий игровой ID на сервере (не Static ID — он меняется каждую сессию).
+            </p>
+            <input
+              value={dynamicIdInput}
+              onChange={(e) => {
+                setDynamicIdInput(e.target.value.replace(/\D/g, '').slice(0, 8));
+                setDynamicIdError(null);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleConfirmJoin()}
+              placeholder="например: 68"
+              inputMode="numeric"
+              className="input-field mb-3"
+              autoFocus
+            />
+            {dynamicIdError && <p className="error-text mb-3">{dynamicIdError}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => setShowJoinModal(false)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleConfirmJoin} disabled={actionLoading} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {actionLoading ? 'Входим...' : 'Войти'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

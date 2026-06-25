@@ -5,7 +5,7 @@ import { requireAuth, requireOrganizerOrAdmin } from '@/middleware/auth.js';
 import { validateFinalZone } from '@/services/zones.js';
 import { logAudit } from '@/services/audit.js';
 import { scheduleMatchStart, scheduleMatchReminder, scheduleStartZoneClose, scheduleFinalZoneClose, cancelScheduledJobs } from '@/jobs/matchQueue.js';
-import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchTimers } from '@/services/timers.js';
+import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchTimers, getRemainingMs } from '@/services/timers.js';
 import type { Server as SocketServer } from 'socket.io';
 
 // Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно).
@@ -181,8 +181,9 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
       return reply.code(400).send({ error: 'INVALID_FINAL_ZONE', message: validation.reason });
     }
 
-    const closesAt = await setFinalZoneWindow(id, 120_000);
-    await scheduleFinalZoneClose(id, 120_000);
+    const durationMs = match.zoneEntrySeconds * 1000;
+    const closesAt = await setFinalZoneWindow(id, durationMs);
+    await scheduleFinalZoneClose(id, durationMs);
 
     await prisma.match.update({
       where: { id },
@@ -200,24 +201,109 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     reply.send({ zoneId: parsed.data.zoneId, closesAt });
   });
 
-  // ───────── START (manual, Organizer+) — запускает матч и открывает окно входа в зону на 2 минуты ─────────
+  // ───────── START (manual, Organizer+) — запускает матч и открывает окно входа в зону.
+  // Длительность окна — match.zoneEntrySeconds (по умолчанию 120с), можно передать custom
+  // значение в теле запроса, чтобы изменить его на будущее для этого матча.
+  const StartSchema = z.object({ zoneEntrySeconds: z.number().int().min(10).max(900).optional() });
   app.post('/api/matches/:id/start', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    const parsed = StartSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
-    const closesAt = await setStartZoneWindow(id, 120_000);
-    await scheduleStartZoneClose(id, 120_000);
+    const existing = await prisma.match.findUnique({ where: { id }, select: { zoneEntrySeconds: true } });
+    if (!existing) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const zoneEntrySeconds = parsed.data.zoneEntrySeconds ?? existing.zoneEntrySeconds;
+    const durationMs = zoneEntrySeconds * 1000;
+
+    const closesAt = await setStartZoneWindow(id, durationMs);
+    await scheduleStartZoneClose(id, durationMs);
 
     const match = await prisma.match.update({
       where: { id },
-      data: { status: 'LIVE', startZoneOpenedAt: new Date(), startZoneClosesAt: new Date(closesAt) },
+      data: { status: 'LIVE', startZoneOpenedAt: new Date(), startZoneClosesAt: new Date(closesAt), zoneEntrySeconds },
     });
     await prisma.lobby.update({ where: { matchId: id }, data: { state: 'IN_PROGRESS' } });
 
-    await logAudit({ actorId: req.user!.id, action: 'MATCH_STARTED_MANUAL', entityType: 'Match', entityId: id });
+    await logAudit({ actorId: req.user!.id, action: 'MATCH_STARTED_MANUAL', entityType: 'Match', entityId: id, payload: { zoneEntrySeconds } });
 
-    // Серверное состояние — клиент проигрывает звук и показывает таймер 2 минуты на заход
+    // Серверное состояние — клиент проигрывает звук и показывает таймер на заход
     io.to(`lobby:${id}`).emit('match:started', { matchId: id, closesAt });
     reply.send(match);
+  });
+
+  // ───────── PAUSE (Organizer+) — замораживает отсчёт текущего окна на заход в зону ─────────
+  app.post('/api/matches/:id/pause', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (match.status !== 'LIVE') {
+      return reply.code(400).send({ error: 'NOT_LIVE', message: 'Матч можно поставить на паузу только во время игры' });
+    }
+
+    // Финальная зона приоритетнее, если уже была открыта — иначе ставим на паузу стартовое окно.
+    const kind: 'finalzone' | 'startzone' = match.finalZoneOpenedAt ? 'finalzone' : 'startzone';
+    const remainingMs = await getRemainingMs(kind, id);
+
+    await cancelScheduledJobs(id);
+    await prisma.match.update({
+      where: { id },
+      data: { status: 'PAUSED', pausedAt: new Date(), remainingZoneSeconds: remainingMs !== null ? Math.ceil(remainingMs / 1000) : null },
+    });
+
+    await logAudit({ actorId: req.user!.id, action: 'MATCH_PAUSED', entityType: 'Match', entityId: id });
+    io.to(`lobby:${id}`).emit('match:paused', { matchId: id });
+    reply.send({ success: true });
+  });
+
+  // ───────── RESUME (Organizer+) — снимает паузу, пересчитывает таймер от текущего момента ─────────
+  app.post('/api/matches/:id/resume', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (match.status !== 'PAUSED') {
+      return reply.code(400).send({ error: 'NOT_PAUSED', message: 'Матч не на паузе' });
+    }
+
+    const remainingMs = (match.remainingZoneSeconds ?? 0) * 1000;
+    const isFinalZoneWindow = !!match.finalZoneOpenedAt;
+
+    let closesAt: number | null = null;
+    if (remainingMs > 0) {
+      if (isFinalZoneWindow) {
+        closesAt = await setFinalZoneWindow(id, remainingMs);
+        await scheduleFinalZoneClose(id, remainingMs);
+        await prisma.match.update({ where: { id }, data: { finalZoneClosesAt: new Date(closesAt) } });
+      } else {
+        closesAt = await setStartZoneWindow(id, remainingMs);
+        await scheduleStartZoneClose(id, remainingMs);
+        await prisma.match.update({ where: { id }, data: { startZoneClosesAt: new Date(closesAt) } });
+      }
+    }
+
+    await prisma.match.update({ where: { id }, data: { status: 'LIVE', pausedAt: null, remainingZoneSeconds: null } });
+
+    await logAudit({ actorId: req.user!.id, action: 'MATCH_RESUMED', entityType: 'Match', entityId: id });
+    io.to(`lobby:${id}`).emit('match:resumed', { matchId: id, closesAt });
+    reply.send({ success: true, closesAt });
+  });
+
+  // ───────── CHANGE ZONES MID-MATCH (Organizer+) — позволяет скорректировать набор зон,
+  // даже когда матч уже идёт (например, если организатор передумал или была ошибка) ─────────
+  const ChangeZonesSchema = z.object({ zoneIds: z.array(z.string().uuid()).min(1) });
+  app.patch('/api/matches/:id/zones-live', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = ChangeZonesSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    await prisma.match.update({ where: { id }, data: { selectedZones: { set: parsed.data.zoneIds.map((zid) => ({ id: zid })) } } });
+    await logAudit({ actorId: req.user!.id, action: 'ZONES_CHANGED_LIVE', entityType: 'Match', entityId: id, payload: { zoneIds: parsed.data.zoneIds } });
+
+    io.to(`lobby:${id}`).emit('lobby:zones_selected', { matchId: id, zoneIds: parsed.data.zoneIds });
+    reply.send({ success: true, zoneIds: parsed.data.zoneIds });
   });
 
   // ───────── FINISH — records win for all team members, updates achievements ─────────

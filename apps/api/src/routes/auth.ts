@@ -36,7 +36,17 @@ const ACCESS_COOKIE_OPTS = {
   sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
   secure: process.env.NODE_ENV === 'production',
   path: '/',
+  // Без явного maxAge cookie становится session-cookie — браузер стирает её при закрытии вкладки/окна,
+  // независимо от реального срока жизни самого JWT или записи в БД. Это и было причиной того, что
+  // пользователи "вылетали" с сайта: после закрытия и повторного открытия браузера cookie уже не было,
+  // даже если refresh-токен в базе ещё был действителен 30 дней.
+  maxAge: 15 * 60, // 15 минут — синхронизировано с JWT_ACCESS_TTL
 };
+
+// refresh_token живёт намного дольше access_token (30 дней, как сам JWT и запись в БД) —
+// именно эта cookie должна переживать закрытие браузера, чтобы не приходилось логиниться заново
+// каждый раз при возврате на сайт.
+const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 дней — синхронизировано с JWT_REFRESH_TTL
 
 export async function authRoutes(app: FastifyInstance) {
   // ───────── REGISTER ─────────
@@ -149,7 +159,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       reply
         .setCookie('access_token', accessToken, ACCESS_COOKIE_OPTS)
-        .setCookie('refresh_token', refreshToken, { ...ACCESS_COOKIE_OPTS, path: '/api/auth' })
+        .setCookie('refresh_token', refreshToken, { ...ACCESS_COOKIE_OPTS, path: '/api/auth', maxAge: REFRESH_COOKIE_MAX_AGE })
         .code(201)
         .send({
           user: {
@@ -203,7 +213,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       reply
         .setCookie('access_token', accessToken, ACCESS_COOKIE_OPTS)
-        .setCookie('refresh_token', refreshToken, { ...ACCESS_COOKIE_OPTS, path: '/api/auth' })
+        .setCookie('refresh_token', refreshToken, { ...ACCESS_COOKIE_OPTS, path: '/api/auth', maxAge: REFRESH_COOKIE_MAX_AGE })
         .send({
           user: {
             id: user.id,

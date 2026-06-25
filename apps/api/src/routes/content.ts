@@ -201,17 +201,23 @@ export async function auditRoutes(app: FastifyInstance) {
 export async function userRoutes(app: FastifyInstance) {
   // Поиск по нику или Static ID — для админ-панели
   app.get('/api/users', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
-    const { q } = req.query as { q?: string };
+    const { q, role, banned } = req.query as { q?: string; role?: string; banned?: string };
+
+    const where: any = {};
+    if (q) {
+      where.OR = [
+        { username: { contains: q, mode: 'insensitive' } },
+        { staticId: { value: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+    if (role && ['OWNER', 'ADMIN', 'ORGANIZER', 'PLAYER'].includes(role)) {
+      where.role = role;
+    }
+    if (banned === 'true') where.isBanned = true;
+    if (banned === 'false') where.isBanned = false;
 
     const users = await prisma.user.findMany({
-      where: q
-        ? {
-            OR: [
-              { username: { contains: q, mode: 'insensitive' } },
-              { staticId: { value: { contains: q, mode: 'insensitive' } } },
-            ],
-          }
-        : {},
+      where,
       orderBy: { createdAt: 'desc' },
       include: { staticId: true },
       take: 200,
@@ -227,11 +233,29 @@ export async function userRoutes(app: FastifyInstance) {
         staticIdProofUrl: u.staticId?.proofUrl ?? null,
         isBanned: u.isBanned,
         bannedReason: u.bannedReason,
+        isSuspended: u.isSuspended,
+        suspendedReason: u.suspendedReason,
+        suspendedUntil: u.suspendedUntil,
         // IP-адреса видны только Owner — Admin и Organizer не должны иметь доступ к этим данным.
         ...(isOwner ? { registrationIp: u.registrationIp, lastLoginIp: u.lastLoginIp } : {}),
         createdAt: u.createdAt,
       }))
     );
+  });
+
+  // Общее число пользователей + разбивка по ролям/банам — для счётчика в админке,
+  // отдельно от основного списка, чтобы не тянуть все 200 строк только за цифрой.
+  app.get('/api/users/count', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const [total, banned, byRole] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { isBanned: true } }),
+      prisma.user.groupBy({ by: ['role'], _count: { role: true } }),
+    ]);
+
+    const roleCounts: Record<string, number> = { OWNER: 0, ADMIN: 0, ORGANIZER: 0, PLAYER: 0 };
+    for (const row of byRole) roleCounts[row.role] = row._count.role;
+
+    reply.send({ total, banned, byRole: roleCounts });
   });
 
   app.patch('/api/users/:id/role', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
@@ -298,6 +322,53 @@ export async function userRoutes(app: FastifyInstance) {
     reply.send({ success: true });
   });
 
+  // Отстранение от игр — мягче полного бана: аккаунт остаётся рабочим (логин, чат, сайт),
+  // но запрещено участвовать в лобби/командах/матчах (проверяется в services/lobby.ts).
+  const SuspendSchema = z.object({ reason: z.string().max(500).optional(), durationDays: z.number().int().min(1).max(3650).optional() });
+  app.post('/api/users/:id/suspend', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = SuspendSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден' });
+    if (target.role === 'OWNER' && req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только Owner может отстранять Owner' });
+    }
+
+    const suspendedUntil = parsed.data.durationDays ? new Date(Date.now() + parsed.data.durationDays * 24 * 60 * 60 * 1000) : null;
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        isSuspended: true,
+        suspendedAt: new Date(),
+        suspendedUntil,
+        suspendedReason: parsed.data.reason ?? null,
+        suspendedById: req.user!.id,
+      },
+    });
+
+    await logAudit({
+      actorId: req.user!.id,
+      action: 'USER_SUSPENDED',
+      entityType: 'User',
+      entityId: id,
+      payload: { reason: parsed.data.reason, durationDays: parsed.data.durationDays },
+    });
+    reply.send({ success: true });
+  });
+
+  app.post('/api/users/:id/unsuspend', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await prisma.user.update({
+      where: { id },
+      data: { isSuspended: false, suspendedAt: null, suspendedUntil: null, suspendedReason: null, suspendedById: null },
+    });
+    await logAudit({ actorId: req.user!.id, action: 'USER_UNSUSPENDED', entityType: 'User', entityId: id });
+    reply.send({ success: true });
+  });
+
   // Изменение Static ID игрока — строго Owner, не доступно даже Admin/Organizer.
   // Static ID — это закреплённый игровой идентификатор, самостоятельная смена игроком запрещена.
   const StaticIdSchema = z.object({
@@ -338,6 +409,49 @@ export async function userRoutes(app: FastifyInstance) {
     });
 
     reply.send({ staticId: result.value });
+  });
+
+  // Изменение ника игрока — строго Owner. Обычные игроки не могут сами поменять ник на сайте,
+  // только через обращение в поддержку — это и есть тот процесс, реализованный здесь технически.
+  const UsernameSchema = z.object({
+    username: z
+      .string()
+      .min(3, 'Ник должен быть не короче 3 символов')
+      .max(32, 'Ник должен быть не длиннее 32 символов')
+      .regex(/^[a-zA-Z0-9_ ]+$/, 'Ник может содержать буквы, цифры, пробел и подчёркивание'),
+  });
+
+  app.patch('/api/users/:id/username', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только Owner может изменять ник игрока' });
+    }
+
+    const { id } = req.params as { id: string };
+    const parsed = UsernameSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: parsed.error.errors[0]?.message ?? 'Некорректный ник' });
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден' });
+
+    const taken = await prisma.user.findUnique({ where: { username: parsed.data.username } });
+    if (taken && taken.id !== id) {
+      return reply.code(409).send({ error: 'USERNAME_TAKEN', message: 'Этот ник уже занят другим аккаунтом' });
+    }
+
+    const oldUsername = targetUser.username;
+    const updated = await prisma.user.update({ where: { id }, data: { username: parsed.data.username } });
+
+    await logAudit({
+      actorId: req.user!.id,
+      action: 'USERNAME_CHANGED_BY_OWNER',
+      entityType: 'User',
+      entityId: id,
+      payload: { oldUsername, newUsername: parsed.data.username },
+    });
+
+    reply.send({ username: updated.username });
   });
 
   // Реферальный топ — кто привёл больше всего игроков. Видят Admin/Owner (через requireRole иерархию).

@@ -80,11 +80,15 @@ export function createMatchEventsWorker(io: SocketServer) {
           break;
         }
         case 'START_ZONE_CLOSE': {
+          const m = await prisma.match.findUnique({ where: { id: matchId }, select: { status: true } });
+          if (m?.status === 'PAUSED') break; // защита от редкой гонки: job был active в момент паузы
           await prisma.match.update({ where: { id: matchId }, data: { startZoneClosesAt: new Date() } });
           io.to(`lobby:${matchId}`).emit('lobby:start_zone_closed', { matchId });
           break;
         }
         case 'FINAL_ZONE_CLOSE': {
+          const m = await prisma.match.findUnique({ where: { id: matchId }, select: { status: true } });
+          if (m?.status === 'PAUSED') break;
           await prisma.match.update({ where: { id: matchId }, data: { finalZoneClosesAt: new Date() } });
           io.to(`lobby:${matchId}`).emit('lobby:final_zone_closed', { matchId });
           await notifyLobbyMembers(io, matchId, 'notify:final_zone', { matchId, closed: true });

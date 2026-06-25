@@ -47,13 +47,18 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
   });
 
   // ───────── JOIN ─────────
+  // Динамический ID — личный номер игрока на сервере в этой сессии, обязателен при входе в лобби.
+  const JoinSchema = z.object({ dynamicId: z.string().regex(/^\d{2,8}$/, 'Динамический ID должен состоять из 2–8 цифр') });
   app.post('/api/lobby/:matchId/join', { preHandler: requireAuth }, async (req, reply) => {
     const { matchId } = req.params as { matchId: string };
+    const parsed = JoinSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Укажите корректный динамический ID' });
+
     const lobby = await prisma.lobby.findUnique({ where: { matchId } });
     if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
 
     try {
-      await joinLobby(lobby.id, req.user!.id);
+      await joinLobby(lobby.id, req.user!.id, parsed.data.dynamicId);
     } catch (e) {
       return handleApiError(reply, e);
     }
@@ -119,6 +124,26 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
 
     io.to(`lobby:${matchId}`).emit('lobby:ready_changed', { matchId, teamId: team.id, ready: team.isReady });
     reply.send(team);
+  });
+
+  // ───────── ELIMINATED TOGGLE ("Мы умерли") — игрок отмечает себя выбывшим, организатор видит
+  // живой счёт по команде/лобби в реальном времени ─────────
+  const EliminatedSchema = z.object({ eliminated: z.boolean() });
+  app.post('/api/lobby/:matchId/eliminated', { preHandler: requireAuth }, async (req, reply) => {
+    const { matchId } = req.params as { matchId: string };
+    const parsed = EliminatedSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const lobby = await prisma.lobby.findUnique({ where: { matchId } });
+    if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const member = await prisma.lobbyMember.findUnique({ where: { lobbyId_userId: { lobbyId: lobby.id, userId: req.user!.id } } });
+    if (!member) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Вы не состоите в этом лобби' });
+
+    const updated = await prisma.lobbyMember.update({ where: { id: member.id }, data: { isEliminated: parsed.data.eliminated } });
+
+    io.to(`lobby:${matchId}`).emit('lobby:eliminated_changed', { matchId, userId: req.user!.id, eliminated: updated.isEliminated });
+    reply.send({ success: true, eliminated: updated.isEliminated });
   });
 
   // ───────── AUTO-ASSIGN (Organizer+) — "Авто-раскидать" ─────────
