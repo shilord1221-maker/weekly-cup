@@ -60,8 +60,8 @@ async function ensureNotSuspended(userId: string) {
  * - один пользователь не может быть одновременно в двух LIVE/IN_PROGRESS матчах
  */
 export async function joinLobby(lobbyId: string, userId: string, dynamicId: string) {
-  if (!/^\d{2,8}$/.test(dynamicId)) {
-    throw new ApiError('INVALID_DYNAMIC_ID', 'Динамический ID должен состоять из 2–8 цифр', 400);
+  if (!/^\d{1,8}$/.test(dynamicId)) {
+    throw new ApiError('INVALID_DYNAMIC_ID', 'Динамический ID должен состоять из 1–8 цифр', 400);
   }
 
   await ensureNotSuspended(userId);

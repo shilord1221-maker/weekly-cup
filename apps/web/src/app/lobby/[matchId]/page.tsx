@@ -268,8 +268,8 @@ export default function LobbyPage() {
 
   const handleConfirmJoin = async () => {
     if (!user) return;
-    if (!/^\d{2,8}$/.test(dynamicIdInput)) {
-      setDynamicIdError('Введите ID — только цифры, от 2 до 8 знаков');
+    if (!/^\d{1,8}$/.test(dynamicIdInput)) {
+      setDynamicIdError('Введите ID — только цифры, от 1 до 8 знаков');
       return;
     }
     setActionError(null);

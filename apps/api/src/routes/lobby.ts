@@ -48,7 +48,7 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
 
   // ───────── JOIN ─────────
   // Динамический ID — личный номер игрока на сервере в этой сессии, обязателен при входе в лобби.
-  const JoinSchema = z.object({ dynamicId: z.string().regex(/^\d{2,8}$/, 'Динамический ID должен состоять из 2–8 цифр') });
+  const JoinSchema = z.object({ dynamicId: z.string().regex(/^\d{1,8}$/, 'Динамический ID должен состоять из 1–8 цифр') });
   app.post('/api/lobby/:matchId/join', { preHandler: requireAuth }, async (req, reply) => {
     const { matchId } = req.params as { matchId: string };
     const parsed = JoinSchema.safeParse(req.body);

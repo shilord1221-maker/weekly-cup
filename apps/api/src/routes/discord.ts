@@ -4,6 +4,7 @@ import { requireAuth } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
 import { isDiscordOAuthConfigured, buildDiscordAuthUrl, exchangeDiscordCode, discordAvatarUrl } from '@/services/discordOAuth.js';
 import { signDiscordOAuthState, verifyDiscordOAuthState } from '@/utils/jwt.js';
+import { grantRoleByName } from '@/services/discordBot.js';
 import { env } from '@/env.js';
 
 export async function discordRoutes(app: FastifyInstance) {
@@ -52,6 +53,13 @@ export async function discordRoutes(app: FastifyInstance) {
           discordLinkedAt: new Date(),
         },
       });
+
+      // Выдаём роль "Player" на самом Discord-сервере сразу после успешной привязки.
+      // Сбой здесь не должен мешать привязке — она уже сохранена в БД, просто логируем ошибку.
+      const roleResult = await grantRoleByName(identity.id, 'Player');
+      if (!roleResult.ok) {
+        req.log.warn({ reason: roleResult.reason, discordId: identity.id }, '[discord] Не удалось выдать роль Player после привязки');
+      }
 
       await logAudit({ actorId: userId, action: 'DISCORD_LINKED', entityType: 'User', entityId: userId, payload: { discordId: identity.id } });
       reply.redirect(`${webOrigin}/profile?discord=success`);

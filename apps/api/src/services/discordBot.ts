@@ -121,6 +121,39 @@ export async function syncVoiceRole(discordId: string, roleName: string | null):
 }
 
 /**
+ * Выдаёт статичную роль по имени (например "Player") — в отличие от syncVoiceRole,
+ * не снимает никакие другие роли, просто добавляет одну. Используется после успешной
+ * привязки Discord-аккаунта на сайте.
+ */
+export async function grantRoleByName(discordId: string, roleName: string): Promise<RoleSyncResult> {
+  const guild = getGuild();
+  if (!guild) return { ok: false, reason: 'BOT_OFFLINE' };
+
+  let member: GuildMember;
+  try {
+    member = await guild.members.fetch(discordId);
+  } catch {
+    return { ok: false, reason: 'NOT_IN_GUILD' };
+  }
+
+  try {
+    const role = findRoleByName(guild, roleName);
+    if (!role) return { ok: false, reason: 'ROLE_NOT_FOUND' };
+
+    if (member.roles.cache.has(role.id)) {
+      return { ok: true }; // роль уже есть — ничего делать не нужно
+    }
+
+    await member.roles.add(role);
+    return { ok: true };
+  } catch (err: any) {
+    if (err?.code === 50013) return { ok: false, reason: 'MISSING_PERMISSIONS' };
+    console.error('[discord] grantRoleByName error:', err);
+    return { ok: false, reason: 'UNKNOWN_ERROR' };
+  }
+}
+
+/**
  * Высокоуровневый помощник для лобби-роутов: по режиму матча и слоту команды вычисляет
  * имя роли, синхронизирует её на Discord и сохраняет текущее состояние в БД для диагностики.
  * Если discordId пустой (Discord не настроен глобально) или синхронизация не удалась —
