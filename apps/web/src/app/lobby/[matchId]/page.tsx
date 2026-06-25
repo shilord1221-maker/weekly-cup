@@ -141,6 +141,7 @@ export default function LobbyPage() {
     const onLeft = () => invalidate();
     const onTeamChanged = () => invalidate();
     const onTeamCreated = () => invalidate();
+    const onTeamDeleted = () => invalidate();
     const onEliminatedChanged = () => invalidate();
     const onReadyChanged = (p: { ready: boolean }) => {
       invalidate();
@@ -190,6 +191,7 @@ export default function LobbyPage() {
     socket.on('lobby:player_left', onLeft);
     socket.on('lobby:team_changed', onTeamChanged);
     socket.on('lobby:team_created', onTeamCreated);
+    socket.on('lobby:team_deleted', onTeamDeleted);
     socket.on('lobby:eliminated_changed', onEliminatedChanged);
     socket.on('lobby:ready_changed', onReadyChanged);
     socket.on('lobby:auto_assigned', onAutoAssigned);
@@ -208,6 +210,7 @@ export default function LobbyPage() {
       socket.off('lobby:player_left', onLeft);
       socket.off('lobby:team_changed', onTeamChanged);
       socket.off('lobby:team_created', onTeamCreated);
+      socket.off('lobby:team_deleted', onTeamDeleted);
       socket.off('lobby:eliminated_changed', onEliminatedChanged);
       socket.off('lobby:ready_changed', onReadyChanged);
       socket.off('lobby:auto_assigned', onAutoAssigned);
@@ -375,6 +378,20 @@ export default function LobbyPage() {
       await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось кикнуть игрока');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteTeam = async (teamId: string, teamName: string) => {
+    if (!confirm(`Удалить команду «${teamName}»? Участники останутся в лобби без команды.`)) return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await api.delete(`/lobby/${matchId}/teams/${teamId}`);
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось удалить команду');
     } finally {
       setActionLoading(false);
     }
@@ -827,6 +844,16 @@ export default function LobbyPage() {
                       title="Скопировать ID этой команды"
                     >
                       {copiedFeedback === team.id ? '✓' : '📋 ID'}
+                    </button>
+                  )}
+                  {isOrganizerOrAdmin && !isFinished && (
+                    <button
+                      onClick={() => handleDeleteTeam(team.id, team.name)}
+                      className="font-mono text-[10px] px-2 py-1 rounded-full transition-colors"
+                      style={{ color: '#f87171', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.18)' }}
+                      title="Удалить команду"
+                    >
+                      🗑 Удалить
                     </button>
                   )}
                   <span

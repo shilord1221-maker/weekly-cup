@@ -1,8 +1,9 @@
-// Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно).
+// Лимиты количества команд по режиму (Team 1 до этого числа включительно).
+// Для 2x2/3x3/4x4 ограничение снято — Infinity значит "без лимита".
 export const MODE_TEAM_LIMITS: Record<string, number> = {
-  MODE_2X2: 24,
-  MODE_3X3: 16,
-  MODE_4X4: 12,
+  MODE_2X2: Infinity,
+  MODE_3X3: Infinity,
+  MODE_4X4: Infinity,
   MODE_5X5: 10,
 };
 

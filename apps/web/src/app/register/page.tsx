@@ -47,7 +47,6 @@ function RegisterFormContent() {
   const register_ = useAuthStore((s) => s.register);
   const [serverError, setServerError] = useState<string | null>(null);
   const [proofMismatchError, setProofMismatchError] = useState<string | null>(null);
-  const [proofRequiredError, setProofRequiredError] = useState<string | null>(null);
   const [staticIdProofUrl, setStaticIdProofUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   // Реферальный код из ссылки вида /register?ref=ABCD1234 — передаём его на сервер при регистрации.
@@ -65,18 +64,9 @@ function RegisterFormContent() {
   const onSubmit = async (data: RegisterForm) => {
     setServerError(null);
     setProofMismatchError(null);
-    setProofRequiredError(null);
-
-    // Скрин-пруф обязателен — проверяем на клиенте до отправки, чтобы не ждать round-trip к серверу.
-    
-
     setSubmitting(true);
     try {
-      await register_({
-        ...data,
-        staticIdProofUrl: staticIdProofUrl?.trim(),
-        referralCode,
-    });
+      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim() || undefined, referralCode });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
@@ -184,16 +174,12 @@ function RegisterFormContent() {
           </div>
 
           <ImageUploadField
-            label="Скриншот-пруф Static ID"
+            label="Скриншот-пруф Static ID (необязательно)"
             value={staticIdProofUrl}
-            onChange={(url) => {
-              setStaticIdProofUrl(url);
-              setProofRequiredError(null);
-            }}
+            onChange={setStaticIdProofUrl}
             folder="static-id-proofs"
-            helperText="Загрузите скрин с вашим Static ID — без него зарегистрироваться нельзя."
+            helperText="Загрузите скрин с вашим Static ID — это ускорит проверку при спорах."
           />
-          {proofRequiredError && <p className="error-text">{proofRequiredError}</p>}
 
           <button type="submit" disabled={submitting} className="btn-main justify-center mt-2">
             {submitting ? 'Создаём аккаунт...' : 'Создать аккаунт'}

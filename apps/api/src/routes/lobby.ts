@@ -149,6 +149,35 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
     reply.send({ success: true });
   });
 
+  // ───────── DELETE TEAM (Organizer+) — удаляет команду целиком, участники остаются
+  // в лобби без команды (не выкидываются из лобби) ─────────
+  app.delete('/api/lobby/:matchId/teams/:teamId', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { matchId, teamId } = req.params as { matchId: string; teamId: string };
+
+    const lobby = await prisma.lobby.findUnique({ where: { matchId } });
+    if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team || team.lobbyId !== lobby.id) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Команда не найдена в этом лобби' });
+    }
+
+    const affectedMembers = await prisma.lobbyMember.findMany({ where: { teamId }, select: { userId: true } });
+
+    // Сначала освобождаем участников (teamId = null), затем удаляем саму команду —
+    // иначе foreign key не даст удалить команду, пока на неё есть ссылки.
+    await prisma.lobbyMember.updateMany({ where: { teamId }, data: { teamId: null } });
+    await prisma.team.delete({ where: { id: teamId } });
+
+    await logAudit({ actorId: req.user!.id, action: 'TEAM_DELETED', entityType: 'Team', entityId: teamId, payload: { name: team.name, matchId } });
+
+    io.to(`lobby:${matchId}`).emit('lobby:team_deleted', { matchId, teamId });
+    for (const member of affectedMembers) {
+      io.to(`lobby:${matchId}`).emit('lobby:team_changed', { matchId, userId: member.userId, teamId: null });
+    }
+    reply.send({ success: true });
+  });
+
   // ───────── CHOOSE / CHANGE TEAM ─────────
   const TeamSchema = z.object({ teamId: z.string().uuid() });
   app.patch('/api/lobby/:matchId/team', { preHandler: requireAuth }, async (req, reply) => {

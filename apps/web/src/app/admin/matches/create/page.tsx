@@ -181,7 +181,10 @@ export default function CreateMatchPage() {
         <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border2)' }}>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
             Команды теперь создают сами игроки прямо в лобби — вам не нужно задавать их заранее.
-            Максимум для режима {MODE_OPTIONS.find((m) => m.value === mode)?.label}: {MODE_TEAM_LIMITS[mode] ?? 24} команд.
+            {' '}
+            {Number.isFinite(MODE_TEAM_LIMITS[mode])
+              ? `Максимум для режима ${MODE_OPTIONS.find((m) => m.value === mode)?.label}: ${MODE_TEAM_LIMITS[mode]} команд.`
+              : `Для режима ${MODE_OPTIONS.find((m) => m.value === mode)?.label} ограничения на количество команд нет.`}
           </p>
         </div>
 

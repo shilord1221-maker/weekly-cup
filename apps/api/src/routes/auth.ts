@@ -5,7 +5,6 @@ import { prisma } from '@/db.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, refreshTokenExpiryDate } from '@/utils/jwt.js';
 import { requireAuth } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
-import { verifyStaticIdProof } from '@/services/proofCheck.js';
 import { generateUniqueReferralCode } from '@/services/referral.js';
 
 // Ник и Static ID — обязательные поля при регистрации.
@@ -18,7 +17,7 @@ const RegisterSchema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
   staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
-  staticIdProofUrl: z.string().url('Загрузите скриншот-пруф Static ID — без него регистрация невозможна'),
+  staticIdProofUrl: z.string().url('Укажите ссылку на скриншот (например, через yapix)').optional(),
   referralCode: z.string().max(16).optional(),
 });
 
@@ -78,23 +77,7 @@ export async function authRoutes(app: FastifyInstance) {
       }
 
       const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
-
-      // Проверяем, что на скрине действительно тот же Static ID, который человек ввёл в форму.
-      // Если проверка недоступна (нет ключа API, скрин не открылся и т.д.) — не блокируем
-      // регистрацию, просто проходим без верификации (сам скрин при этом всё равно обязателен).
-      let detectedStaticId: string | null = null;
-      const proofResult = await verifyStaticIdProof(parsed.data.staticIdProofUrl);
-      if (proofResult.ok) {
-        detectedStaticId = proofResult.detectedStaticId;
-        if (detectedStaticId !== staticId) {
-          return reply.code(400).send({
-            error: 'PROOF_MISMATCH',
-            message: `На скрине найден Static ID #${detectedStaticId}, а в форме указан #${staticId}. Проверьте, что вы загрузили правильный скриншот.`,
-          });
-        }
-      }
-      // Остальные исходы (NO_API_KEY/FETCH_FAILED/NOT_AN_IMAGE/NOT_DETECTED/API_ERROR) —
-      // намеренно не блокируют регистрацию, чтобы технический сбой не мешал реальным игрокам.
+      const detectedStaticId: string | null = null;
 
       // Static ID уже привязан к ДРУГОМУ аккаунту — это новый игрок не пропускаем сразу,
       // а заводим заявку на «амнистию»: админ разбирается вручную, кому реально принадлежит этот ID.
@@ -106,7 +89,7 @@ export async function authRoutes(app: FastifyInstance) {
             email,
             passwordHash,
             staticId,
-            proofUrl: parsed.data.staticIdProofUrl,
+            proofUrl: parsed.data.staticIdProofUrl ?? null,
             detectedStaticId,
             conflictUserId: existingStaticId.userId,
             registrationIp: clientIp,
@@ -142,7 +125,7 @@ export async function authRoutes(app: FastifyInstance) {
           lastLoginIp: clientIp,
           referralCode,
           referredById,
-          staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl } },
+          staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl ?? null } },
         },
         include: { staticId: true },
       });

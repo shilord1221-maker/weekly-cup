@@ -14,12 +14,13 @@ export function teamCapacityForMode(mode: MatchMode): number {
   }
 }
 
-// Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно) —
+// Лимиты количества команд по режиму (Team 1 до этого числа включительно) —
 // применяется при создании новой команды игроком, не при создании матча (команд больше нет заранее).
+// Для 2x2/3x3/4x4 ограничение снято по решению владельца проекта — Infinity значит "без лимита".
 export const MODE_TEAM_LIMITS: Record<MatchMode, number> = {
-  MODE_2X2: 24,
-  MODE_3X3: 16,
-  MODE_4X4: 12,
+  MODE_2X2: Infinity,
+  MODE_3X3: Infinity,
+  MODE_4X4: Infinity,
   MODE_5X5: 10,
 };
 
