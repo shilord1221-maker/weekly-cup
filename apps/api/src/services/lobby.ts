@@ -14,10 +14,14 @@ export function teamCapacityForMode(mode: MatchMode): number {
   }
 }
 
-export function teamCountForMode(mode: MatchMode): number {
-  // По умолчанию 4 команды в лобби; организатор может изменить позже через ручное управление.
-  return 4;
-}
+// Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно) —
+// применяется при создании новой команды игроком, не при создании матча (команд больше нет заранее).
+export const MODE_TEAM_LIMITS: Record<MatchMode, number> = {
+  MODE_2X2: 24,
+  MODE_3X3: 16,
+  MODE_4X4: 12,
+  MODE_5X5: 10,
+};
 
 /**
  * Проверяет отстранение игрока от игр — мягче полного бана, аккаунт остаётся рабочим,

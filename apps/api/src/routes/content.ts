@@ -128,6 +128,9 @@ export async function profileRoutes(app: FastifyInstance) {
         email: true,
         role: true,
         avatarUrl: true,
+        pendingAvatarUrl: true,
+        avatarStatus: true,
+        avatarRejectedReason: true,
         createdAt: true,
         discordId: true,
         discordUsername: true,
@@ -144,17 +147,80 @@ export async function profileRoutes(app: FastifyInstance) {
     reply.send({ ...user, referralCount: user._count.referrals });
   });
 
-  app.patch('/api/profile', { preHandler: requireAuth }, async (req, reply) => {
-    const Schema = z.object({ avatarUrl: z.string().url().optional() });
-    const parsed = Schema.safeParse(req.body);
+  // Загрузка новой аватарки — не меняет видимую avatarUrl сразу, создаёт заявку на модерацию.
+  // Пользователь может загрузить новую аватарку, даже если предыдущая ещё на рассмотрении —
+  // это просто заменяет pendingAvatarUrl, не плодя дублирующиеся заявки.
+  const SubmitAvatarSchema = z.object({ avatarUrl: z.string().url('Некорректная ссылка на изображение') });
+  app.post('/api/profile/avatar', { preHandler: requireAuth }, async (req, reply) => {
+    const parsed = SubmitAvatarSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: parsed.error.errors[0]?.message });
+
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        pendingAvatarUrl: parsed.data.avatarUrl,
+        avatarStatus: 'PENDING',
+        avatarReviewedById: null,
+        avatarRejectedReason: null,
+      },
+    });
+
+    await logAudit({ actorId: req.user!.id, action: 'AVATAR_SUBMITTED', entityType: 'User', entityId: req.user!.id });
+    reply.send({ success: true, status: 'PENDING' });
+  });
+
+  // Очередь модерации аватарок — видят Admin/Owner
+  app.get('/api/avatars/pending', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const users = await prisma.user.findMany({
+      where: { avatarStatus: 'PENDING' },
+      select: { id: true, username: true, pendingAvatarUrl: true, avatarUrl: true },
+      orderBy: { updatedAt: 'asc' },
+    });
+    reply.send(users);
+  });
+
+  app.post('/api/avatars/:id/approve', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (!target.pendingAvatarUrl) return reply.code(400).send({ error: 'NO_PENDING_AVATAR', message: 'Нет аватарки на рассмотрении' });
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        avatarUrl: target.pendingAvatarUrl,
+        pendingAvatarUrl: null,
+        avatarStatus: 'APPROVED',
+        avatarReviewedById: req.user!.id,
+        avatarRejectedReason: null,
+      },
+    });
+
+    await logAudit({ actorId: req.user!.id, action: 'AVATAR_APPROVED', entityType: 'User', entityId: id });
+    reply.send({ success: true });
+  });
+
+  const RejectAvatarSchema = z.object({ reason: z.string().max(500).optional() });
+  app.post('/api/avatars/:id/reject', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = RejectAvatarSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
-    const user = await prisma.user.update({
-      where: { id: req.user!.id },
-      data: parsed.data,
-      select: { id: true, username: true, email: true, role: true, avatarUrl: true },
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        pendingAvatarUrl: null,
+        avatarStatus: 'REJECTED',
+        avatarReviewedById: req.user!.id,
+        avatarRejectedReason: parsed.data.reason ?? null,
+      },
     });
-    reply.send(user);
+
+    await logAudit({ actorId: req.user!.id, action: 'AVATAR_REJECTED', entityType: 'User', entityId: id, payload: { reason: parsed.data.reason } });
+    reply.send({ success: true });
   });
 }
 

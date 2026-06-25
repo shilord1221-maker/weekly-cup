@@ -44,7 +44,6 @@ export default function CreateMatchPage() {
 
   const [mapId, setMapId] = useState('');
   const [mode, setMode] = useState('MODE_2X2');
-  const [teamCount, setTeamCount] = useState(2);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
@@ -86,7 +85,6 @@ export default function CreateMatchPage() {
         mapId,
         mode,
         startTime,
-        teamCount,
         zoneIds: selectedZoneIds.length > 0 ? selectedZoneIds : undefined,
       });
 
@@ -166,11 +164,7 @@ export default function CreateMatchPage() {
               <button
                 key={m.value}
                 type="button"
-                onClick={() => {
-                  setMode(m.value);
-                  const limit = MODE_TEAM_LIMITS[m.value] ?? 24;
-                  setTeamCount((prev) => Math.min(prev, limit));
-                }}
+                onClick={() => setMode(m.value)}
                 className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1"
                 style={{
                   background: mode === m.value ? 'var(--a)' : 'rgba(255,255,255,.03)',
@@ -184,18 +178,9 @@ export default function CreateMatchPage() {
           </div>
         </div>
 
-        <div>
-          <label className="label-field">Сколько команд в матче</label>
-          <input
-            type="number"
-            min={2}
-            max={MODE_TEAM_LIMITS[mode] ?? 24}
-            value={teamCount}
-            onChange={(e) => setTeamCount(Math.max(2, Math.min(MODE_TEAM_LIMITS[mode] ?? 24, Number(e.target.value) || 2)))}
-            className="input-field"
-            style={{ width: '120px' }}
-          />
-          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+        <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border2)' }}>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+            Команды теперь создают сами игроки прямо в лобби — вам не нужно задавать их заранее.
             Максимум для режима {MODE_OPTIONS.find((m) => m.value === mode)?.label}: {MODE_TEAM_LIMITS[mode] ?? 24} команд.
           </p>
         </div>

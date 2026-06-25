@@ -58,6 +58,12 @@ enum AmnestyStatus {
   REJECTED
 }
 
+enum AvatarStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ───────────────────────── CORE ─────────────────────────
 
 model User {
@@ -67,6 +73,12 @@ model User {
   passwordHash String
   role         Role     @default(PLAYER)
   avatarUrl    String?
+  // Аватарка проходит модерацию: avatarUrl — то, что реально показывается всем (последнее
+  // одобренное), pendingAvatarUrl — новая загрузка, ожидающая решения админа/овнера.
+  pendingAvatarUrl String?
+  avatarStatus     AvatarStatus? // null = нет заявки на рассмотрении
+  avatarReviewedById String?
+  avatarRejectedReason String? @db.VarChar(500)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -238,19 +250,19 @@ model Lobby {
 }
 
 model Team {
-  id       String  @id @default(uuid())
-  lobbyId  String
-  lobby    Lobby   @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  name     String  @db.VarChar(64)
-  slot     Int // порядковый номер команды в лобби (1,2,3...)
-  voiceUrl String? // Discord invite link
-  isReady  Boolean @default(false)
+  id          String  @id @default(uuid())
+  lobbyId     String
+  lobby       Lobby   @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  name        String  @db.VarChar(64)
+  slot        Int // порядковый номер для отображения/Discord-ролей (назначается по порядку создания)
+  isReady     Boolean @default(false)
+  // Капитан — игрок, создавший команду. Только он может кикать участников из своей команды.
+  createdById String?
 
   members      LobbyMember[]
   wonMatches   Match[]       @relation("WinnerOfMatch")
   wins         Win[]
 
-  @@unique([lobbyId, slot])
   @@index([lobbyId])
 }
 
@@ -283,10 +295,14 @@ model ChatMessage {
   pollId    String?  // если сообщение — это карточка голосования
   // null — сообщение в общем чате; иначе — id матча, чьё лобби-чат содержит это сообщение
   lobbyMatchId String?
+  // Чат конкретной команды внутри лобби — видят только участники этой команды.
+  // Если задано, lobbyMatchId всё равно указывает на матч (для удобной фильтрации по матчу).
+  teamId    String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([lobbyMatchId])
+  @@index([teamId])
 }
 
 model Notification {

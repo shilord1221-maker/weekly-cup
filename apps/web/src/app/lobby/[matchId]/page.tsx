@@ -21,6 +21,7 @@ interface TeamData {
   name: string;
   slot: number;
   isReady: boolean;
+  createdById: string | null;
   members: Member[];
 }
 interface Zone {
@@ -138,6 +139,7 @@ export default function LobbyPage() {
     };
     const onLeft = () => invalidate();
     const onTeamChanged = () => invalidate();
+    const onTeamCreated = () => invalidate();
     const onEliminatedChanged = () => invalidate();
     const onReadyChanged = (p: { ready: boolean }) => {
       invalidate();
@@ -186,6 +188,7 @@ export default function LobbyPage() {
     socket.on('lobby:player_joined', onJoined);
     socket.on('lobby:player_left', onLeft);
     socket.on('lobby:team_changed', onTeamChanged);
+    socket.on('lobby:team_created', onTeamCreated);
     socket.on('lobby:eliminated_changed', onEliminatedChanged);
     socket.on('lobby:ready_changed', onReadyChanged);
     socket.on('lobby:auto_assigned', onAutoAssigned);
@@ -203,6 +206,7 @@ export default function LobbyPage() {
       socket.off('lobby:player_joined', onJoined);
       socket.off('lobby:player_left', onLeft);
       socket.off('lobby:team_changed', onTeamChanged);
+      socket.off('lobby:team_created', onTeamCreated);
       socket.off('lobby:eliminated_changed', onEliminatedChanged);
       socket.off('lobby:ready_changed', onReadyChanged);
       socket.off('lobby:auto_assigned', onAutoAssigned);
@@ -329,6 +333,44 @@ export default function LobbyPage() {
     setActionLoading(true);
     try {
       await api.post(`/lobby/${matchId}/kick`, { userId });
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось кикнуть игрока');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const [showCreateTeamForm, setShowCreateTeamForm] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [createTeamError, setCreateTeamError] = useState<string | null>(null);
+
+  const handleCreateTeam = async () => {
+    setCreateTeamError(null);
+    if (!newTeamName.trim()) {
+      setCreateTeamError('Укажите название команды');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.post(`/lobby/${matchId}/teams`, { name: newTeamName.trim() });
+      setNewTeamName('');
+      setShowCreateTeamForm(false);
+      await refetch();
+    } catch (e) {
+      setCreateTeamError(e instanceof ApiClientError ? e.message : 'Не удалось создать команду');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Кик от лица капитана команды (не путать с handleKickPlayer — это админский кик)
+  const handleCaptainKick = async (teamId: string, userId: string) => {
+    if (!confirm('Кикнуть этого игрока из вашей команды?')) return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await api.post(`/lobby/${matchId}/teams/${teamId}/kick`, { userId });
       await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось кикнуть игрока');
@@ -470,7 +512,7 @@ export default function LobbyPage() {
         <div>
           <div className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--a)' }}>
             <span className="block w-6 h-px" style={{ background: 'var(--a)' }} />
-            Лобби · {lobby.match.map.name} · {MODE_LABELS[lobby.match.mode]}
+            Лобби · {isOrganizerOrAdmin ? lobby.match.map.name : 'карта скрыта'} · {MODE_LABELS[lobby.match.mode]}
           </div>
           <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
             {isFinished ? 'Матч завершён' : isLive ? 'Матч идёт' : `Старт в ${mskTime} МСК`}
@@ -497,7 +539,17 @@ export default function LobbyPage() {
         </div>
       )}
 
-      {hasZones && (
+      {/* Карта видна только тем, кто уже вступил в команду (или организатору/админу) —
+          до этого момента игрок не должен знать, на какой карте будет матч. */}
+      {!isOrganizerOrAdmin && !myMembership?.teamId && !isFinished && (
+        <div className="mb-6 rounded-xl px-6 py-8 text-center" style={{ border: '1px dashed var(--border2)', background: 'rgba(255,255,255,.015)' }}>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+            🗺️ Карта откроется, как только вы вступите в команду
+          </p>
+        </div>
+      )}
+
+      {hasZones && (isOrganizerOrAdmin || myMembership?.teamId || isFinished) && (
         <div className="card mb-6">
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
             Карта и зоны
@@ -713,6 +765,41 @@ export default function LobbyPage() {
         </div>
       )}
 
+      {/* CREATE TEAM — доступно тому, кто в лобби, но ещё без команды */}
+      {myMembership && !myMembership.teamId && !isFinished && (
+        <div className="mb-8 card">
+          {!showCreateTeamForm ? (
+            <button onClick={() => setShowCreateTeamForm(true)} className="btn-main justify-center w-full">
+              + Создать свою команду
+            </button>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <h3 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>
+                Новая команда
+              </h3>
+              <input
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateTeam()}
+                placeholder="Название команды"
+                maxLength={64}
+                className="input-field"
+                autoFocus
+              />
+              {createTeamError && <p className="error-text">{createTeamError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => setShowCreateTeamForm(false)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                  Отмена
+                </button>
+                <button onClick={handleCreateTeam} disabled={actionLoading} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                  Создать
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {lobby.teams.map((team) => {
           const isMyTeam = myMembership?.teamId === team.id;
@@ -782,6 +869,11 @@ export default function LobbyPage() {
                         ID: {m.dynamicId}
                       </span>
                     )}
+                    {m.userId === team.createdById && (
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.08)' }}>
+                        👑 капитан
+                      </span>
+                    )}
                     {m.userId === user?.id && (
                       <span className="ml-auto text-[10px] font-mono" style={{ color: 'var(--a)' }}>
                         вы
@@ -793,6 +885,16 @@ export default function LobbyPage() {
                         className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
                         style={{ color: '#f87171' }}
                         title="Кикнуть из команды (только Admin)"
+                      >
+                        кикнуть
+                      </button>
+                    )}
+                    {!isAdminOrOwner(user?.role) && team.createdById === user?.id && m.userId !== user?.id && (
+                      <button
+                        onClick={() => handleCaptainKick(team.id, m.userId)}
+                        className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: '#f87171' }}
+                        title="Кикнуть из своей команды"
                       >
                         кикнуть
                       </button>
@@ -818,6 +920,13 @@ export default function LobbyPage() {
                   </button>
                 )}
               </div>
+
+              {/* ЧАТ КОМАНДЫ — видят и пишут только её участники */}
+              {isMyTeam && (
+                <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                  <ChatPanel matchId={lobby.match.id} teamId={team.id} height="280px" title="Чат команды" />
+                </div>
+              )}
             </div>
           );
         })}

@@ -8,26 +8,12 @@ import { scheduleMatchStart, scheduleMatchReminder, scheduleStartZoneClose, sche
 import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchTimers, getRemainingMs } from '@/services/timers.js';
 import type { Server as SocketServer } from 'socket.io';
 
-// Реальные лимиты количества команд по режиму (Team 1 до этого числа включительно).
-const MODE_TEAM_LIMITS: Record<string, number> = {
-  MODE_2X2: 24,
-  MODE_3X3: 16,
-  MODE_4X4: 12,
-  MODE_5X5: 10,
-};
-
-const CreateMatchSchema = z
-  .object({
-    mapId: z.string().uuid(),
-    mode: z.enum(['MODE_2X2', 'MODE_3X3', 'MODE_4X4', 'MODE_5X5']),
-    startTime: z.string().datetime(), // ISO UTC string from client
-    teamCount: z.coerce.number().int().min(2).max(24).default(4),
-    zoneIds: z.array(z.string().uuid()).optional(), // зоны можно выбрать сразу при создании матча
-  })
-  .refine((data) => data.teamCount <= (MODE_TEAM_LIMITS[data.mode] ?? 24), {
-    message: 'Превышен лимит команд для выбранного режима',
-    path: ['teamCount'],
-  });
+const CreateMatchSchema = z.object({
+  mapId: z.string().uuid(),
+  mode: z.enum(['MODE_2X2', 'MODE_3X3', 'MODE_4X4', 'MODE_5X5']),
+  startTime: z.string().datetime(), // ISO UTC string from client
+  zoneIds: z.array(z.string().uuid()).optional(), // зоны можно выбрать сразу при создании матча
+});
 
 const ZonesSchema = z.object({
   zoneIds: z.array(z.string().uuid()).min(1),
@@ -83,7 +69,7 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     if (!parsed.success) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', issues: parsed.error.flatten().fieldErrors });
     }
-    const { mapId, mode, startTime, teamCount, zoneIds } = parsed.data;
+    const { mapId, mode, startTime, zoneIds } = parsed.data;
 
     const map = await prisma.gameMap.findUnique({ where: { id: mapId } });
     if (!map) return reply.code(404).send({ error: 'MAP_NOT_FOUND', message: 'Карта не найдена' });
@@ -96,17 +82,7 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
         organizerId: req.user!.id,
         status: 'SCHEDULED',
         ...(zoneIds && zoneIds.length > 0 ? { selectedZones: { connect: zoneIds.map((id) => ({ id })) } } : {}),
-        lobby: {
-          create: {
-            state: 'OPEN',
-            teams: {
-              create: Array.from({ length: teamCount }, (_, i) => ({
-                name: `Team ${i + 1}`,
-                slot: i + 1,
-              })),
-            },
-          },
-        },
+        lobby: { create: { state: 'OPEN' } }, // команды теперь создают сами игроки через /api/lobby/:matchId/teams
       },
       include: { lobby: { include: { teams: true } } },
     });

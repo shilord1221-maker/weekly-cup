@@ -110,7 +110,7 @@ export default function MatchesPage() {
               />
               <div>
                 <div className="font-display font-semibold uppercase" style={{ fontSize: '17px', letterSpacing: '0.04em' }}>
-                  {m.map.name} — Weekly Pracs
+                  {isStaff || m.status === 'FINISHED' ? `${m.map.name} — Weekly Pracs` : 'Карта скрыта до входа в команду'}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                   Организатор: {m.organizer.username}

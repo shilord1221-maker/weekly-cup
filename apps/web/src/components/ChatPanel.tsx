@@ -25,12 +25,13 @@ interface ChatMsg {
 
 interface ChatPanelProps {
   matchId?: string;
+  teamId?: string;
   height?: string;
   allowPolls?: boolean;
   title?: string;
 }
 
-export function ChatPanel({ matchId, height = '100vh', allowPolls = !matchId, title = 'Общий чат' }: ChatPanelProps) {
+export function ChatPanel({ matchId, teamId, height = '100vh', allowPolls = !matchId && !teamId, title = 'Общий чат' }: ChatPanelProps) {
   const socket = useSocket();
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -42,12 +43,12 @@ export function ChatPanel({ matchId, height = '100vh', allowPolls = !matchId, ti
   const scrollRef = useRef<HTMLDivElement>(null);
   const canManage = isAdminOrOwner(user?.role);
 
-  const historyEvent = matchId ? 'lobbyChat:history' : 'chat:history';
-  const messageEvent = matchId ? 'lobbyChat:message' : 'chat:message';
-  const deletedEvent = matchId ? 'lobbyChat:message_deleted' : 'chat:message_deleted';
+  const historyEvent = teamId ? 'teamChat:history' : matchId ? 'lobbyChat:history' : 'chat:history';
+  const messageEvent = teamId ? 'teamChat:message' : matchId ? 'lobbyChat:message' : 'chat:message';
+  const deletedEvent = teamId ? 'teamChat:message_deleted' : matchId ? 'lobbyChat:message_deleted' : 'chat:message_deleted';
 
   useEffect(() => {
-    socket.emit('chat:join', matchId ? { matchId } : undefined);
+    socket.emit('chat:join', matchId || teamId ? { matchId, teamId } : undefined);
 
     const onHistory = (history: ChatMsg[]) => setMessages(history);
     const onMessage = (msg: ChatMsg) => setMessages((prev) => [...prev, msg]);
@@ -63,7 +64,7 @@ export function ChatPanel({ matchId, height = '100vh', allowPolls = !matchId, ti
     socket.on('chat:error', onChatError);
 
     return () => {
-      socket.emit('chat:leave', matchId ? { matchId } : undefined);
+      socket.emit('chat:leave', matchId || teamId ? { matchId, teamId } : undefined);
       socket.off(historyEvent, onHistory);
       socket.off(messageEvent, onMessage);
       socket.off(deletedEvent, onDeleted);
@@ -71,7 +72,7 @@ export function ChatPanel({ matchId, height = '100vh', allowPolls = !matchId, ti
       socket.off('chat:error', onChatError);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, matchId]);
+  }, [socket, matchId, teamId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -79,13 +80,13 @@ export function ChatPanel({ matchId, height = '100vh', allowPolls = !matchId, ti
 
   const sendMessage = () => {
     if (!input.trim() || !user) return;
-    socket.emit('chat:send', { text: input.trim(), matchId });
+    socket.emit('chat:send', { text: input.trim(), matchId, teamId });
     setInput('');
   };
 
   const handleDeleteMessage = (messageId: string) => {
     if (!confirm('Удалить это сообщение?')) return;
-    socket.emit('chat:delete', { messageId, matchId });
+    socket.emit('chat:delete', { messageId, matchId, teamId });
   };
 
   const handleAddPollOption = () => {

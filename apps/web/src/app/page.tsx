@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { ZoneAnimation } from '@/components/ZoneAnimation';
 import { PollBanner } from '@/components/PollBanner';
@@ -577,6 +577,8 @@ function Notif({ color, bg, border, text, time }: { color: string; bg: string; b
 }
 
 function MatchRow({ match }: { match: MatchSummary }) {
+  const { user } = useAuthStore();
+  const isStaff = isOrganizerOrAbove(user?.role);
   const date = new Date(match.startTime);
   const mskTime = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }).format(date);
   const isLive = match.status === 'LIVE';
@@ -598,7 +600,7 @@ function MatchRow({ match }: { match: MatchSummary }) {
       />
       <div className="flex flex-col gap-0.5">
         <div className="font-display font-semibold uppercase" style={{ fontSize: '17px', letterSpacing: '0.04em' }}>
-          {match.map?.name ?? 'Карта'} — Weekly Pracs
+          {isStaff || isFinished ? `${match.map?.name ?? 'Карта'} — Weekly Pracs` : 'Карта скрыта до входа в команду'}
         </div>
         <div className="text-xs" style={{ color: 'var(--muted)' }}>
           {isLive ? 'Идёт сейчас' : isFinished ? 'Матч завершён' : 'Скоро начнётся'}

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, roleLabel, type Role } from '@/store/auth';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 interface ProfileData {
   id: string;
@@ -19,6 +20,10 @@ interface ProfileData {
   discordLinkedAt: string | null;
   referralCode: string | null;
   referralCount: number;
+  avatarUrl: string | null;
+  pendingAvatarUrl: string | null;
+  avatarStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  avatarRejectedReason: string | null;
   achievements: { id: string; title: string; earnedAt: string }[];
   wins: { id: string; createdAt: string; match: { map: { name: string } } }[];
 }
@@ -56,6 +61,7 @@ function ProfilePageContent() {
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [avatarSubmitError, setAvatarSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isInitialized && !user) router.push('/login');
@@ -108,6 +114,17 @@ function ProfilePageContent() {
       setDiscordActionError(e instanceof ApiClientError ? e.message : 'Не удалось отвязать Discord');
     } finally {
       setUnlinking(false);
+    }
+  };
+
+  const handleSubmitAvatar = async (uploadedUrl: string) => {
+    if (!uploadedUrl) return;
+    setAvatarSubmitError(null);
+    try {
+      await api.post('/profile/avatar', { avatarUrl: uploadedUrl });
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    } catch (e) {
+      setAvatarSubmitError(e instanceof ApiClientError ? e.message : 'Не удалось отправить аватарку на проверку');
     }
   };
 
@@ -200,6 +217,36 @@ function ProfilePageContent() {
         )}
 
         {discordActionError && <p className="error-text mt-3">{discordActionError}</p>}
+      </div>
+
+      {/* AVATAR — загрузка проходит модерацию, видимая аватарка не меняется до одобрения */}
+      <div className="card mb-6">
+        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+          Аватарка
+        </h2>
+        <div className="flex items-center gap-4 mb-3">
+          <div
+            className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-lg font-bold text-white"
+            style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }}
+          >
+            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : profile.username.slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1">
+            <ImageUploadField label="" value="" onChange={handleSubmitAvatar} folder="media-thumbs" helperText="Новая аватарка появится на сайте только после одобрения админом или овнером." />
+          </div>
+        </div>
+        {profile.avatarStatus === 'PENDING' && (
+          <div className="flex items-center gap-3 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(201,149,74,.08)', color: 'var(--gold)' }}>
+            {profile.pendingAvatarUrl && <img src={profile.pendingAvatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />}
+            На рассмотрении у модераторов
+          </div>
+        )}
+        {profile.avatarStatus === 'REJECTED' && (
+          <div className="text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,.08)', color: '#f87171' }}>
+            Аватарка отклонена{profile.avatarRejectedReason ? `: ${profile.avatarRejectedReason}` : ''}
+          </div>
+        )}
+        {avatarSubmitError && <p className="error-text mt-2">{avatarSubmitError}</p>}
       </div>
 
       {/* REFERRAL */}

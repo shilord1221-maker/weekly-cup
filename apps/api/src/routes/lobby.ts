@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@/db.js';
 import { requireAuth, requireOrganizerOrAdmin, requireRole } from '@/middleware/auth.js';
-import { joinLobby, leaveLobby, setPlayerTeam, autoAssignPlayers, ApiError } from '@/services/lobby.js';
+import { joinLobby, leaveLobby, setPlayerTeam, autoAssignPlayers, ApiError, MODE_TEAM_LIMITS } from '@/services/lobby.js';
 import { logAudit } from '@/services/audit.js';
 import type { Server as SocketServer } from 'socket.io';
 
@@ -76,6 +76,76 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
     await leaveLobby(lobby.id, req.user!.id);
 
     io.to(`lobby:${matchId}`).emit('lobby:player_left', { matchId, userId: req.user!.id });
+    reply.send({ success: true });
+  });
+
+  // ───────── CREATE TEAM (любой игрок, уже состоящий в лобби) — создаёт команду со своим
+  // названием и автоматически становится её капитаном и первым участником ─────────
+  const CreateTeamSchema = z.object({
+    name: z
+      .string()
+      .min(1, 'Укажите название команды')
+      .max(64, 'Название слишком длинное')
+      .regex(/^[\p{L}0-9 _\-]+$/u, 'Название может содержать буквы, цифры, пробел, дефис и подчёркивание'),
+  });
+  app.post('/api/lobby/:matchId/teams', { preHandler: requireAuth }, async (req, reply) => {
+    const { matchId } = req.params as { matchId: string };
+    const parsed = CreateTeamSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: parsed.error.errors[0]?.message ?? 'Некорректное название' });
+
+    const lobby = await prisma.lobby.findUnique({ where: { matchId }, include: { match: true, teams: true } });
+    if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    // Игрок должен сначала войти в лобби, прежде чем создавать команду
+    const membership = await prisma.lobbyMember.findUnique({ where: { lobbyId_userId: { lobbyId: lobby.id, userId: req.user!.id } } });
+    if (!membership) {
+      return reply.code(403).send({ error: 'NOT_IN_LOBBY', message: 'Сначала войдите в лобби' });
+    }
+    if (membership.teamId) {
+      return reply.code(400).send({ error: 'ALREADY_IN_TEAM', message: 'Вы уже состоите в команде — выйдите из неё, чтобы создать новую' });
+    }
+
+    const limit = MODE_TEAM_LIMITS[lobby.match.mode];
+    if (lobby.teams.length >= limit) {
+      return reply.code(409).send({ error: 'TEAM_LIMIT_REACHED', message: `Достигнут лимит команд для этого режима (${limit})` });
+    }
+    if (lobby.teams.some((t) => t.name.toLowerCase() === parsed.data.name.toLowerCase())) {
+      return reply.code(409).send({ error: 'TEAM_NAME_TAKEN', message: 'Команда с таким названием уже есть в этом лобби' });
+    }
+
+    const team = await prisma.team.create({
+      data: { lobbyId: lobby.id, name: parsed.data.name, slot: lobby.teams.length + 1, createdById: req.user!.id },
+    });
+    await prisma.lobbyMember.update({ where: { id: membership.id }, data: { teamId: team.id } });
+
+    io.to(`lobby:${matchId}`).emit('lobby:team_created', { matchId, team });
+    io.to(`lobby:${matchId}`).emit('lobby:team_changed', { matchId, userId: req.user!.id, teamId: team.id });
+    reply.code(201).send(team);
+  });
+
+  // ───────── KICK FROM TEAM BY CAPTAIN — отдельно от админского кика, доступно создателю команды ─────────
+  const CaptainKickSchema = z.object({ userId: z.string().uuid() });
+  app.post('/api/lobby/:matchId/teams/:teamId/kick', { preHandler: requireAuth }, async (req, reply) => {
+    const { matchId, teamId } = req.params as { matchId: string; teamId: string };
+    const parsed = CaptainKickSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Команда не найдена' });
+    if (team.createdById !== req.user!.id) {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Кикать может только создатель команды' });
+    }
+    if (parsed.data.userId === req.user!.id) {
+      return reply.code(400).send({ error: 'CANNOT_KICK_SELF', message: 'Нельзя кикнуть самого себя — используйте выход из команды' });
+    }
+
+    const member = await prisma.lobbyMember.findFirst({ where: { teamId, userId: parsed.data.userId } });
+    if (!member) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Этот игрок не состоит в команде' });
+
+    await prisma.lobbyMember.update({ where: { id: member.id }, data: { teamId: null } });
+
+    io.to(`lobby:${matchId}`).emit('lobby:team_changed', { matchId, userId: parsed.data.userId, teamId: null });
+    io.to(`user:${parsed.data.userId}`).emit('notify:kicked', { matchId });
     reply.send({ success: true });
   });
 

@@ -84,14 +84,41 @@ export function registerSocketHandlers(io: SocketServer) {
       socket.leave(`lobby:${matchId}`);
     });
 
-    // ───────── CHAT (общий и в лобби — используют общую логику с разными "комнатами") ─────────
-    // chatRoom: 'chat:global' для общего чата, 'chat:lobby:<matchId>' для чата внутри конкретного лобби
-    socket.on('chat:join', async ({ matchId }: { matchId?: string } = {}) => {
-      const room = matchId ? `chat:lobby:${matchId}` : 'chat:global';
-      socket.join(room);
+    // ───────── CHAT (общий, лобби-чат, и теперь чат команды — три уровня одной системы) ─────────
+    // chatRoom: 'chat:global' / 'chat:lobby:<matchId>' / 'chat:team:<teamId>'
+    function chatRoomFor(matchId?: string, teamId?: string) {
+      if (teamId) return `chat:team:${teamId}`;
+      if (matchId) return `chat:lobby:${matchId}`;
+      return 'chat:global';
+    }
+    function chatHistoryEventFor(matchId?: string, teamId?: string) {
+      if (teamId) return 'teamChat:history';
+      return matchId ? 'lobbyChat:history' : 'chat:history';
+    }
+    function chatMessageEventFor(matchId?: string, teamId?: string) {
+      if (teamId) return 'teamChat:message';
+      return matchId ? 'lobbyChat:message' : 'chat:message';
+    }
+    function chatDeletedEventFor(matchId?: string, teamId?: string) {
+      if (teamId) return 'teamChat:message_deleted';
+      return matchId ? 'lobbyChat:message_deleted' : 'chat:message_deleted';
+    }
+
+    /** Чат команды видят только её реальные участники — проверяем перед join/send/delete. */
+    async function isTeamMember(userId: string | undefined, teamId: string): Promise<boolean> {
+      if (!userId) return false;
+      const member = await prisma.lobbyMember.findFirst({ where: { teamId, userId } });
+      return !!member;
+    }
+
+    socket.on('chat:join', async ({ matchId, teamId }: { matchId?: string; teamId?: string } = {}) => {
+      if (teamId && !(await isTeamMember(socket.data.userId, teamId))) {
+        return socket.emit('chat:error', { message: 'Вы не состоите в этой команде' });
+      }
+      socket.join(chatRoomFor(matchId, teamId));
 
       const history = await prisma.chatMessage.findMany({
-        where: matchId ? { lobbyMatchId: matchId } : { lobbyMatchId: null },
+        where: teamId ? { teamId } : matchId ? { lobbyMatchId: matchId, teamId: null } : { lobbyMatchId: null, teamId: null },
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: { author: { select: { id: true, username: true, avatarUrl: true } } },
@@ -106,16 +133,19 @@ export function registerSocketHandlers(io: SocketServer) {
           return { ...msg, poll };
         })
       );
-      socket.emit(matchId ? 'lobbyChat:history' : 'chat:history', withPolls.reverse());
+      socket.emit(chatHistoryEventFor(matchId, teamId), withPolls.reverse());
     });
 
-    socket.on('chat:leave', ({ matchId }: { matchId?: string } = {}) => {
-      socket.leave(matchId ? `chat:lobby:${matchId}` : 'chat:global');
+    socket.on('chat:leave', ({ matchId, teamId }: { matchId?: string; teamId?: string } = {}) => {
+      socket.leave(chatRoomFor(matchId, teamId));
     });
 
-    socket.on('chat:send', async ({ text, matchId }: { text: string; matchId?: string }) => {
+    socket.on('chat:send', async ({ text, matchId, teamId }: { text: string; matchId?: string; teamId?: string }) => {
       if (!socket.data.userId) {
         return socket.emit('chat:error', { message: 'Войдите, чтобы писать в чат' });
+      }
+      if (teamId && !(await isTeamMember(socket.data.userId, teamId))) {
+        return socket.emit('chat:error', { message: 'Вы не состоите в этой команде' });
       }
       if (!canSendChat(socket.data.userId)) {
         return socket.emit('chat:error', { message: 'Слишком много сообщений, подождите немного' });
@@ -124,22 +154,20 @@ export function registerSocketHandlers(io: SocketServer) {
       if (!trimmed) return;
 
       const message = await prisma.chatMessage.create({
-        data: { authorId: socket.data.userId, text: trimmed, lobbyMatchId: matchId ?? null },
+        data: { authorId: socket.data.userId, text: trimmed, lobbyMatchId: teamId ? undefined : matchId ?? null, teamId: teamId ?? null },
         include: { author: { select: { id: true, username: true, avatarUrl: true } } },
       });
 
-      const room = matchId ? `chat:lobby:${matchId}` : 'chat:global';
-      io.to(room).emit(matchId ? 'lobbyChat:message' : 'chat:message', message);
+      io.to(chatRoomFor(matchId, teamId)).emit(chatMessageEventFor(matchId, teamId), message);
     });
 
-    // Удаление сообщения — только Admin/Owner, работает и для общего чата, и для чата лобби
-    socket.on('chat:delete', async ({ messageId, matchId }: { messageId: string; matchId?: string }) => {
+    // Удаление сообщения — только Admin/Owner, работает во всех трёх чатах
+    socket.on('chat:delete', async ({ messageId, matchId, teamId }: { messageId: string; matchId?: string; teamId?: string }) => {
       if (socket.data.role !== 'ADMIN' && socket.data.role !== 'OWNER') {
         return socket.emit('chat:error', { message: 'Недостаточно прав для удаления сообщения' });
       }
       await prisma.chatMessage.delete({ where: { id: messageId } }).catch(() => {});
-      const room = matchId ? `chat:lobby:${matchId}` : 'chat:global';
-      io.to(room).emit(matchId ? 'lobbyChat:message_deleted' : 'chat:message_deleted', { messageId });
+      io.to(chatRoomFor(matchId, teamId)).emit(chatDeletedEventFor(matchId, teamId), { messageId });
     });
 
     // Создание голосования за карту/режим — только Admin/Owner, публикуется как сообщение в общем чате
