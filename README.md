@@ -190,4 +190,3 @@ npm run dev   # http://localhost:3000
 ## Регистрация — обязательные поля
 
 Форма регистрации (`apps/web/src/app/register/page.tsx`) требует **ник** и **Static ID** — оба поля обязательны на уровне валидации Zod как на фронте, так и на backend (`apps/api/src/routes/auth.ts`), запрос не пройдёт без них.
-test
