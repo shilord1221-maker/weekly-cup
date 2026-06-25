@@ -72,11 +72,11 @@ function RegisterFormContent() {
 
     setSubmitting(true);
     try {
-      await register({
-  ...data,
-  staticIdProofUrl: staticIdProofUrl?.trim(),
-  referralCode
-});
+      await register_({
+        ...data,
+        staticIdProofUrl: staticIdProofUrl?.trim(),
+        referralCode,
+    });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
