@@ -68,7 +68,7 @@ function RegisterFormContent() {
     setProofRequiredError(null);
 
     // Скрин-пруф обязателен — проверяем на клиенте до отправки, чтобы не ждать round-trip к серверу.
-    if (!staticIdProofUrl.trim()) {
+    if (!staticIdProofUrl.optional()) {
       setProofRequiredError('Загрузите скриншот-пруф Static ID — без него регистрация невозможна');
       return;
     }
