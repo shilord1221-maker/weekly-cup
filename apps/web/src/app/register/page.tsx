@@ -47,6 +47,7 @@ function RegisterFormContent() {
   const register_ = useAuthStore((s) => s.register);
   const [serverError, setServerError] = useState<string | null>(null);
   const [proofMismatchError, setProofMismatchError] = useState<string | null>(null);
+  const [proofRequiredError, setProofRequiredError] = useState<string | null>(null);
   const [staticIdProofUrl, setStaticIdProofUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   // Реферальный код из ссылки вида /register?ref=ABCD1234 — передаём его на сервер при регистрации.
@@ -64,9 +65,17 @@ function RegisterFormContent() {
   const onSubmit = async (data: RegisterForm) => {
     setServerError(null);
     setProofMismatchError(null);
+    setProofRequiredError(null);
+
+    // Скрин-пруф обязателен — проверяем на клиенте до отправки, чтобы не ждать round-trip к серверу.
+    if (!staticIdProofUrl.trim()) {
+      setProofRequiredError('Загрузите скриншот-пруф Static ID — без него регистрация невозможна');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim() || undefined, referralCode });
+      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim(), referralCode });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
@@ -174,12 +183,17 @@ function RegisterFormContent() {
           </div>
 
           <ImageUploadField
-            label="Скриншот-пруф Static ID (необязательно)"
+            label="Скриншот-пруф Static ID"
             value={staticIdProofUrl}
-            onChange={setStaticIdProofUrl}
+            onChange={(url) => {
+              setStaticIdProofUrl(url);
+              setProofRequiredError(null);
+            }}
             folder="static-id-proofs"
-            helperText="Загрузите скрин с вашим Static ID — это ускорит проверку при спорах."
+            required
+            helperText="Загрузите скрин с вашим Static ID — без него зарегистрироваться нельзя."
           />
+          {proofRequiredError && <p className="error-text">{proofRequiredError}</p>}
 
           <button type="submit" disabled={submitting} className="btn-main justify-center mt-2">
             {submitting ? 'Создаём аккаунт...' : 'Создать аккаунт'}

@@ -18,7 +18,7 @@ const RegisterSchema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
   staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
-  staticIdProofUrl: z.string().url('Укажите ссылку на скриншот (например, через yapix)').optional(),
+  staticIdProofUrl: z.string().url('Загрузите скриншот-пруф Static ID — без него регистрация невозможна'),
   referralCode: z.string().max(16).optional(),
 });
 
@@ -79,24 +79,22 @@ export async function authRoutes(app: FastifyInstance) {
 
       const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
 
-      // Если есть скрин-пруф — проверяем, что на нём действительно тот же Static ID,
-      // который человек ввёл в форму. Если проверка недоступна (нет ключа API, скрин не открылся
-      // и т.д.) — не блокируем регистрацию, просто проходим без верификации.
+      // Проверяем, что на скрине действительно тот же Static ID, который человек ввёл в форму.
+      // Если проверка недоступна (нет ключа API, скрин не открылся и т.д.) — не блокируем
+      // регистрацию, просто проходим без верификации (сам скрин при этом всё равно обязателен).
       let detectedStaticId: string | null = null;
-      if (parsed.data.staticIdProofUrl) {
-        const proofResult = await verifyStaticIdProof(parsed.data.staticIdProofUrl);
-        if (proofResult.ok) {
-          detectedStaticId = proofResult.detectedStaticId;
-          if (detectedStaticId !== staticId) {
-            return reply.code(400).send({
-              error: 'PROOF_MISMATCH',
-              message: `На скрине найден Static ID #${detectedStaticId}, а в форме указан #${staticId}. Проверьте, что вы загрузили правильный скриншот.`,
-            });
-          }
+      const proofResult = await verifyStaticIdProof(parsed.data.staticIdProofUrl);
+      if (proofResult.ok) {
+        detectedStaticId = proofResult.detectedStaticId;
+        if (detectedStaticId !== staticId) {
+          return reply.code(400).send({
+            error: 'PROOF_MISMATCH',
+            message: `На скрине найден Static ID #${detectedStaticId}, а в форме указан #${staticId}. Проверьте, что вы загрузили правильный скриншот.`,
+          });
         }
-        // Остальные исходы (NO_API_KEY/FETCH_FAILED/NOT_AN_IMAGE/NOT_DETECTED/API_ERROR) —
-        // намеренно не блокируют регистрацию, чтобы технический сбой не мешал реальным игрокам.
       }
+      // Остальные исходы (NO_API_KEY/FETCH_FAILED/NOT_AN_IMAGE/NOT_DETECTED/API_ERROR) —
+      // намеренно не блокируют регистрацию, чтобы технический сбой не мешал реальным игрокам.
 
       // Static ID уже привязан к ДРУГОМУ аккаунту — это новый игрок не пропускаем сразу,
       // а заводим заявку на «амнистию»: админ разбирается вручную, кому реально принадлежит этот ID.
@@ -108,7 +106,7 @@ export async function authRoutes(app: FastifyInstance) {
             email,
             passwordHash,
             staticId,
-            proofUrl: parsed.data.staticIdProofUrl ?? null,
+            proofUrl: parsed.data.staticIdProofUrl,
             detectedStaticId,
             conflictUserId: existingStaticId.userId,
             registrationIp: clientIp,
@@ -144,7 +142,7 @@ export async function authRoutes(app: FastifyInstance) {
           lastLoginIp: clientIp,
           referralCode,
           referredById,
-          staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl ?? null } },
+          staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl } },
         },
         include: { staticId: true },
       });

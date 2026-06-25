@@ -8,6 +8,7 @@ import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isOrganizerOrAbove, isAdminOrOwner } from '@/store/auth';
 import { useSocket } from '@/hooks/useSocket';
 import { ChatPanel } from '@/components/ChatPanel';
+import { Avatar } from '@/components/Avatar';
 
 interface Member {
   id: string;
@@ -849,12 +850,7 @@ export default function LobbyPage() {
                     className="flex items-center gap-2.5 text-sm py-1 group"
                     style={{ borderBottom: '1px solid var(--border)', opacity: m.isEliminated ? 0.45 : 1 }}
                   >
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                      style={{ background: 'rgba(79,127,255,.15)', color: 'var(--a)' }}
-                    >
-                      {m.user.username.slice(0, 2).toUpperCase()}
-                    </div>
+                    <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={24} />
                     <span style={{ textDecoration: m.isEliminated ? 'line-through' : 'none' }}>
                       {m.isEliminated && '💀 '}
                       {m.user.username}

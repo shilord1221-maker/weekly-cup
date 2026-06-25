@@ -8,6 +8,7 @@ import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { ZoneAnimation } from '@/components/ZoneAnimation';
 import { PollBanner } from '@/components/PollBanner';
+import { Avatar } from '@/components/Avatar';
 
 interface MatchSummary {
   id: string;
@@ -20,7 +21,7 @@ interface MatchSummary {
 
 interface WinSummary {
   id: string;
-  user: { username: string };
+  user: { username: string; avatarUrl?: string | null };
   match: { id: string; map: { name: string } };
   team: { name: string };
   createdAt: string;
@@ -641,12 +642,7 @@ function WinCard({ win }: { win: WinSummary }) {
     >
       <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg,transparent 0%,var(--gold) 40%,rgba(201,149,74,.3) 100%)' }} />
       <div className="flex items-center gap-3 mb-[18px]">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }}
-        >
-          {win.user.username.slice(0, 2).toUpperCase()}
-        </div>
+        <Avatar username={win.user.username} avatarUrl={win.user.avatarUrl} size={40} />
         <div>
           <div className="font-semibold text-sm">{win.user.username}</div>
           <div className="font-mono text-[11px]" style={{ color: 'var(--muted)' }}>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore, isAdminOrOwner } from '@/store/auth';
+import { Avatar } from '@/components/Avatar';
 
 interface PollOption {
   id: string;
@@ -20,7 +21,7 @@ interface ChatMsg {
   createdAt: string;
   pollId?: string | null;
   poll?: Poll | null;
-  author: { id: string; username: string };
+  author: { id: string; username: string; avatarUrl?: string | null };
 }
 
 interface ChatPanelProps {
@@ -171,12 +172,7 @@ export function ChatPanel({ matchId, teamId, height = '100vh', allowPolls = !mat
 
           return (
             <div key={m.id} className="flex gap-3 group">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                style={{ background: 'rgba(79,127,255,.15)', color: 'var(--a)' }}
-              >
-                {m.author.username.slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar username={m.author.username} avatarUrl={m.author.avatarUrl} size={32} />
               <div className="flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-semibold" style={{ color: 'var(--a)' }}>

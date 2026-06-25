@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
+import { Avatar } from '@/components/Avatar';
 
 export function Header() {
   const [stuck, setStuck] = useState(false);
@@ -172,12 +173,7 @@ export function Header() {
                 className="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-medium transition-all"
                 style={{ background: 'rgba(8,13,26,.7)', border: '1px solid var(--border2)', backdropFilter: 'blur(20px)', color: 'var(--text)' }}
               >
-                <span
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))', color: '#fff' }}
-                >
-                  {user.username.slice(0, 2).toUpperCase()}
-                </span>
+                <Avatar username={user.username} avatarUrl={user.avatarUrl} size={28} />
                 {user.username}
               </Link>
               <button

@@ -7,6 +7,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, roleLabel, type Role } from '@/store/auth';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { Avatar } from '@/components/Avatar';
 
 interface ProfileData {
   id: string;
@@ -145,12 +146,7 @@ function ProfilePageContent() {
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
       <div className="flex items-center gap-4 mb-12">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }}
-        >
-          {profile.username.slice(0, 2).toUpperCase()}
-        </div>
+        <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} />
         <div>
           <h1 className="font-display font-bold uppercase" style={{ fontSize: '28px', letterSpacing: '0.02em' }}>
             {profile.username}
@@ -225,12 +221,7 @@ function ProfilePageContent() {
           Аватарка
         </h2>
         <div className="flex items-center gap-4 mb-3">
-          <div
-            className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-lg font-bold text-white"
-            style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }}
-          >
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : profile.username.slice(0, 2).toUpperCase()}
-          </div>
+          <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} />
           <div className="flex-1">
             <ImageUploadField label="" value="" onChange={handleSubmitAvatar} folder="media-thumbs" helperText="Новая аватарка появится на сайте только после одобрения админом или овнером." />
           </div>

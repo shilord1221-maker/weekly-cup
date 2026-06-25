@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { Avatar } from '@/components/Avatar';
 
 interface WinItem {
   id: string;
   createdAt: string;
-  user: { id: string; username: string };
+  user: { id: string; username: string; avatarUrl?: string | null };
   match: { id: string; map: { name: string } };
   team: { name: string };
 }
@@ -36,12 +37,7 @@ export default function WinsPage() {
           >
             <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg,transparent 0%,var(--gold) 40%,rgba(201,149,74,.3) 100%)' }} />
             <div className="flex items-center gap-3 mb-4">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }}
-              >
-                {w.user.username.slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar username={w.user.username} avatarUrl={w.user.avatarUrl} size={40} />
               <div>
                 <div className="font-semibold text-sm">{w.user.username}</div>
                 <div className="font-mono text-[11px]" style={{ color: 'var(--muted)' }}>

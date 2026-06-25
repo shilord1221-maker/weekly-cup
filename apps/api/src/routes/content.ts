@@ -241,7 +241,7 @@ export async function winsRoutes(app: FastifyInstance) {
       where: { userId: id },
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { match: { include: { map: true } }, team: true },
+      include: { user: { select: { id: true, username: true, avatarUrl: true } }, match: { include: { map: true } }, team: true },
     });
     reply.send(wins);
   });
