@@ -65,15 +65,6 @@ export default function CreateMatchPage() {
     setSelectedZoneIds([]);
   }, [mapId]);
 
-  // Подгоняем массив voice-назначений под текущее кол-во команд
-  useEffect(() => {
-    setTeamVoices((prev) => {
-      const next = [...prev];
-      while (next.length < teamCount) next.push('');
-      return next.slice(0, teamCount);
-    });
-  }, [teamCount]);
-
   const toggleZone = (zoneId: string) => {
     setSelectedZoneIds((prev) => (prev.includes(zoneId) ? prev.filter((z) => z !== zoneId) : [...prev, zoneId]));
   };
