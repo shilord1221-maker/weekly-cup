@@ -191,7 +191,6 @@ function RegisterFormContent() {
               setProofRequiredError(null);
             }}
             folder="static-id-proofs"
-            required
             helperText="Загрузите скрин с вашим Static ID — без него зарегистрироваться нельзя."
           />
           {proofRequiredError && <p className="error-text">{proofRequiredError}</p>}
