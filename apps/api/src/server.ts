@@ -21,6 +21,7 @@ import { newsRoutes, mediaRoutes, profileRoutes, winsRoutes, auditRoutes, userRo
 import { uploadRoutes } from '@/routes/upload.js';
 import { discordRoutes } from '@/routes/discord.js';
 import { pollRoutes } from '@/routes/polls.js';
+import { liveStreamsRoutes } from '@/routes/liveStreams.js';
 import { startDiscordBot } from '@/services/discordBot.js';
 
 async function main() {
@@ -68,6 +69,7 @@ async function main() {
   await app.register(userRoutes);
   await app.register(discordRoutes);
   await app.register((instance) => pollRoutes(instance, { io }));
+  await app.register(liveStreamsRoutes);
 
   // ───────── DISCORD BOT (запускается вместе с проектом; не блокирует старт сайта,
   // если Discord временно недоступен — ошибка логируется, остальной сайт работает) ─────────

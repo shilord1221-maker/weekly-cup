@@ -10,22 +10,59 @@ import { useSocket } from '@/hooks/useSocket';
 import { ChatPanel } from '@/components/ChatPanel';
 import { Avatar } from '@/components/Avatar';
 
-interface MediaItem { id: string; title: string; type: string; url: string; thumbUrl: string | null; }
-
-function getTwitchChannel(url: string): string | null {
-  const m = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
-  return m ? m[1] : null;
+interface LiveStream {
+  id: string;
+  channel: string;
+  title: string;
+  thumbUrl?: string;
+  addedById: string;
+  addedByUsername: string;
+  startedAt: string;
 }
 
-function StreamersSidebar({ items }: { items: MediaItem[] }) {
-  const twitch = items.filter((i) => i.type === 'twitch' && getTwitchChannel(i.url));
+function StreamersSidebar({ canManage, currentUserId }: { canManage: boolean; currentUserId?: string }) {
+  const qc = useQueryClient();
   const [active, setActive] = useState(0);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addChannel, setAddChannel] = useState('');
+  const [addTitle, setAddTitle] = useState('');
+  const [addErr, setAddErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
-  if (!twitch.length) return null;
+  const { data: streams = [] } = useQuery<LiveStream[]>({
+    queryKey: ['live-streams'],
+    queryFn: () => api.get('/live-streams', { auth: false }),
+    refetchInterval: 30_000,
+  });
 
-  const current = twitch[active];
-  const channel = getTwitchChannel(current.url)!;
   const parent = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddErr(null);
+    if (!addChannel.trim()) { setAddErr('Введите ник канала'); return; }
+    setAdding(true);
+    try {
+      await api.post('/live-streams', { channel: addChannel.trim(), title: addTitle.trim() || addChannel.trim() });
+      setAddChannel(''); setAddTitle(''); setShowAdd(false);
+      qc.invalidateQueries({ queryKey: ['live-streams'] });
+    } catch (e) {
+      setAddErr(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setAdding(false); }
+  };
+
+  const handleRemove = async (id: string) => {
+    try {
+      await api.delete(`/live-streams/${id}`);
+      qc.invalidateQueries({ queryKey: ['live-streams'] });
+      setActive(0);
+    } catch { /* ignore */ }
+  };
+
+  // Сайдбар виден только когда есть активные стримы ИЛИ когда Admin/Owner хочет добавить
+  if (!streams.length && !canManage) return null;
+
+  const current = streams[Math.min(active, streams.length - 1)];
 
   return (
     <div
@@ -33,47 +70,103 @@ function StreamersSidebar({ items }: { items: MediaItem[] }) {
       style={{ width: '300px', background: 'var(--surface)', border: '1px solid var(--border2)' }}
     >
       {/* header */}
-      <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--border)', minHeight: '36px' }}>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
-          <span className="font-mono text-[11px] uppercase tracking-wider" style={{ color: '#ef4444' }}>Live</span>
+          {streams.length > 0 ? (
+            <>
+              <span className="w-2 h-2 rounded-full" style={{ background: '#ef4444', boxShadow: '0 0 6px #ef4444', animation: 'pulse 1.5s infinite' }} />
+              <span className="font-mono text-[11px] uppercase tracking-wider" style={{ color: '#ef4444' }}>Live · {streams.length}</span>
+            </>
+          ) : (
+            <span className="font-mono text-[11px] uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Стримы</span>
+          )}
         </div>
-        <span className="font-medium text-xs" style={{ color: 'var(--text)' }}>{current.title}</span>
+        {canManage && (
+          <button
+            onClick={() => setShowAdd((v) => !v)}
+            className="text-[10px] font-mono px-2 py-1 rounded-md transition-colors"
+            style={{ color: showAdd ? '#f87171' : 'var(--a)', background: showAdd ? 'rgba(239,68,68,.08)' : 'rgba(79,127,255,.08)', border: `1px solid ${showAdd ? 'rgba(239,68,68,.2)' : 'rgba(79,127,255,.2)'}` }}
+          >
+            {showAdd ? '✕ Отмена' : '+ Добавить'}
+          </button>
+        )}
       </div>
 
-      {/* embed */}
-      <div className="aspect-video w-full bg-black">
-        <iframe
-          key={channel}
-          src={`https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true&muted=false`}
-          className="w-full h-full"
-          allowFullScreen
-          allow="autoplay; fullscreen"
-          style={{ border: 'none' }}
-        />
-      </div>
+      {/* форма добавления */}
+      {showAdd && (
+        <form onSubmit={handleAdd} className="flex flex-col gap-2 p-3" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(79,127,255,.03)' }}>
+          <input
+            value={addChannel}
+            onChange={(e) => setAddChannel(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+            placeholder="Ник Twitch-канала (напр. wopiz200)"
+            className="input-field"
+            style={{ fontSize: '12px', padding: '7px 10px' }}
+            autoFocus
+          />
+          <input
+            value={addTitle}
+            onChange={(e) => setAddTitle(e.target.value)}
+            placeholder="Заголовок (необязательно)"
+            className="input-field"
+            style={{ fontSize: '12px', padding: '7px 10px' }}
+          />
+          {addErr && <p className="text-[11px]" style={{ color: '#f87171' }}>{addErr}</p>}
+          <button type="submit" disabled={adding} className="btn-main justify-center" style={{ padding: '7px', fontSize: '12px' }}>
+            {adding ? 'Добавляем...' : '▶ Запустить виджет'}
+          </button>
+        </form>
+      )}
 
-      {/* channel switcher */}
-      {twitch.length > 1 && (
-        <div className="flex overflow-x-auto gap-1.5 p-2" style={{ scrollbarWidth: 'none' }}>
-          {twitch.map((item, idx) => {
-            const ch = getTwitchChannel(item.url)!;
-            return (
+      {/* плеер */}
+      {current ? (
+        <>
+          <div className="aspect-video w-full bg-black relative group">
+            <iframe
+              key={current.channel}
+              src={`https://player.twitch.tv/?channel=${current.channel}&parent=${parent}&autoplay=true&muted=false`}
+              className="w-full h-full"
+              allowFullScreen
+              allow="autoplay; fullscreen"
+              style={{ border: 'none' }}
+            />
+            {/* кнопка удалить поверх плеера */}
+            {(canManage && (current.addedById === currentUserId || true)) && (
               <button
-                key={item.id}
-                onClick={() => setActive(idx)}
-                className="flex-shrink-0 flex flex-col items-center gap-1 rounded-xl overflow-hidden transition-all"
-                style={{ width: '72px', border: `1px solid ${idx === active ? 'var(--a)' : 'var(--border)'}`, background: idx === active ? 'rgba(79,127,255,.08)' : 'transparent' }}
+                onClick={() => handleRemove(current.id)}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono px-2 py-1 rounded-md"
+                style={{ background: 'rgba(8,13,26,.85)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}
               >
-                {item.thumbUrl ? (
-                  <img src={item.thumbUrl} alt={ch} className="w-full aspect-video object-cover" />
-                ) : (
-                  <div className="w-full aspect-video flex items-center justify-center text-base" style={{ background: 'rgba(255,255,255,.04)' }}>▶</div>
-                )}
-                <span className="pb-1 px-1 text-[9px] font-mono truncate w-full text-center" style={{ color: idx === active ? 'var(--a)' : 'var(--muted)' }}>{ch}</span>
+                Убрать стрим
               </button>
-            );
-          })}
+            )}
+          </div>
+
+          {/* переключатель если несколько */}
+          {streams.length > 1 && (
+            <div className="flex overflow-x-auto gap-1.5 p-2" style={{ scrollbarWidth: 'none' }}>
+              {streams.map((s, idx) => (
+                <button
+                  key={s.id}
+                  onClick={() => setActive(idx)}
+                  className="flex-shrink-0 rounded-lg overflow-hidden transition-all text-left"
+                  style={{ width: '80px', border: `1px solid ${idx === active ? 'var(--a)' : 'var(--border)'}`, background: idx === active ? 'rgba(79,127,255,.08)' : 'transparent' }}
+                >
+                  <div className="aspect-video flex items-center justify-center text-sm" style={{ background: 'rgba(255,255,255,.04)' }}>▶</div>
+                  <div className="px-1.5 py-1 text-[9px] font-mono truncate" style={{ color: idx === active ? 'var(--a)' : 'var(--muted)' }}>{s.channel}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* инфо о стриме */}
+          <div className="px-3 py-2" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{current.title}</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--muted)' }}>twitch.tv/{current.channel}</div>
+          </div>
+        </>
+      ) : (
+        <div className="px-4 py-6 text-center">
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Нет активных стримов.<br />Нажми «+ Добавить» чтобы запустить виджет.</p>
         </div>
       )}
     </div>
@@ -169,11 +262,6 @@ export default function LobbyPage() {
     enabled: !!matchId,
   });
 
-  const { data: mediaItems = [] } = useQuery<MediaItem[]>({
-    queryKey: ['media'],
-    queryFn: () => api.get('/media', { auth: false }),
-    retry: false,
-  });
 
   const playBeep = useCallback((freq = 880, duration = 0.15) => {
     try {
@@ -636,7 +724,7 @@ export default function LobbyPage() {
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-5xl mx-auto" style={{ background: 'var(--bg)' }}>
-      <StreamersSidebar items={mediaItems} />
+      <StreamersSidebar canManage={isAdminOrOwner(user?.role)} currentUserId={user?.id} />
       {toast && (
         <div
           className="fixed top-24 right-6 z-[49] px-5 py-3 rounded-lg text-sm shadow-2xl"

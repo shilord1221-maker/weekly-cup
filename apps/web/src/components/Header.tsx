@@ -25,15 +25,16 @@ export function Header() {
     router.push('/');
   };
 
+  // Победы — в центре, с золотом и искрами
   const navLinks = [
     { href: '/', label: 'Главная' },
     { href: '/matches', label: 'Матчи' },
-    { href: '/wins', label: 'Победы' },
     { href: '/media', label: 'Медиа' },
-    { href: '/maps', label: 'Карты' },
+    { href: '/wins', label: 'Победы', special: true },
     { href: '/complaints', label: 'Жалобы' },
     { href: '/social', label: 'Соцсети' },
-  ];
+    { href: '/maps', label: 'Карты' },
+  ] as { href: string; label: string; special?: boolean }[];
 
   return (
     <>
@@ -67,6 +68,51 @@ export function Header() {
         >
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
+            if (link.special) {
+              return (
+                <Link key={link.href} href={link.href} className="relative px-4 py-2 rounded-full transition-all wins-nav-btn" style={{ display: 'inline-block' }}>
+                  {/* Корона */}
+                  <svg
+                    width="14" height="10" viewBox="0 0 14 10" fill="none"
+                    className="absolute left-1/2 wins-crown"
+                    style={{ top: '-10px', transform: 'translateX(-50%)' }}
+                  >
+                    <path d="M1 9L3.5 2L7 6L10.5 2L13 9H1Z" fill="url(#cg)" stroke="rgba(201,149,74,.6)" strokeWidth="0.5"/>
+                    <defs>
+                      <linearGradient id="cg" x1="0" y1="0" x2="14" y2="10" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#fde68a"/>
+                        <stop offset="50%" stopColor="#f59e0b"/>
+                        <stop offset="100%" stopColor="#d97706"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+
+                  {/* Искры */}
+                  <span className="wins-spark wins-spark-1" />
+                  <span className="wins-spark wins-spark-2" />
+                  <span className="wins-spark wins-spark-3" />
+                  <span className="wins-spark wins-spark-4" />
+
+                  {/* Текст */}
+                  <span
+                    className="relative z-10 text-sm font-semibold wins-text"
+                    style={{
+                      background: isActive
+                        ? 'linear-gradient(135deg,#fde68a,#f59e0b,#d97706)'
+                        : 'linear-gradient(135deg,#fbbf24,#f59e0b,#d97706)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
+                    {link.label}
+                  </span>
+
+                  {isActive && (
+                    <span className="absolute inset-0 rounded-full" style={{ background: 'rgba(201,149,74,.12)', border: '1px solid rgba(201,149,74,.3)' }} />
+                  )}
+                </Link>
+              );
+            }
             return (
               <Link
                 key={link.href}
