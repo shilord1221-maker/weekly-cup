@@ -25,13 +25,12 @@ export function Header() {
     router.push('/');
   };
 
-  // Победы — в центре, с золотом и искрами
   const navLinks = [
     { href: '/', label: 'Главная' },
     { href: '/matches', label: 'Матчи' },
     { href: '/media', label: 'Медиа' },
-    { href: '/wins', label: 'Победы', special: true },
     { href: '/complaints', label: 'Жалобы' },
+    { href: '/wins', label: 'Победы', special: true },
     { href: '/social', label: 'Соцсети' },
     { href: '/maps', label: 'Карты' },
   ] as { href: string; label: string; special?: boolean }[];
@@ -70,14 +69,25 @@ export function Header() {
             const isActive = pathname === link.href;
             if (link.special) {
               return (
-                <Link key={link.href} href={link.href} className="relative px-4 py-2 rounded-full transition-all wins-nav-btn" style={{ display: 'inline-block' }}>
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="relative px-4 py-2 rounded-full wins-nav-btn"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    border: isActive ? '1px solid rgba(201,149,74,.35)' : '1px solid transparent',
+                    background: isActive ? 'rgba(201,149,74,.08)' : 'transparent',
+                    transition: 'border-color .2s, background .2s',
+                  }}
+                >
                   {/* Корона */}
                   <svg
-                    width="14" height="10" viewBox="0 0 14 10" fill="none"
+                    width="13" height="9" viewBox="0 0 14 10" fill="none"
                     className="absolute left-1/2 wins-crown"
-                    style={{ top: '-10px', transform: 'translateX(-50%)' }}
+                    style={{ top: '-9px', transform: 'translateX(-50%)', pointerEvents: 'none' }}
                   >
-                    <path d="M1 9L3.5 2L7 6L10.5 2L13 9H1Z" fill="url(#cg)" stroke="rgba(201,149,74,.6)" strokeWidth="0.5"/>
+                    <path d="M1 9L3.5 2L7 6L10.5 2L13 9H1Z" fill="url(#cg)" stroke="rgba(201,149,74,.5)" strokeWidth="0.5"/>
                     <defs>
                       <linearGradient id="cg" x1="0" y1="0" x2="14" y2="10" gradientUnits="userSpaceOnUse">
                         <stop offset="0%" stopColor="#fde68a"/>
@@ -87,29 +97,14 @@ export function Header() {
                     </defs>
                   </svg>
 
-                  {/* Искры */}
+                  {/* Искры — только 2, очень тонкие */}
                   <span className="wins-spark wins-spark-1" />
-                  <span className="wins-spark wins-spark-2" />
                   <span className="wins-spark wins-spark-3" />
-                  <span className="wins-spark wins-spark-4" />
 
-                  {/* Текст */}
-                  <span
-                    className="relative z-10 text-sm font-semibold wins-text"
-                    style={{
-                      background: isActive
-                        ? 'linear-gradient(135deg,#fde68a,#f59e0b,#d97706)'
-                        : 'linear-gradient(135deg,#fbbf24,#f59e0b,#d97706)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    {link.label}
+                  {/* Текст — всегда золотой градиент */}
+                  <span className="text-sm font-semibold wins-text" style={{ position: 'relative', zIndex: 1 }}>
+                    Победы
                   </span>
-
-                  {isActive && (
-                    <span className="absolute inset-0 rounded-full" style={{ background: 'rgba(201,149,74,.12)', border: '1px solid rgba(201,149,74,.3)' }} />
-                  )}
                 </Link>
               );
             }
