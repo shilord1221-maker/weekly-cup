@@ -21,7 +21,7 @@ export const MODE_TEAM_LIMITS: Record<MatchMode, number> = {
   MODE_2X2: Infinity,
   MODE_3X3: Infinity,
   MODE_4X4: Infinity,
-  MODE_5X5: 10,
+  MODE_5X5: Infinity,
 };
 
 /**
