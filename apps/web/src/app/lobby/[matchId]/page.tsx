@@ -10,6 +10,76 @@ import { useSocket } from '@/hooks/useSocket';
 import { ChatPanel } from '@/components/ChatPanel';
 import { Avatar } from '@/components/Avatar';
 
+interface MediaItem { id: string; title: string; type: string; url: string; thumbUrl: string | null; }
+
+function getTwitchChannel(url: string): string | null {
+  const m = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
+  return m ? m[1] : null;
+}
+
+function StreamersSidebar({ items }: { items: MediaItem[] }) {
+  const twitch = items.filter((i) => i.type === 'twitch' && getTwitchChannel(i.url));
+  const [active, setActive] = useState(0);
+
+  if (!twitch.length) return null;
+
+  const current = twitch[active];
+  const channel = getTwitchChannel(current.url)!;
+  const parent = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+
+  return (
+    <div
+      className="fixed top-28 right-4 z-40 flex flex-col rounded-2xl overflow-hidden shadow-2xl"
+      style={{ width: '300px', background: 'var(--surface)', border: '1px solid var(--border2)' }}
+    >
+      {/* header */}
+      <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
+          <span className="font-mono text-[11px] uppercase tracking-wider" style={{ color: '#ef4444' }}>Live</span>
+        </div>
+        <span className="font-medium text-xs" style={{ color: 'var(--text)' }}>{current.title}</span>
+      </div>
+
+      {/* embed */}
+      <div className="aspect-video w-full bg-black">
+        <iframe
+          key={channel}
+          src={`https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true&muted=false`}
+          className="w-full h-full"
+          allowFullScreen
+          allow="autoplay; fullscreen"
+          style={{ border: 'none' }}
+        />
+      </div>
+
+      {/* channel switcher */}
+      {twitch.length > 1 && (
+        <div className="flex overflow-x-auto gap-1.5 p-2" style={{ scrollbarWidth: 'none' }}>
+          {twitch.map((item, idx) => {
+            const ch = getTwitchChannel(item.url)!;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActive(idx)}
+                className="flex-shrink-0 flex flex-col items-center gap-1 rounded-xl overflow-hidden transition-all"
+                style={{ width: '72px', border: `1px solid ${idx === active ? 'var(--a)' : 'var(--border)'}`, background: idx === active ? 'rgba(79,127,255,.08)' : 'transparent' }}
+              >
+                {item.thumbUrl ? (
+                  <img src={item.thumbUrl} alt={ch} className="w-full aspect-video object-cover" />
+                ) : (
+                  <div className="w-full aspect-video flex items-center justify-center text-base" style={{ background: 'rgba(255,255,255,.04)' }}>▶</div>
+                )}
+                <span className="pb-1 px-1 text-[9px] font-mono truncate w-full text-center" style={{ color: idx === active ? 'var(--a)' : 'var(--muted)' }}>{ch}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Member {
   id: string;
   userId: string;
@@ -97,6 +167,12 @@ export default function LobbyPage() {
     queryKey: ['lobby', matchId],
     queryFn: () => api.get(`/lobby/${matchId}`, { auth: false }),
     enabled: !!matchId,
+  });
+
+  const { data: mediaItems = [] } = useQuery<MediaItem[]>({
+    queryKey: ['media'],
+    queryFn: () => api.get('/media', { auth: false }),
+    retry: false,
   });
 
   const playBeep = useCallback((freq = 880, duration = 0.15) => {
@@ -560,9 +636,10 @@ export default function LobbyPage() {
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-5xl mx-auto" style={{ background: 'var(--bg)' }}>
+      <StreamersSidebar items={mediaItems} />
       {toast && (
         <div
-          className="fixed top-24 right-6 z-50 px-5 py-3 rounded-lg text-sm shadow-2xl"
+          className="fixed top-24 right-6 z-[49] px-5 py-3 rounded-lg text-sm shadow-2xl"
           style={{ background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--text)' }}
         >
           {toast}

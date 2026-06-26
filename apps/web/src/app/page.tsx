@@ -284,21 +284,23 @@ export default function HomePage() {
                 className="group block rounded-2xl overflow-hidden transition-transform hover:-translate-y-1"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}
               >
-                <div className="relative aspect-video w-full flex items-center justify-center" style={{ background: 'var(--surface2)' }}>
-                  {item.thumbUrl ? (
-                    <img src={item.thumbUrl} alt={item.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-3xl">▶️</span>
-                  )}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,.45)' }}>
-                    <span className="text-white text-2xl">▶</span>
+                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'var(--surface2)' }}>
+                    {item.thumbUrl ? (
+                      <img src={item.thumbUrl} alt={item.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl">▶️</span>
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,.45)' }}>
+                      <span className="text-white text-2xl">▶</span>
+                    </div>
                   </div>
                   <span className="absolute top-2 left-2 font-mono text-[9px] uppercase px-2 py-0.5 rounded-full" style={{ background: 'rgba(8,13,26,.8)', color: 'var(--a)', border: '1px solid rgba(79,127,255,.3)' }}>
                     {item.type === 'youtube' ? 'YouTube' : item.type === 'twitch' ? 'Twitch' : item.type}
                   </span>
                 </div>
-                <div className="px-3 py-2.5">
-                  <div className="text-xs font-medium leading-snug line-clamp-2" style={{ color: 'var(--text)' }}>{item.title}</div>
+                <div className="px-3 py-2.5" style={{ height: '48px' }}>
+                  <div className="text-xs font-medium leading-snug overflow-hidden" style={{ color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.title}</div>
                 </div>
               </a>
             ))}
