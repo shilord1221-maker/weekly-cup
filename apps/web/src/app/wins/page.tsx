@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Avatar } from '@/components/Avatar';
+import { StackTag } from '@/app/stacks/page';
 
 interface WinItem {
   id: string;
@@ -12,6 +13,7 @@ interface WinItem {
   user: { id: string; username: string; avatarUrl?: string | null };
   match: { id: string; mode: string; map: { name: string; imageUrl: string } };
   team: { name: string };
+  userStack?: { id: string; name: string; tag: string; tagColor: string } | null;
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -140,6 +142,11 @@ export default function WinsPage() {
                   {/* Инфо */}
                   <div className="flex-1 min-w-0 py-4">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {w.userStack && (
+                        <Link href={`/stacks/${w.userStack.id}`}>
+                          <StackTag tag={w.userStack.tag} color={w.userStack.tagColor} />
+                        </Link>
+                      )}
                       <span className="font-semibold text-sm" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
                         {w.user.username}
                       </span>

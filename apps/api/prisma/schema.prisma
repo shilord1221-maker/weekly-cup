@@ -132,6 +132,9 @@ model User {
   pollVotes        PollVote[]
   amnestyConflicts AmnestyRequest[] @relation("AmnestyConflictUser")
   amnestyReviews   AmnestyRequest[] @relation("AmnestyReviewer")
+  stackMembership  StackMember?
+  stackJoinRequests StackJoinRequest[]
+  captainOfStack   Stack?           @relation("StackCaptain")
 
   @@index([role])
   @@index([isBanned])
@@ -409,6 +412,61 @@ model Win {
 
   @@index([userId])
   @@index([matchId])
+}
+
+// ───────────────────────── STACKS (постоянные команды/кланы) ─────────────────────────
+
+model Stack {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(64)
+  tag         String   @db.VarChar(4)   // короткий тег, например [WOLF]
+  tagColor    String   @default("#4f7fff") @db.VarChar(16) // HEX цвет тега
+  logoUrl     String?
+  description String?  @db.VarChar(500)
+  captainId   String   @unique
+  captain     User     @relation("StackCaptain", fields: [captainId], references: [id])
+  members     StackMember[]
+  joinRequests StackJoinRequest[]
+  wins        StackWin[]
+  createdAt   DateTime @default(now())
+
+  @@index([name])
+}
+
+model StackMember {
+  id        String   @id @default(uuid())
+  stackId   String
+  stack     Stack    @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  userId    String   @unique   // один игрок — один стак
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@index([stackId])
+}
+
+model StackJoinRequest {
+  id        String   @id @default(uuid())
+  stackId   String
+  stack     Stack    @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String?  @db.VarChar(256)
+  status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt DateTime @default(now())
+
+  @@unique([stackId, userId])
+  @@index([stackId, status])
+}
+
+model StackWin {
+  id        String   @id @default(uuid())
+  stackId   String
+  stack     Stack    @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  matchId   String
+  createdAt DateTime @default(now())
+
+  @@unique([stackId, matchId])
+  @@index([stackId])
 }
 
 // ───────────────────────── NEWS / MEDIA ─────────────────────────

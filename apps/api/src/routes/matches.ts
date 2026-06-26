@@ -389,6 +389,23 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
       ])
     );
 
+    // Если все победители принадлежат одному стаку — засчитываем победу стаку
+    const winnerUserIds = team.members.map((m) => m.userId);
+    if (winnerUserIds.length >= 2) {
+      const memberships = await prisma.stackMember.findMany({ where: { userId: { in: winnerUserIds } }, select: { stackId: true } });
+      const stackIds = memberships.map((m) => m.stackId);
+      if (stackIds.length === winnerUserIds.length) {
+        const allSameStack = stackIds.every((s) => s === stackIds[0]);
+        if (allSameStack) {
+          await prisma.stackWin.upsert({
+            where: { stackId_matchId: { stackId: stackIds[0], matchId: id } },
+            update: {},
+            create: { stackId: stackIds[0], matchId: id },
+          });
+        }
+      }
+    }
+
     await logAudit({ actorId: req.user!.id, action: 'MATCH_FINISHED', entityType: 'Match', entityId: id, payload: { winnerTeamId: team.id } });
 
     io.to(`lobby:${id}`).emit('match:finished', { matchId: id, winnerTeamId: team.id });

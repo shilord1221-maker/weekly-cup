@@ -31,6 +31,7 @@ export function Header() {
     { href: '/media', label: 'Медиа' },
     { href: '/complaints', label: 'Жалобы' },
     { href: '/wins', label: 'Победы', special: true },
+    { href: '/stacks', label: 'Стаки' },
     { href: '/social', label: 'Соцсети' },
     { href: '/maps', label: 'Карты' },
   ] as { href: string; label: string; special?: boolean }[];
@@ -247,6 +248,14 @@ export function Header() {
             {link.label}
           </Link>
         ))}
+        <Link
+          href="/stacks"
+          onClick={() => setMobileOpen(false)}
+          className="font-display text-2xl font-semibold uppercase py-3.5"
+          style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
+        >
+          Стаки
+        </Link>
         <Link
           href="/rules"
           onClick={() => setMobileOpen(false)}

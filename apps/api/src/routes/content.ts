@@ -225,14 +225,21 @@ export async function profileRoutes(app: FastifyInstance) {
 }
 
 export async function winsRoutes(app: FastifyInstance) {
-  // Публичная лента последних побед
+  // Публичная лента последних побед + тег стака победителя
   app.get('/api/wins', async (req, reply) => {
     const wins = await prisma.win.findMany({
       orderBy: { createdAt: 'desc' },
       take: 30,
       include: { user: { select: { id: true, username: true, avatarUrl: true } }, match: { include: { map: true } }, team: true },
     });
-    reply.send(wins);
+    // Подтягиваем стак каждого победителя за один запрос
+    const userIds = [...new Set(wins.map((w) => w.userId))];
+    const memberships = await prisma.stackMember.findMany({
+      where: { userId: { in: userIds } },
+      select: { userId: true, stack: { select: { id: true, name: true, tag: true, tagColor: true } } },
+    });
+    const stackByUser = new Map(memberships.map((m) => [m.userId, m.stack]));
+    reply.send(wins.map((w) => ({ ...w, userStack: stackByUser.get(w.userId) ?? null })));
   });
 
   app.get('/api/wins/user/:id', async (req, reply) => {
