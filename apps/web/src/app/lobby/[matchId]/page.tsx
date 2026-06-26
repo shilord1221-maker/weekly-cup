@@ -127,6 +127,18 @@ export default function LobbyPage() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  const speak = useCallback((text: string) => {
+    try {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      u.rate = 1;
+      u.volume = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } catch { /* Web Speech API недоступен */ }
+  }, []);
+
   useEffect(() => {
     if (!matchId) return;
     socket.emit('lobby:subscribe', { matchId });
@@ -159,21 +171,27 @@ export default function LobbyPage() {
       invalidate();
       playBeep(330, 0.4);
       showToast('⛔ Время захода в зону истекло');
+      speak('Заход в зону закончился');
     };
-    const onFinalZoneSelected = () => {
+    const onFinalZoneSelected = (p: { zoneId?: string }) => {
       invalidate();
       playBeep(660, 0.3);
       showToast('📍 Выбрана финальная зона — у вас 2 минуты на заход');
+      // Имя зоны объявим через announcedZoneIdRef useEffect ниже (там уже есть speak)
     };
     const onFinalZoneClosed = () => {
       playBeep(330, 0.4);
       showToast('⛔ Время захода в финальную зону истекло');
+      speak('Заход в финальную зону закончился');
     };
     const onMatchStarted = () => {
       invalidate();
       playBeep(880, 0.25);
       showToast('🏁 Матч начался! У вас 2 минуты на заход в зону');
+      speak('Заход в зону начался');
     };
+    const onStartZoneExtended = () => { invalidate(); showToast('⏱ Время захода в зону продлено'); };
+    const onFinalZoneExtended = () => { invalidate(); showToast('⏱ Время захода в финальную зону продлено'); };
     const onMatchFinished = () => {
       invalidate();
       playBeep(523, 0.2);
@@ -202,6 +220,8 @@ export default function LobbyPage() {
     socket.on('match:started', onMatchStarted);
     socket.on('match:finished', onMatchFinished);
     socket.on('notify:kicked', onKicked);
+    socket.on('lobby:start_zone_extended', onStartZoneExtended);
+    socket.on('lobby:final_zone_extended', onFinalZoneExtended);
 
     return () => {
       socket.emit('lobby:unsubscribe', { matchId });
@@ -221,6 +241,8 @@ export default function LobbyPage() {
       socket.off('match:started', onMatchStarted);
       socket.off('match:finished', onMatchFinished);
       socket.off('notify:kicked', onKicked);
+      socket.off('lobby:start_zone_extended', onStartZoneExtended);
+      socket.off('lobby:final_zone_extended', onFinalZoneExtended);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, socket]);
@@ -232,19 +254,8 @@ export default function LobbyPage() {
     const finalZone = lobby?.match.finalZone;
     if (!finalZone || announcedZoneIdRef.current === finalZone.id) return;
     announcedZoneIdRef.current = finalZone.id;
-
-    try {
-      if (typeof window === 'undefined' || !window.speechSynthesis) return;
-      const utterance = new SpeechSynthesisUtterance(`Финальная зона: ${finalZone.name}`);
-      utterance.lang = 'ru-RU';
-      utterance.rate = 1;
-      utterance.volume = 1;
-      window.speechSynthesis.cancel(); // обрываем предыдущую фразу, если она ещё звучит
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      // Web Speech API недоступен в этом браузере — молча игнорируем, звуковые сигналы (playBeep) всё равно сработают
-    }
-  }, [lobby?.match.finalZone]);
+    speak(`Финальная зона: ${finalZone.name}. Заход в финальную зону начался`);
+  }, [lobby?.match.finalZone, speak]);
 
   const myMembership =
     lobby?.teams.flatMap((t) => t.members.map((m) => ({ ...m, teamId: t.id }))).find((m) => m.userId === user?.id) ??
@@ -398,6 +409,23 @@ export default function LobbyPage() {
   };
 
   const [customZoneSeconds, setCustomZoneSeconds] = useState('');
+  const [extendSeconds, setExtendSeconds] = useState('');
+
+  const handleExtendZone = async () => {
+    const secs = Number(extendSeconds);
+    if (!secs || secs < 10) return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await api.post(`/matches/${matchId}/extend-zone`, { additionalSeconds: secs });
+      setExtendSeconds('');
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof ApiClientError ? e.message : 'Не удалось продлить время');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleStartMatch = async () => {
     setActionError(null);
@@ -688,13 +716,32 @@ export default function LobbyPage() {
             </button>
           )}
 
-          {(isLive || isPaused) && (
+          {!isFinished && (
             <button
               onClick={() => handleCopyAllIds('all', lobby.teams.flatMap((t) => t.members.map((m) => m.dynamicId ?? '')))}
               className="btn-out justify-center"
             >
-              {copiedFeedback === 'all' ? '✓ Скопировано' : '📋 Скопировать все ID'}
+              {copiedFeedback === 'all' ? '✓ Скопировано' : '📋 Скопировать все Dynamic ID'}
             </button>
+          )}
+
+          {(isLive || isPaused) && (
+            <div className="flex gap-2 items-center flex-wrap">
+              <input
+                value={extendSeconds}
+                onChange={(e) => setExtendSeconds(e.target.value.replace(/\D/g, ''))}
+                placeholder="60"
+                inputMode="numeric"
+                className="input-field"
+                style={{ width: '80px' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                сек добавить к таймеру
+              </span>
+              <button onClick={handleExtendZone} disabled={actionLoading || !extendSeconds} className="btn-out" style={{ padding: '10px 16px' }}>
+                ⏱ Продлить
+              </button>
+            </div>
           )}
 
           {isLive && !lobby.match.finalZoneOpenedAt && hasZones && (
@@ -887,9 +934,14 @@ export default function LobbyPage() {
                       </span>
                     )}
                     {isOrganizerOrAdmin && m.dynamicId && (
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--a)', background: 'rgba(79,127,255,.08)' }}>
-                        ID: {m.dynamicId}
-                      </span>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(m.dynamicId ?? ''); setCopiedFeedback(`mid-${m.id}`); setTimeout(() => setCopiedFeedback(null), 1500); }}
+                        className="font-mono text-[10px] px-1.5 py-0.5 rounded transition-colors"
+                        style={{ color: 'var(--a)', background: 'rgba(79,127,255,.08)', border: 'none', cursor: 'pointer' }}
+                        title="Скопировать Dynamic ID"
+                      >
+                        {copiedFeedback === `mid-${m.id}` ? '✓' : `ID: ${m.dynamicId}`}
+                      </button>
                     )}
                     {m.userId === team.createdById && (
                       <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.08)' }}>

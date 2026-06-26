@@ -240,6 +240,39 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     reply.send(match);
   });
 
+  // ───────── EXTEND ZONE WINDOW (Organizer+) — добавляет секунды к текущему открытому окну ─────────
+  const ExtendSchema = z.object({ additionalSeconds: z.number().int().min(10).max(3600) });
+  app.post('/api/matches/:id/extend-zone', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = ExtendSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (match.status !== 'LIVE') return reply.code(409).send({ error: 'NOT_LIVE', message: 'Матч не идёт' });
+
+    const addMs = parsed.data.additionalSeconds * 1000;
+    const isFinalZone = !!match.finalZoneOpenedAt;
+
+    let closesAt: number;
+    if (isFinalZone) {
+      const current = match.finalZoneClosesAt ? Math.max(match.finalZoneClosesAt.getTime(), Date.now()) : Date.now();
+      closesAt = await setFinalZoneWindow(id, current + addMs - Date.now());
+      await scheduleFinalZoneClose(id, closesAt - Date.now());
+      await prisma.match.update({ where: { id }, data: { finalZoneClosesAt: new Date(closesAt) } });
+      io.to(`lobby:${id}`).emit('lobby:final_zone_extended', { matchId: id, closesAt });
+    } else {
+      const current = match.startZoneClosesAt ? Math.max(match.startZoneClosesAt.getTime(), Date.now()) : Date.now();
+      closesAt = await setStartZoneWindow(id, current + addMs - Date.now());
+      await scheduleStartZoneClose(id, closesAt - Date.now());
+      await prisma.match.update({ where: { id }, data: { startZoneClosesAt: new Date(closesAt) } });
+      io.to(`lobby:${id}`).emit('lobby:start_zone_extended', { matchId: id, closesAt });
+    }
+
+    await logAudit({ actorId: req.user!.id, action: 'ZONE_TIME_EXTENDED', entityType: 'Match', entityId: id, payload: { additionalSeconds: parsed.data.additionalSeconds, isFinalZone } });
+    reply.send({ closesAt });
+  });
+
   // ───────── PAUSE (Organizer+) — замораживает отсчёт текущего окна на заход в зону ─────────
   app.post('/api/matches/:id/pause', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
     const { id } = req.params as { id: string };
