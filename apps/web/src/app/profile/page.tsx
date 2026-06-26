@@ -63,6 +63,7 @@ function ProfilePageContent() {
   const [unlinking, setUnlinking] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
   const [avatarSubmitError, setAvatarSubmitError] = useState<string | null>(null);
+  const [showEmail, setShowEmail] = useState(false);
 
   useEffect(() => {
     if (isInitialized && !user) router.push('/login');
@@ -151,8 +152,31 @@ function ProfilePageContent() {
           <h1 className="font-display font-bold uppercase" style={{ fontSize: '28px', letterSpacing: '0.02em' }}>
             {profile.username}
           </h1>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {profile.email} · {roleLabel(profile.role)}
+          <p className="text-sm flex items-center gap-2 flex-wrap" style={{ color: 'var(--muted)' }}>
+            <span
+              className="font-mono"
+              style={{ filter: showEmail ? 'none' : 'blur(4px)', userSelect: showEmail ? 'text' : 'none', transition: 'filter .15s' }}
+            >
+              {profile.email}
+            </span>
+            <button
+              onClick={() => setShowEmail((v) => !v)}
+              className="flex items-center justify-center w-5 h-5 rounded transition-colors flex-shrink-0"
+              style={{ color: showEmail ? 'var(--a)' : 'var(--muted)', background: 'rgba(255,255,255,.04)', border: '1px solid var(--border2)' }}
+              title={showEmail ? 'Скрыть email' : 'Показать email'}
+            >
+              {showEmail ? (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              ) : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              )}
+            </button>
+            · {roleLabel(profile.role)}
           </p>
         </div>
       </div>

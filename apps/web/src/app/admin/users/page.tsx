@@ -5,6 +5,27 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  ) : (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  );
+}
+
+function masked(value: string, type: 'email' | 'ip') {
+  if (type === 'email') {
+    const [user, domain] = value.split('@');
+    return `${user?.[0] ?? ''}${'●'.repeat(Math.max(2, (user?.length ?? 3) - 1))}@${domain ?? '●●●'}`;
+  }
+  return value.replace(/\d+/g, (n) => '●'.repeat(n.length));
+}
+
 interface UserItem {
   id: string;
   username: string;
@@ -50,6 +71,7 @@ export default function AdminUsersPage() {
   const [usernameInput, setUsernameInput] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const isOwner = currentUser?.role === 'OWNER';
+  const [showSensitive, setShowSensitive] = useState(false);
 
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
   // не увидит этот пункт (backend всё равно заблокирует попытку, если обойти UI).
@@ -166,12 +188,27 @@ export default function AdminUsersPage() {
         Пользователи
       </h1>
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Поиск по нику или Static ID..."
-        className="input-field mb-4"
-      />
+      <div className="flex gap-2 mb-4">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по нику или Static ID..."
+          className="input-field flex-1"
+        />
+        <button
+          onClick={() => setShowSensitive((v) => !v)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-shrink-0"
+          style={{
+            color: showSensitive ? 'var(--text)' : 'var(--muted)',
+            background: showSensitive ? 'rgba(79,127,255,.1)' : 'rgba(255,255,255,.04)',
+            border: `1px solid ${showSensitive ? 'rgba(79,127,255,.3)' : 'var(--border2)'}`,
+          }}
+          title={showSensitive ? 'Скрыть email и IP' : 'Показать email и IP'}
+        >
+          <EyeIcon open={showSensitive} />
+          {showSensitive ? 'Скрыть' : 'Показать'}
+        </button>
+      </div>
 
       {stats && (
         <div className="flex flex-wrap gap-2 mb-4">
@@ -243,16 +280,14 @@ export default function AdminUsersPage() {
                     </span>
                   )}
                 </div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>
-                  {u.email} {u.staticId && `· ${u.staticId}`}
-                  {u.staticIdProofUrl && (
-                    <>
-                      {' · '}
-                      <a href={u.staticIdProofUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--a)' }}>
-                        скрин-пруф
-                      </a>
-                    </>
-                  )}
+                <div className="text-xs flex items-center gap-1 flex-wrap" style={{ color: 'var(--muted)' }}>
+                  <span
+                    className="font-mono"
+                    style={{ filter: showSensitive ? 'none' : 'blur(4px)', userSelect: showSensitive ? 'text' : 'none', transition: 'filter .15s' }}
+                  >
+                    {u.email}
+                  </span>
+                  {u.staticId && <span>· {u.staticId}</span>}
                   {isOwner && (
                     <>
                       {' · '}
@@ -282,7 +317,12 @@ export default function AdminUsersPage() {
                 </div>
                 {(u.registrationIp || u.lastLoginIp) && (
                   <div className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(96,104,128,.6)' }}>
-                    IP: {u.lastLoginIp ?? u.registrationIp}
+                    IP:{' '}
+                    <span
+                      style={{ filter: showSensitive ? 'none' : 'blur(4px)', userSelect: showSensitive ? 'text' : 'none', transition: 'filter .15s' }}
+                    >
+                      {u.lastLoginIp ?? u.registrationIp}
+                    </span>
                   </div>
                 )}
               </div>
