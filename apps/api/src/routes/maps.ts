@@ -17,8 +17,7 @@ const CoordinatesSchema = z
     height: z.number().positive().finite().optional(),
   })
   .passthrough()
-  .optional()
-  .transform((v) => (v === undefined ? undefined : (v as Record<string, unknown>)));
+  .optional();
 
 const CreateZoneSchema = z.object({
   name: z.string().min(1).max(64),
@@ -101,7 +100,7 @@ export async function mapRoutes(app: FastifyInstance) {
     const parsed = CreateZoneSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', issues: parsed.error.flatten().fieldErrors });
 
-    const zone = await prisma.zone.create({ data: { mapId: id, ...parsed.data } });
+    const zone = await prisma.zone.create({ data: { mapId: id, ...parsed.data, coordinates: parsed.data.coordinates as any } });
     await logAudit({ actorId: req.user!.id, action: 'ZONE_CREATED', entityType: 'Zone', entityId: zone.id });
     reply.code(201).send(zone);
   });
@@ -118,7 +117,7 @@ export async function mapRoutes(app: FastifyInstance) {
     const existing = await prisma.zone.findUnique({ where: { id: zoneId } });
     if (!existing) return reply.code(404).send({ error: 'NOT_FOUND' });
 
-    const zone = await prisma.zone.update({ where: { id: zoneId }, data: parsed.data });
+    const zone = await prisma.zone.update({ where: { id: zoneId }, data: { ...parsed.data, coordinates: parsed.data.coordinates as any } });
     await logAudit({ actorId: req.user!.id, action: 'ZONE_UPDATED', entityType: 'Zone', entityId: zoneId, payload: parsed.data });
     reply.send(zone);
   });
