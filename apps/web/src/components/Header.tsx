@@ -9,7 +9,6 @@ import { Avatar } from '@/components/Avatar';
 export function Header() {
   const [stuck, setStuck] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -30,13 +29,8 @@ export function Header() {
     { href: '/', label: 'Главная' },
     { href: '/matches', label: 'Матчи' },
     { href: '/wins', label: 'Победы' },
-    { href: '/news', label: 'Новости' },
-  ];
-
-  const moreLinks = [
     { href: '/media', label: 'Медиа' },
     { href: '/maps', label: 'Карты' },
-    { href: '/rules', label: 'Правила' },
     { href: '/complaints', label: 'Жалобы' },
     { href: '/social', label: 'Соцсети' },
   ];
@@ -102,44 +96,17 @@ export function Header() {
               скоро
             </span>
           </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setMoreOpen((v) => !v)}
-              className="text-sm font-medium px-4 py-2 rounded-full transition-all flex items-center gap-1"
-              style={{ color: 'var(--muted)' }}
-            >
-              Ещё
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-            {moreOpen && (
-              <>
-                <div className="fixed inset-0 z-[90]" onClick={() => setMoreOpen(false)} />
-                <div
-                  className="absolute top-full left-1/2 -translate-x-1/2 mt-3 rounded-xl py-2 z-[100] min-w-[160px]"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 16px 40px rgba(0,0,0,.4)' }}
-                >
-                  {moreLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setMoreOpen(false)}
-                      className="block px-4 py-2.5 text-sm transition-colors hover:text-white"
-                      style={{ color: 'var(--muted)' }}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
         </nav>
 
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-3">
+          <Link
+            href="/rules"
+            className="flex items-center justify-center h-11 px-4 rounded-full text-sm font-medium transition-all hover:border-white/20"
+            style={{ border: '1px solid var(--border2)', background: 'rgba(8,13,26,.7)', backdropFilter: 'blur(20px)', color: 'var(--muted)' }}
+          >
+            Правила
+          </Link>
           <Link
             href="/social"
             className="flex items-center justify-center w-11 h-11 rounded-full transition-all hover:border-white/20"
@@ -239,6 +206,14 @@ export function Header() {
             {link.label}
           </Link>
         ))}
+        <Link
+          href="/rules"
+          onClick={() => setMobileOpen(false)}
+          className="font-display text-2xl font-semibold uppercase py-3.5"
+          style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
+        >
+          Правила
+        </Link>
         <div
           className="flex items-center gap-2 py-3.5"
           style={{ borderBottom: '1px solid var(--border)' }}
@@ -253,17 +228,6 @@ export function Header() {
             скоро
           </span>
         </div>
-        {moreLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={() => setMobileOpen(false)}
-            className="font-display text-2xl font-semibold uppercase py-3.5"
-            style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
-          >
-            {link.label}
-          </Link>
-        ))}
         {user ? (
           <>
             <Link href="/profile" onClick={() => setMobileOpen(false)} className="mt-5" style={{ color: 'var(--a)' }}>

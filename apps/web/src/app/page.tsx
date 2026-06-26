@@ -10,6 +10,14 @@ import { ZoneAnimation } from '@/components/ZoneAnimation';
 import { PollBanner } from '@/components/PollBanner';
 import { Avatar } from '@/components/Avatar';
 
+interface MediaItem {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  thumbUrl: string | null;
+}
+
 interface MatchSummary {
   id: string;
   mode: string;
@@ -48,6 +56,12 @@ export default function HomePage() {
   const { data: wins } = useQuery<WinSummary[]>({
     queryKey: ['wins-preview'],
     queryFn: () => api.get('/wins', { auth: false }),
+    retry: false,
+  });
+
+  const { data: mediaItems } = useQuery<MediaItem[]>({
+    queryKey: ['media-preview'],
+    queryFn: () => api.get('/media', { auth: false }),
     retry: false,
   });
 
@@ -247,57 +261,63 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURES BENTO */}
-      <section id="features" className="px-10 pb-28 relative z-10 max-w-[1240px] mx-auto">
-        <Eyebrow>Возможности</Eyebrow>
-        <h2 className="font-display font-bold uppercase mb-16" style={{ fontSize: 'clamp(36px,5vw,60px)', lineHeight: 0.95, letterSpacing: '-0.01em' }}>
-          Платформа<br />изнутри
-        </h2>
+      {/* MEDIA SECTION */}
+      <section id="media" className="px-10 pb-28 relative z-10 max-w-[1240px] mx-auto">
+        <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
+          <div>
+            <Eyebrow>Контент</Eyebrow>
+            <h2 className="font-display font-bold uppercase mt-4" style={{ fontSize: 'clamp(36px,5vw,60px)', lineHeight: 0.95, letterSpacing: '-0.01em' }}>
+              Стримеры<br /><span style={{ background: 'linear-gradient(90deg,var(--a),var(--a2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>и медиа</span>
+            </h2>
+          </div>
+          <Link href="/media" className="btn-out">Все медиа →</Link>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <BentoCard span={7} minH={300} tag="Realtime WebSocket" title="PUBG-лобби" desc="Живое лобби без перезагрузок. Игроки заходят, выбирают команды, организатор управляет составами." href="/matches">
-            <div className="grid grid-cols-2 gap-2.5 mt-7">
-              <MiniTeam name="Team 1" color="var(--a)" status="WAIT..." statusColor="var(--muted)" players={['Ghost_UA', 'ShadowK']} empty />
-              <MiniTeam name="Team 2" color="var(--a2)" status="READY ✓" statusColor="var(--green)" players={['StrikeForce', 'NightOwl', 'Apex_Pro']} />
-            </div>
-          </BentoCard>
-
-          <BentoCard span={5} minH={300} tag="adjacencyMap" title="Выбор зон" desc="Только смежные зоны. Граф соседства не даёт выбрать несвязанные территории." href="/maps">
-            <ZoneAnimation />
-          </BentoCard>
-
-          <BentoCard span={4} minH={240} tag="WebSocket" title="Общий чат" href="/chat">
-            <ChatPreview />
-          </BentoCard>
-
-          <BentoCard span={4} minH={240} tag="Discord" title="Voice каналы" desc="Каждая команда — свой канал." href="/matches">
-            <div className="flex flex-col gap-2 mt-5">
-              {[1, 2, 3].map((n) => (
-                <div
-                  key={n}
-                  className="flex items-center justify-between px-4 py-2.5 rounded-lg text-xs transition-all cursor-pointer hover:translate-x-1"
-                  style={{ background: 'rgba(88,101,242,.07)', border: '1px solid rgba(88,101,242,.15)' }}
-                >
-                  <span className="flex items-center gap-2">
-                    <span>🔊</span>
-                    <span>Voice {n} — Team {n}</span>
-                  </span>
-                  <span className="font-mono" style={{ color: 'rgba(88,101,242,.7)', fontSize: '10px', letterSpacing: '0.06em' }}>
-                    JOIN →
+        {mediaItems && mediaItems.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {mediaItems.slice(0, 8).map((item) => (
+              <a
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block rounded-2xl overflow-hidden transition-transform hover:-translate-y-1"
+                style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}
+              >
+                <div className="relative aspect-video w-full flex items-center justify-center" style={{ background: 'var(--surface2)' }}>
+                  {item.thumbUrl ? (
+                    <img src={item.thumbUrl} alt={item.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl">▶️</span>
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,.45)' }}>
+                    <span className="text-white text-2xl">▶</span>
+                  </div>
+                  <span className="absolute top-2 left-2 font-mono text-[9px] uppercase px-2 py-0.5 rounded-full" style={{ background: 'rgba(8,13,26,.8)', color: 'var(--a)', border: '1px solid rgba(79,127,255,.3)' }}>
+                    {item.type === 'youtube' ? 'YouTube' : item.type === 'twitch' ? 'Twitch' : item.type}
                   </span>
                 </div>
-              ))}
-            </div>
-          </BentoCard>
-
-          <BentoCard span={4} minH={240} tag="Звуковые + визуальные" title="Уведомления" href="/profile">
-            <div className="flex flex-col gap-2 mt-5">
-              <Notif color="#4ade80" bg="rgba(34,197,94,.06)" border="rgba(34,197,94,.15)" text="🏁 Матч начался" time="сейчас" />
-              <Notif color="#c084fc" bg="rgba(139,92,246,.06)" border="rgba(139,92,246,.15)" text="📍 Финальная зона выбрана" time="21:02" />
-              <Notif color="var(--gold)" bg="rgba(201,149,74,.06)" border="rgba(201,149,74,.15)" text="🏆 Победа записана" time="21:34" />
-            </div>
-          </BentoCard>
-        </div>
+                <div className="px-3 py-2.5">
+                  <div className="text-xs font-medium leading-snug line-clamp-2" style={{ color: 'var(--text)' }}>{item.title}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div className="aspect-video flex items-center justify-center" style={{ background: 'var(--surface2)' }}>
+                  <span className="text-3xl opacity-30">▶️</span>
+                </div>
+                <div className="px-3 py-2.5">
+                  <div className="h-2.5 rounded w-3/4 mb-1.5" style={{ background: 'rgba(255,255,255,.05)' }} />
+                  <div className="h-2 rounded w-1/2" style={{ background: 'rgba(255,255,255,.03)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ACTIVE POLLS */}
@@ -378,7 +398,6 @@ export default function HomePage() {
         </Link>
         <div className="flex gap-6 flex-wrap text-xs" style={{ color: 'var(--muted)' }}>
           <Link href="/rules" className="hover:text-white transition-colors">Правила</Link>
-          <Link href="/news" className="hover:text-white transition-colors">Новости</Link>
           <Link href="/media" className="hover:text-white transition-colors">Медиа</Link>
           <Link href="/maps" className="hover:text-white transition-colors">Карты</Link>
           <Link href="/complaints" className="hover:text-white transition-colors">Жалобы</Link>

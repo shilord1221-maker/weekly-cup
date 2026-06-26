@@ -132,10 +132,26 @@ export default function LobbyPage() {
       if (typeof window === 'undefined' || !window.speechSynthesis) return;
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'ru-RU';
-      u.rate = 1;
+      u.rate = 0.95;
+      u.pitch = 1;
       u.volume = 1;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
+      // Голоса могут ещё не загрузиться при первом вызове — ждём onvoiceschanged
+      const doSpeak = (v: SpeechSynthesisVoice[]) => {
+        const preferred = ['Microsoft Pavel', 'Microsoft Irina', 'Yuri', 'Milena', 'Google русский', 'Russian'];
+        const ru = v.find((vx) => preferred.some((name) => vx.name.includes(name))) ?? v.find((vx) => vx.lang.startsWith('ru'));
+        if (ru) u.voice = ru;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      };
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        doSpeak(voices);
+        return;
+      }
+      window.speechSynthesis.onvoiceschanged = () => {
+        doSpeak(window.speechSynthesis.getVoices());
+        window.speechSynthesis.onvoiceschanged = null;
+      };
     } catch { /* Web Speech API недоступен */ }
   }, []);
 
