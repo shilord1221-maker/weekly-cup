@@ -90,29 +90,55 @@ export default function WinsPage() {
                 <Link
                   key={w.id}
                   href={`/lobby/${w.match.id}`}
-                  className="flex items-center gap-4 px-5 py-4 rounded-2xl transition-all hover:translate-x-1"
+                  className="flex items-center gap-4 rounded-2xl transition-all hover:translate-x-1 overflow-hidden"
                   style={{
-                    border: isFirst ? '1px solid rgba(201,149,74,.4)' : '1px solid var(--border)',
-                    background: isFirst ? 'linear-gradient(90deg,rgba(201,149,74,.06),var(--surface))' : 'var(--surface)',
-                    boxShadow: isFirst ? '0 0 24px rgba(201,149,74,.08)' : 'none',
+                    border: isFirst ? '1px solid rgba(201,149,74,.45)' : '1px solid var(--border)',
+                    background: isFirst ? 'linear-gradient(90deg,rgba(201,149,74,.07),var(--surface) 40%)' : 'var(--surface)',
+                    boxShadow: isFirst ? '0 0 32px rgba(201,149,74,.1)' : 'none',
+                    paddingRight: '20px',
                   }}
                 >
-                  {/* Позиция */}
-                  <div className="flex-shrink-0 w-8 text-center">
-                    {isFirst ? (
-                      <span style={{ fontSize: '20px' }}>👑</span>
-                    ) : (
+                  {/* ЛУЧШАЯ ПОБЕДА ДНЯ — левый блок только для первого */}
+                  {isFirst ? (
+                    <div
+                      className="flex-shrink-0 flex flex-col items-center justify-center gap-2 self-stretch px-4 py-5"
+                      style={{
+                        minWidth: '90px',
+                        background: 'linear-gradient(135deg,rgba(201,149,74,.18),rgba(201,149,74,.06))',
+                        borderRight: '1px solid rgba(201,149,74,.2)',
+                      }}
+                    >
+                      <span style={{ fontSize: '28px', filter: 'drop-shadow(0 0 8px rgba(201,149,74,.6))' }}>🏆</span>
+                      <div className="font-display font-bold text-center uppercase leading-tight" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--gold)' }}>
+                        Лучшая<br />победа<br />дня
+                      </div>
+                    </div>
+                  ) : (
+                    /* Позиция для остальных */
+                    <div className="flex-shrink-0 w-12 text-center pl-4">
                       <span className="font-display font-bold text-sm" style={{ color: idx < 3 ? 'var(--gold)' : 'var(--muted)' }}>
                         {idx + 1}
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Аватар */}
-                  <Avatar username={w.user.username} avatarUrl={w.user.avatarUrl} size={44} />
+                  <div
+                    className="flex-shrink-0"
+                    style={isFirst ? {
+                      padding: '3px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg,#fde68a,#f59e0b,#d97706)',
+                      boxShadow: '0 0 12px rgba(201,149,74,.5)',
+                    } : {}}
+                  >
+                    <div style={isFirst ? { borderRadius: '50%', overflow: 'hidden' } : {}}>
+                      <Avatar username={w.user.username} avatarUrl={w.user.avatarUrl} size={isFirst ? 48 : 44} />
+                    </div>
+                  </div>
 
                   {/* Инфо */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 py-4">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
                         {w.user.username}
@@ -130,7 +156,7 @@ export default function WinsPage() {
                         {MODE_LABELS[w.match.mode] ?? w.match.mode}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1.5">
                       <span
                         className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full"
                         style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.07)', border: '1px solid rgba(201,149,74,.18)' }}
@@ -147,7 +173,7 @@ export default function WinsPage() {
 
                   {/* Карта */}
                   <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                    <div className="w-20 h-12 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                    <div className="w-20 h-12 rounded-lg overflow-hidden" style={{ border: isFirst ? '1px solid rgba(201,149,74,.3)' : '1px solid var(--border)' }}>
                       {w.match.map?.imageUrl ? (
                         <img src={w.match.map.imageUrl} alt={w.match.map.name} className="w-full h-full object-cover" />
                       ) : (
