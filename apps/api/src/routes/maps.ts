@@ -9,12 +9,16 @@ const CreateMapSchema = z.object({
   imageUrl: z.string().min(1, 'Укажите путь или ссылку на изображение'),
 });
 
-const CoordinatesSchema = z.object({
-  x: z.number().finite(),
-  y: z.number().finite(),
-  width: z.number().positive().finite().optional(),
-  height: z.number().positive().finite().optional(),
-}).passthrough().optional();
+const CoordinatesSchema = z
+  .object({
+    x: z.number().finite(),
+    y: z.number().finite(),
+    width: z.number().positive().finite().optional(),
+    height: z.number().positive().finite().optional(),
+  })
+  .passthrough()
+  .optional()
+  .transform((v) => (v === undefined ? undefined : (v as Record<string, unknown>)));
 
 const CreateZoneSchema = z.object({
   name: z.string().min(1).max(64),
