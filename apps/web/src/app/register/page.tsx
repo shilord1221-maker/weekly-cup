@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuthStore } from '@/store/auth';
 import { ApiClientError } from '@/lib/api';
-import { ImageUploadField } from '@/components/ImageUploadField';
 
 // Ник и Static ID — обязательные поля. Без них форма не отправится.
 const RegisterSchema = z.object({
@@ -46,8 +45,6 @@ function RegisterFormContent() {
   const searchParams = useSearchParams();
   const register_ = useAuthStore((s) => s.register);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [proofMismatchError, setProofMismatchError] = useState<string | null>(null);
-  const [staticIdProofUrl, setStaticIdProofUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   // Реферальный код из ссылки вида /register?ref=ABCD1234 — передаём его на сервер при регистрации.
   const referralCode = searchParams.get('ref') ?? undefined;
@@ -63,22 +60,15 @@ function RegisterFormContent() {
 
   const onSubmit = async (data: RegisterForm) => {
     setServerError(null);
-    setProofMismatchError(null);
     setSubmitting(true);
     try {
-      await register_({ ...data, staticIdProofUrl: staticIdProofUrl.trim() || undefined, referralCode });
+      await register_({ ...data, referralCode });
       router.push('/profile');
     } catch (e) {
       if (e instanceof ApiClientError) {
         const amnestyId = e.body?.amnestyRequestId;
         if (e.code === 'STATIC_ID_TAKEN' && typeof amnestyId === 'string') {
           router.push(`/amnesty/${amnestyId}`);
-          return;
-        }
-        // Несовпадение Static ID со скрином — показываем прямо под полем Static ID,
-        // а не общим сообщением сверху формы, чтобы было сразу видно, что не так.
-        if (e.code === 'PROOF_MISMATCH') {
-          setProofMismatchError(e.message);
           return;
         }
         setServerError(e.message);
@@ -159,27 +149,13 @@ function RegisterFormContent() {
               type="text"
               placeholder="например: 7741209"
               autoComplete="off"
-              onChange={(e) => {
-                setProofMismatchError(null);
-                register('staticId').onChange(e);
-              }}
-              className={`input-field ${errors.staticId || proofMismatchError ? 'error' : ''}`}
+              className={`input-field ${errors.staticId ? 'error' : ''}`}
             />
             {errors.staticId && <p className="error-text">{errors.staticId.message}</p>}
-            {proofMismatchError && <p className="error-text">{proofMismatchError}</p>}
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               Обязательное поле. Уникальный игровой идентификатор — используется для подтверждения участия в матчах.
-              {' '}Если указан скрин-пруф, этот номер должен совпадать с тем, что видно на скрине.
             </p>
           </div>
-
-          <ImageUploadField
-            label="Скриншот-пруф Static ID (необязательно)"
-            value={staticIdProofUrl}
-            onChange={setStaticIdProofUrl}
-            folder="static-id-proofs"
-            helperText="Загрузите скрин с вашим Static ID — это ускорит проверку при спорах."
-          />
 
           <button type="submit" disabled={submitting} className="btn-main justify-center mt-2">
             {submitting ? 'Создаём аккаунт...' : 'Создать аккаунт'}

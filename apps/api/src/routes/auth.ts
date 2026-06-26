@@ -17,7 +17,6 @@ const RegisterSchema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
   staticId: z.string().regex(/^\d{2,}$/, 'Static ID должен состоять минимум из 2 цифр'),
-  staticIdProofUrl: z.string().url('Укажите ссылку на скриншот (например, через yapix)').optional(),
   referralCode: z.string().max(16).optional(),
 });
 
@@ -64,6 +63,7 @@ export async function authRoutes(app: FastifyInstance) {
       }
       const { username, email, password, staticId } = parsed.data;
 
+
       const [existingUser, existingStaticId] = await Promise.all([
         prisma.user.findFirst({ where: { OR: [{ username }, { email }] } }),
         prisma.staticId.findUnique({ where: { value: staticId }, include: { user: true } }),
@@ -89,7 +89,6 @@ export async function authRoutes(app: FastifyInstance) {
             email,
             passwordHash,
             staticId,
-            proofUrl: parsed.data.staticIdProofUrl ?? null,
             detectedStaticId,
             conflictUserId: existingStaticId.userId,
             registrationIp: clientIp,
@@ -125,7 +124,7 @@ export async function authRoutes(app: FastifyInstance) {
           lastLoginIp: clientIp,
           referralCode,
           referredById,
-          staticId: { create: { value: staticId, proofUrl: parsed.data.staticIdProofUrl ?? null } },
+          staticId: { create: { value: staticId } },
         },
         include: { staticId: true },
       });

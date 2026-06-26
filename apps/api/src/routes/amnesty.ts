@@ -68,7 +68,7 @@ export async function amnestyRoutes(app: FastifyInstance) {
           registrationIp: amnesty.registrationIp,
           lastLoginIp: amnesty.registrationIp,
           referralCode,
-          staticId: { create: { value: amnesty.staticId, proofUrl: amnesty.proofUrl } },
+          staticId: { create: { value: amnesty.staticId } },
         },
         include: { staticId: true },
       });
