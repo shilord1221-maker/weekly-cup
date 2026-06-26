@@ -2,6 +2,13 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
+let onTokenRefreshed: (() => void) | null = null;
+
+/** Регистрируем callback для пересоздания сокета после ротации токена (избегаем circular import). */
+export function setOnTokenRefreshed(cb: () => void) {
+  onTokenRefreshed = cb;
+}
+
 export class ApiClientError extends Error {
   code: string;
   status: number;
@@ -22,26 +29,19 @@ let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
-  if (typeof window !== 'undefined') {
-    if (token) localStorage.setItem('wc_access_token', token);
-    else localStorage.removeItem('wc_access_token');
-  }
 }
 
 export function getAccessToken(): string | null {
-  if (accessToken) return accessToken;
-  if (typeof window !== 'undefined') {
-    accessToken = localStorage.getItem('wc_access_token');
-  }
   return accessToken;
 }
 
 interface RequestOptions extends RequestInit {
   auth?: boolean;
+  _retried?: boolean;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { auth = true, headers, ...rest } = options;
+  const { auth = true, _retried = false, headers, ...rest } = options;
   const token = auth ? getAccessToken() : null;
 
   const res = await fetch(`${API_BASE}/api${path}`, {
@@ -54,11 +54,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     },
   });
 
-  // Авто-обновление токена при 401
-  if (res.status === 401 && auth) {
+  // Авто-обновление токена при 401 — только один раз, чтобы не зациклиться
+  if (res.status === 401 && auth && !_retried) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      return request<T>(path, options);
+      return request<T>(path, { ...options, _retried: true });
     }
   }
 
@@ -84,6 +84,7 @@ async function tryRefresh(): Promise<boolean> {
       if (!res.ok) return false;
       const data = await res.json();
       setAccessToken(data.accessToken);
+      onTokenRefreshed?.();
       return true;
     } catch {
       return false;

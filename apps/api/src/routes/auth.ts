@@ -231,8 +231,20 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'USER_NOT_FOUND' });
     }
 
+    // Ротируем refresh-токен при каждом использовании — если украденный токен используется
+    // раньше легитимного, оригинальный окажется revoked и пользователь это заметит при следующем
+    // входе (его попросят залогиниться заново).
+    const newRefreshToken = signRefreshToken(user.id);
+    await prisma.$transaction([
+      prisma.refreshToken.update({ where: { token }, data: { revoked: true } }),
+      prisma.refreshToken.create({ data: { token: newRefreshToken, userId: user.id, expiresAt: refreshTokenExpiryDate() } }),
+    ]);
+
     const accessToken = signAccessToken({ sub: user.id, role: user.role, username: user.username });
-    reply.setCookie('access_token', accessToken, ACCESS_COOKIE_OPTS).send({ accessToken });
+    reply
+      .setCookie('refresh_token', newRefreshToken, { ...ACCESS_COOKIE_OPTS, path: '/api/auth', maxAge: REFRESH_COOKIE_MAX_AGE })
+      .setCookie('access_token', accessToken, ACCESS_COOKIE_OPTS)
+      .send({ accessToken });
   });
 
   // ───────── LOGOUT ─────────

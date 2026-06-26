@@ -49,9 +49,21 @@ export async function scheduleStartZoneClose(matchId: string, durationMs = 120_0
 }
 
 export async function cancelScheduledJobs(matchId: string) {
-  const jobs = await matchQueue.getJobs(['delayed', 'waiting']);
-  for (const job of jobs) {
-    if (job.data?.matchId === matchId) await job.remove();
+  // Удаляем по известным jobId — не сканируем всю очередь (O(1) вместо O(n))
+  const jobIds = [
+    `start-${matchId}`,
+    `reminder-${matchId}`,
+  ];
+  await Promise.all(jobIds.map(async (jobId) => {
+    const job = await matchQueue.getJob(jobId);
+    if (job) await job.remove();
+  }));
+  // startzone/finalzone используют timestamp в jobId — ищем по matchId-prefix среди delayed
+  const dynamic = await matchQueue.getJobs(['delayed', 'waiting']);
+  for (const job of dynamic) {
+    if ((job.id?.startsWith(`startzone-${matchId}-`) || job.id?.startsWith(`finalzone-${matchId}-`)) && job.data?.matchId === matchId) {
+      await job.remove();
+    }
   }
 }
 
@@ -67,8 +79,10 @@ export function createMatchEventsWorker(io: SocketServer) {
 
       switch (kind) {
         case 'MATCH_STARTED': {
+          const current = await prisma.match.findUnique({ where: { id: matchId }, select: { status: true, startTime: true } });
+          if (!current || current.status !== 'SCHEDULED') break;
           const match = await prisma.match.update({
-            where: { id: matchId },
+            where: { id: matchId, status: 'SCHEDULED' },
             data: { status: 'LIVE' },
           });
           io.to(`lobby:${matchId}`).emit('match:started', { matchId, startTime: match.startTime });

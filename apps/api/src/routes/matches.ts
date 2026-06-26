@@ -105,6 +105,9 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
 
     const match = await prisma.match.findUnique({ where: { id } });
     if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (match.status === 'LIVE' || match.status === 'PAUSED' || match.status === 'FINISHED') {
+      return reply.code(409).send({ error: 'MATCH_ALREADY_STARTED', message: 'Нельзя изменить время уже начавшегося или завершённого матча' });
+    }
 
     const data: any = {};
     if (parsed.data.startTime) {
@@ -140,6 +143,29 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
 
     io.to(`lobby:${id}`).emit('lobby:zones_selected', { matchId: id, zoneIds: parsed.data.zoneIds });
     reply.send({ zoneIds: parsed.data.zoneIds });
+  });
+
+  // ───────── ROLL FINAL ZONE (случайная) — выбор происходит на сервере, чтобы организатор
+  // не мог заранее узнать результат или подменить его через devtools ─────────
+  app.post('/api/matches/:id/roll-final-zone', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const match = await prisma.match.findUnique({ where: { id }, include: { selectedZones: true } });
+    if (!match) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (!match.selectedZones.length) return reply.code(400).send({ error: 'NO_ZONES', message: 'Нет выбранных зон для финала' });
+
+    const randomZone = match.selectedZones[Math.floor(Math.random() * match.selectedZones.length)];
+    const durationMs = match.zoneEntrySeconds * 1000;
+    const closesAt = await setFinalZoneWindow(id, durationMs);
+    await scheduleFinalZoneClose(id, durationMs);
+
+    await prisma.match.update({
+      where: { id },
+      data: { finalZoneId: randomZone.id, finalZoneOpenedAt: new Date(), finalZoneClosesAt: new Date(closesAt) },
+    });
+
+    await logAudit({ actorId: req.user!.id, action: 'FINAL_ZONE_SELECTED', entityType: 'Match', entityId: id, payload: { zoneId: randomZone.id, rolled: true } });
+    io.to(`lobby:${id}`).emit('lobby:final_zone_selected', { matchId: id, zoneId: randomZone.id, closesAt });
+    reply.send({ zoneId: randomZone.id, closesAt });
   });
 
   // ───────── SELECT FINAL ZONE — triggers 2-min window + sound notifications ─────────
@@ -186,8 +212,14 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     const parsed = StartSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
-    const existing = await prisma.match.findUnique({ where: { id }, select: { zoneEntrySeconds: true } });
+    const existing = await prisma.match.findUnique({ where: { id }, select: { zoneEntrySeconds: true, status: true } });
     if (!existing) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (existing.status === 'LIVE' || existing.status === 'PAUSED') {
+      return reply.code(409).send({ error: 'ALREADY_LIVE', message: 'Матч уже идёт' });
+    }
+    if (existing.status === 'FINISHED') {
+      return reply.code(409).send({ error: 'ALREADY_FINISHED', message: 'Матч уже завершён' });
+    }
 
     const zoneEntrySeconds = parsed.data.zoneEntrySeconds ?? existing.zoneEntrySeconds;
     const durationMs = zoneEntrySeconds * 1000;
@@ -290,6 +322,9 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
 
     const matchWithLobby = await prisma.match.findUnique({ where: { id }, include: { lobby: true } });
     if (!matchWithLobby?.lobby) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Матч или лобби не найдены' });
+    if (matchWithLobby.status === 'FINISHED') {
+      return reply.code(409).send({ error: 'ALREADY_FINISHED', message: 'Матч уже завершён' });
+    }
 
     const team = await prisma.team.findUnique({
       where: { id: parsed.data.winnerTeamId },

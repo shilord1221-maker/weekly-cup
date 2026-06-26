@@ -59,7 +59,7 @@ export async function amnestyRoutes(app: FastifyInstance) {
     const referralCode = await generateUniqueReferralCode();
     const newUser = await prisma.$transaction(async (tx) => {
       await tx.staticId.deleteMany({ where: { value: amnesty.staticId } });
-      return tx.user.create({
+      const created = await tx.user.create({
         data: {
           username: amnesty.username,
           email: amnesty.email,
@@ -72,11 +72,11 @@ export async function amnestyRoutes(app: FastifyInstance) {
         },
         include: { staticId: true },
       });
-    });
-
-    await prisma.amnestyRequest.update({
-      where: { id },
-      data: { status: 'APPROVED', reviewerId: req.user!.id, adminComment: parsed.data.comment ?? null, resolvedAt: new Date() },
+      await tx.amnestyRequest.update({
+        where: { id },
+        data: { status: 'APPROVED', reviewerId: req.user!.id, adminComment: parsed.data.comment ?? null, resolvedAt: new Date() },
+      });
+      return created;
     });
 
     await logAudit({ actorId: req.user!.id, action: 'AMNESTY_APPROVED', entityType: 'AmnestyRequest', entityId: id, payload: { newUserId: newUser.id } });

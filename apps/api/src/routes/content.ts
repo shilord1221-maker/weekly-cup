@@ -293,7 +293,7 @@ export async function userRoutes(app: FastifyInstance) {
       users.map((u) => ({
         id: u.id,
         username: u.username,
-        email: u.email,
+        ...(isOwner ? { email: u.email } : {}),
         role: u.role,
         staticId: u.staticId?.value ?? null,
         staticIdProofUrl: u.staticId?.proofUrl ?? null,

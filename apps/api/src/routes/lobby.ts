@@ -106,17 +106,27 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
     }
 
     const limit = MODE_TEAM_LIMITS[lobby.match.mode];
-    if (lobby.teams.length >= limit) {
-      return reply.code(409).send({ error: 'TEAM_LIMIT_REACHED', message: `Достигнут лимит команд для этого режима (${limit})` });
-    }
-    if (lobby.teams.some((t) => t.name.toLowerCase() === parsed.data.name.toLowerCase())) {
-      return reply.code(409).send({ error: 'TEAM_NAME_TAKEN', message: 'Команда с таким названием уже есть в этом лобби' });
-    }
 
-    const team = await prisma.team.create({
-      data: { lobbyId: lobby.id, name: parsed.data.name, slot: lobby.teams.length + 1, createdById: req.user!.id },
-    });
-    await prisma.lobbyMember.update({ where: { id: membership.id }, data: { teamId: team.id } });
+    let team: Awaited<ReturnType<typeof prisma.team.create>>;
+    try {
+      team = await prisma.$transaction(async (tx) => {
+        const currentTeams = await tx.team.findMany({ where: { lobbyId: lobby.id } });
+        if (currentTeams.length >= limit) {
+          throw Object.assign(new Error(`Достигнут лимит команд для этого режима (${limit})`), { code: 'TEAM_LIMIT_REACHED', status: 409 });
+        }
+        if (currentTeams.some((t) => t.name.toLowerCase() === parsed.data.name.toLowerCase())) {
+          throw Object.assign(new Error('Команда с таким названием уже есть в этом лобби'), { code: 'TEAM_NAME_TAKEN', status: 409 });
+        }
+        const created = await tx.team.create({
+          data: { lobbyId: lobby.id, name: parsed.data.name, slot: currentTeams.length + 1, createdById: req.user!.id },
+        });
+        await tx.lobbyMember.update({ where: { id: membership.id }, data: { teamId: created.id } });
+        return created;
+      });
+    } catch (e: any) {
+      if (e?.code && e?.status) return reply.code(e.status).send({ error: e.code, message: e.message });
+      throw e;
+    }
 
     io.to(`lobby:${matchId}`).emit('lobby:team_created', { matchId, team });
     io.to(`lobby:${matchId}`).emit('lobby:team_changed', { matchId, userId: req.user!.id, teamId: team.id });
@@ -211,12 +221,11 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
     const parsed = ReadySchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
-    // Только участник команды может переключать готовность своей команды
-    const membership = await prisma.lobbyMember.findFirst({
-      where: { teamId: parsed.data.teamId, userId: req.user!.id },
-    });
-    if (!membership) {
-      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Вы не состоите в этой команде' });
+    // Только капитан (создатель) команды может переключать готовность
+    const teamCheck = await prisma.team.findUnique({ where: { id: parsed.data.teamId } });
+    if (!teamCheck) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Команда не найдена' });
+    if (teamCheck.createdById !== req.user!.id) {
+      return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только капитан команды может переключать готовность' });
     }
 
     const team = await prisma.team.update({ where: { id: parsed.data.teamId }, data: { isReady: parsed.data.ready } });

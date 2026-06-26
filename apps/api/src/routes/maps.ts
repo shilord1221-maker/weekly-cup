@@ -9,10 +9,17 @@ const CreateMapSchema = z.object({
   imageUrl: z.string().min(1, 'Укажите путь или ссылку на изображение'),
 });
 
+const CoordinatesSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().positive().finite().optional(),
+  height: z.number().positive().finite().optional(),
+}).passthrough().optional();
+
 const CreateZoneSchema = z.object({
   name: z.string().min(1).max(64),
   adjacentIds: z.array(z.string().uuid()).default([]),
-  coordinates: z.any().optional(),
+  coordinates: CoordinatesSchema,
 });
 
 export async function mapRoutes(app: FastifyInstance) {
@@ -100,7 +107,7 @@ export async function mapRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'FORBIDDEN', message: 'Редактировать зоны может только Owner' });
     }
     const { zoneId } = req.params as { id: string; zoneId: string };
-    const Schema = z.object({ name: z.string().optional(), adjacentIds: z.array(z.string().uuid()).optional(), coordinates: z.any().optional() });
+    const Schema = z.object({ name: z.string().optional(), adjacentIds: z.array(z.string().uuid()).optional(), coordinates: CoordinatesSchema });
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
@@ -123,15 +130,15 @@ export async function mapRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Зона не найдена' });
 
     try {
-      await prisma.zone.delete({ where: { id: zoneId } });
+      await prisma.$transaction(async (tx) => {
+        await tx.zone.delete({ where: { id: zoneId } });
+        const referencing = await tx.zone.findMany({ where: { mapId: existing.mapId, adjacentIds: { has: zoneId } } });
+        for (const ref of referencing) {
+          await tx.zone.update({ where: { id: ref.id }, data: { adjacentIds: ref.adjacentIds.filter((zid) => zid !== zoneId) } });
+        }
+      });
     } catch {
       return reply.code(409).send({ error: 'ZONE_IN_USE', message: 'Эта зона уже использована в матче и не может быть удалена' });
-    }
-
-    // Убираем ссылки на удалённую зону из adjacentIds других зон той же карты
-    const referencing = await prisma.zone.findMany({ where: { mapId: existing.mapId, adjacentIds: { has: zoneId } } });
-    for (const ref of referencing) {
-      await prisma.zone.update({ where: { id: ref.id }, data: { adjacentIds: ref.adjacentIds.filter((zid) => zid !== zoneId) } });
     }
 
     await logAudit({ actorId: req.user!.id, action: 'ZONE_DELETED', entityType: 'Zone', entityId: zoneId, payload: { name: existing.name } });

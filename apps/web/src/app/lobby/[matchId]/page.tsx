@@ -463,8 +463,7 @@ export default function LobbyPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      const randomZone = lobby.match.selectedZones[Math.floor(Math.random() * lobby.match.selectedZones.length)];
-      await api.post(`/matches/${matchId}/final-zone`, { zoneId: randomZone.id });
+      await api.post(`/matches/${matchId}/roll-final-zone`);
       await refetch();
     } catch (e) {
       setActionError(e instanceof ApiClientError ? e.message : 'Не удалось выбрать финальную зону');

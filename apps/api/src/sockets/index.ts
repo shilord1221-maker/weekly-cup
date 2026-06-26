@@ -36,7 +36,7 @@ const canSubscribeLobby = createThrottle(20, 10_000);
 const canCreatePoll = createThrottle(5, 60_000);
 
 export function registerSocketHandlers(io: SocketServer) {
-  io.use((socket: AuthedSocket, next) => {
+  io.use(async (socket: AuthedSocket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) {
       // Разрешаем анонимное подключение только для чтения публичных событий (напр. лента побед)
@@ -44,9 +44,11 @@ export function registerSocketHandlers(io: SocketServer) {
     }
     try {
       const payload = verifyAccessToken(token);
-      socket.data.userId = payload.sub;
-      socket.data.username = payload.username;
-      socket.data.role = payload.role;
+      const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, role: true, isBanned: true } });
+      if (!user || user.isBanned) return next(new Error('FORBIDDEN'));
+      socket.data.userId = user.id;
+      socket.data.username = user.username;
+      socket.data.role = user.role;
       next();
     } catch {
       next(new Error('INVALID_TOKEN'));
@@ -212,9 +214,12 @@ export function registerSocketHandlers(io: SocketServer) {
       const pollOptions = await prisma.pollOption.findMany({ where: { pollId } });
       const optionIds = pollOptions.map((o) => o.id);
 
-      // Снимаем предыдущий голос пользователя в этом опросе, если был, и ставим новый
-      await prisma.pollVote.deleteMany({ where: { userId: socket.data.userId, optionId: { in: optionIds } } });
-      await prisma.pollVote.create({ data: { optionId, userId: socket.data.userId } }).catch(() => {});
+      // Снимаем предыдущий голос и ставим новый атомарно — иначе параллельные события
+      // от одного пользователя могут создать дубли (deleteMany + create не атомарны без транзакции).
+      await prisma.$transaction(async (tx) => {
+        await tx.pollVote.deleteMany({ where: { userId: socket.data.userId, optionId: { in: optionIds } } });
+        await tx.pollVote.create({ data: { optionId, userId: socket.data.userId! } });
+      });
 
       const updatedOptions = await prisma.pollOption.findMany({ where: { pollId }, include: { votes: true } });
       io.to('chat:global').emit('poll:updated', { pollId, options: updatedOptions });
