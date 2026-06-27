@@ -18,7 +18,6 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   { key: 'COLOR_PURPLE', name: 'Фиолетовый ник', description: 'Фиолетовый цвет',     price: 250, type: 'username', color: '#8b5cf6', preview: '#8b5cf6' },
   { key: 'COLOR_PINK',   name: 'Розовый ник',    description: 'Розовый цвет имени',  price: 250, type: 'username', color: '#ec4899', preview: '#ec4899' },
   { key: 'COLOR_GOLD',   name: 'Золотой ник',    description: 'Золотой цвет имени',  price: 300, type: 'username', color: '#f59e0b', preview: '#f59e0b' },
-  { key: 'COLOR_WHITE',  name: 'Белый ник',      description: 'Ярко-белый цвет',     price: 300, type: 'username', color: '#ffffff', preview: '#ffffff' },
 
   // ── Градиентные ники ──
   { key: 'GRADIENT_FIRE',    name: 'Огонь 🔥',        description: 'Красно-оранжевый градиент',       price: 400,  type: 'username', gradient: 'linear-gradient(90deg,#ef4444,#f97316,#fbbf24)', preview: 'linear-gradient(90deg,#ef4444,#f97316,#fbbf24)' },

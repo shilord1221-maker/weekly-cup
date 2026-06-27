@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
-import { ColoredUsername, getUsernameStyle, type CosmeticItem } from '@/components/ColoredUsername';
+import { useAuthStore, isAdminOrOwner } from '@/store/auth';
+import { ColoredUsername, getUsernameStyle, isGradientEffect, type CosmeticItem } from '@/components/ColoredUsername';
 import { TokenIcon } from '@/components/TokenIcon';
 import Link from 'next/link';
 
@@ -26,8 +26,44 @@ function PreviewSwatch({ item }: { item: CosmeticItem }) {
 export default function ShopPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
+  const canGrant = isAdminOrOwner(user?.role);
+
   const [buying, setBuying] = useState<string | null>(null);
   const [buyErr, setBuyErr] = useState<string | null>(null);
+
+  // Выдача токенов (Admin/Owner)
+  const [showGrantModal, setShowGrantModal] = useState(false);
+  const [grantSearch, setGrantSearch] = useState('');
+  const [grantAmount, setGrantAmount] = useState('');
+  const [grantUserId, setGrantUserId] = useState('');
+  const [grantUsername, setGrantUsername] = useState('');
+  const [grantErr, setGrantErr] = useState<string | null>(null);
+  const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
+  const [grantLoading, setGrantLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ id: string; username: string; tokenBalance: number }[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const handleSearch = async () => {
+    if (!grantSearch.trim()) return;
+    setSearching(true);
+    try {
+      const users = await api.get<{ id: string; username: string; tokenBalance: number }[]>(`/users?q=${encodeURIComponent(grantSearch)}`);
+      setSearchResults(users.slice(0, 5));
+    } catch { setSearchResults([]); }
+    finally { setSearching(false); }
+  };
+
+  const handleGrant = async () => {
+    if (!grantUserId || !grantAmount) return;
+    setGrantErr(null); setGrantSuccess(null); setGrantLoading(true);
+    try {
+      await api.post('/shop/grant', { userId: grantUserId, amount: Number(grantAmount) });
+      setGrantSuccess(`Выдано ${grantAmount} токенов игроку ${grantUsername}`);
+      setGrantAmount(''); setGrantSearch(''); setGrantUserId(''); setGrantUsername(''); setSearchResults([]);
+    } catch (e) {
+      setGrantErr(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setGrantLoading(false); }
+  };
   const [activating, setActivating] = useState<string | null>(null);
 
   const { data: catalog } = useQuery<CosmeticItem[]>({
@@ -85,6 +121,17 @@ export default function ShopPage() {
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>Трать токены на эффекты для своего ника</p>
         </div>
+
+        {canGrant && (
+          <button
+            onClick={() => { setShowGrantModal(true); setGrantErr(null); setGrantSuccess(null); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{ background: 'rgba(201,149,74,.1)', border: '1px solid rgba(201,149,74,.3)', color: 'var(--gold)' }}
+          >
+            <TokenIcon size={18} />
+            Выдать токены
+          </button>
+        )}
 
         {user ? (
           <div className="flex flex-col items-end gap-1">
@@ -208,7 +255,7 @@ export default function ShopPage() {
                 {/* Превью полосой */}
                 <div className="h-2 rounded-full" style={{ background: item.gradient }} />
                 <div className="flex items-center justify-between">
-                  <span className="font-display font-bold text-base" style={previewStyle}>{user?.username ?? 'PlayerName'}</span>
+                  <span className={`font-display font-bold text-base${isGradientEffect(item.key) ? ' username-gradient-animated' : ''}`} style={previewStyle}>{user?.username ?? 'PlayerName'}</span>
                   {isActive && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: 'rgba(255,255,255,.6)', background: 'rgba(255,255,255,.08)' }}>АКТИВЕН</span>}
                 </div>
                 <div className="flex items-center justify-between">
@@ -241,6 +288,93 @@ export default function ShopPage() {
           })}
         </div>
       </div>
+
+      {/* GRANT MODAL */}
+      {showGrantModal && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.75)' }} onClick={() => setShowGrantModal(false)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <TokenIcon size={22} />
+              <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--gold)' }}>
+                Выдать токены игроку
+              </h2>
+            </div>
+
+            {grantErr && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{grantErr}</div>}
+            {grantSuccess && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>✓ {grantSuccess}</div>}
+
+            {/* Поиск игрока */}
+            <label className="label-field">Найти игрока</label>
+            <div className="flex gap-2 mb-2">
+              <input
+                value={grantSearch}
+                onChange={(e) => setGrantSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Ник или Static ID..."
+                className="input-field flex-1"
+                autoFocus
+              />
+              <button onClick={handleSearch} disabled={searching} className="btn-out flex-shrink-0" style={{ padding: '10px 14px', fontSize: '13px' }}>
+                {searching ? '...' : '🔍'}
+              </button>
+            </div>
+
+            {/* Результаты поиска */}
+            {searchResults.length > 0 && (
+              <div className="flex flex-col gap-1 mb-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border2)' }}>
+                {searchResults.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => { setGrantUserId(u.id); setGrantUsername(u.username); setSearchResults([]); setGrantSearch(u.username); }}
+                    className="flex items-center justify-between px-3 py-2 text-sm text-left transition-colors hover:bg-white/[0.03]"
+                    style={{ background: grantUserId === u.id ? 'rgba(201,149,74,.08)' : 'transparent', borderBottom: '1px solid var(--border)' }}
+                  >
+                    <span style={{ color: grantUserId === u.id ? 'var(--gold)' : 'var(--text)' }}>{u.username}</span>
+                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--gold)' }}>
+                      <TokenIcon size={12} /> {u.tokenBalance ?? 0}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {grantUserId && (
+              <div className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(201,149,74,.06)', border: '1px solid rgba(201,149,74,.2)', color: 'var(--gold)' }}>
+                Выбран: <strong>{grantUsername}</strong>
+              </div>
+            )}
+
+            {/* Количество */}
+            <label className="label-field">Количество токенов</label>
+            <input
+              value={grantAmount}
+              onChange={(e) => setGrantAmount(e.target.value.replace(/\D/g, ''))}
+              placeholder="например: 100"
+              inputMode="numeric"
+              className="input-field mb-2"
+            />
+            <div className="flex gap-1.5 mb-4 flex-wrap">
+              {[50, 100, 200, 500, 1000].map((n) => (
+                <button key={n} onClick={() => setGrantAmount(String(n))} className="text-xs px-3 py-1.5 rounded-lg" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.08)', border: '1px solid rgba(201,149,74,.2)' }}>
+                  +{n}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowGrantModal(false)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Закрыть</button>
+              <button
+                onClick={handleGrant}
+                disabled={!grantUserId || !grantAmount || grantLoading}
+                className="btn-main flex-1"
+                style={{ padding: '10px', fontSize: '13px' }}
+              >
+                {grantLoading ? 'Выдаём...' : 'Выдать'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* КАК ЗАРАБАТЫВАТЬ */}
       <div className="mt-12 rounded-2xl px-6 py-6" style={{ background: 'rgba(201,149,74,.05)', border: '1px solid rgba(201,149,74,.15)' }}>

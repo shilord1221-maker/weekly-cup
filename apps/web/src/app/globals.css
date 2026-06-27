@@ -28,6 +28,20 @@
   to   { transform: rotate(360deg); }
 }
 
+@keyframes gradientFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.username-gradient-animated {
+  background-size: 200% auto !important;
+  animation: gradientFlow 3s ease-in-out infinite;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
 /* ─── WINS NAV — корона + искры ─── */
 .wins-nav-btn {
   isolation: isolate;
