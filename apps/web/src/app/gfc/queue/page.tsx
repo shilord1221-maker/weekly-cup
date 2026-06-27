@@ -99,7 +99,7 @@ export default function GfcQueuePage() {
   useEffect(() => {
     if (!party?.id) return;
     socket.emit('gfc-party:subscribe', { partyId: party.id });
-    return () => socket.emit('gfc-party:unsubscribe', { partyId: party.id });
+    return () => { socket.emit('gfc-party:unsubscribe', { partyId: party.id }); };
   }, [party?.id, socket]);
 
   if (!user) return (
