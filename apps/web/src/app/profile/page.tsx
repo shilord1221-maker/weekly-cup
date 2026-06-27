@@ -18,6 +18,7 @@ interface ProfileData {
   role: Role;
   tokenBalance?: number;
   activeUsernameEffect?: string | null;
+  activeFrameEffect?: string | null;
   profileBg?: string | null;
   pendingProfileBg?: string | null;
   profileBgStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
@@ -253,7 +254,7 @@ function ProfilePageContent() {
 
       <div className="relative z-10 px-6 md:px-10 pt-32 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 mb-12">
-        <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} />
+        <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} frameKey={profile.activeFrameEffect} />
         <div>
           <h1 className="font-display font-bold uppercase" style={{ fontSize: '28px', letterSpacing: '0.02em' }}>
             <ColoredUsername username={profile.username} effectKey={profile.activeUsernameEffect} />
@@ -351,7 +352,7 @@ function ProfilePageContent() {
           Аватарка
         </h2>
         <div className="flex items-center gap-4 mb-3">
-          <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} />
+          <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} frameKey={profile.activeFrameEffect} />
           <div className="flex-1">
             <ImageUploadField label="" value="" onChange={handleSubmitAvatar} folder="media-thumbs" helperText="Новая аватарка появится на сайте только после одобрения админом или овнером." />
           </div>

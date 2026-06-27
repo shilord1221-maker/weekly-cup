@@ -143,9 +143,9 @@ export async function tokenRoutes(app: FastifyInstance) {
     reply.send({ success: true, newBalance: user.tokenBalance - item.price });
   });
 
-  // Активировать эффект ника (или убрать — null)
+  // Активировать эффект (или убрать — null). type указывает что снимаем при null
   app.patch('/api/shop/active-effect', { preHandler: requireAuth }, async (req, reply) => {
-    const Schema = z.object({ cosmeticKey: z.string().nullable() });
+    const Schema = z.object({ cosmeticKey: z.string().nullable(), type: z.enum(['username', 'frame']).optional() });
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
@@ -155,7 +155,9 @@ export async function tokenRoutes(app: FastifyInstance) {
     }
 
     const item = parsed.data.cosmeticKey ? CATALOG_BY_KEY.get(parsed.data.cosmeticKey) : null;
-    if (item?.type === 'frame') {
+    const effectType = item?.type ?? parsed.data.type ?? 'username';
+
+    if (effectType === 'frame') {
       await prisma.user.update({ where: { id: req.user!.id }, data: { activeFrameEffect: parsed.data.cosmeticKey } });
     } else {
       await prisma.user.update({ where: { id: req.user!.id }, data: { activeUsernameEffect: parsed.data.cosmeticKey } });

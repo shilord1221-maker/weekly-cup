@@ -120,10 +120,10 @@ export default function ShopPage() {
     }
   };
 
-  const handleActivate = async (key: string | null) => {
+  const handleActivate = async (key: string | null, type?: string) => {
     setActivating(key ?? 'none');
     try {
-      await api.patch('/shop/active-effect', { cosmeticKey: key });
+      await api.patch('/shop/active-effect', { cosmeticKey: key, type });
       await refetchMy();
       qc.invalidateQueries({ queryKey: ['profile'] });
     } catch { /* ignore */ }
@@ -461,7 +461,7 @@ export default function ShopPage() {
                     </span>
                     {!user ? null : owned ? (
                       <button
-                        onClick={() => handleActivate(isActive ? null : item.key)}
+                        onClick={() => handleActivate(isActive ? null : item.key, 'frame')}
                         disabled={!!activating}
                         className="text-xs font-medium px-2.5 py-1.5 rounded-lg"
                         style={{ color: isActive ? 'var(--muted)' : 'var(--green)', background: isActive ? 'rgba(255,255,255,.04)' : 'rgba(34,197,94,.06)', border: `1px solid ${isActive ? 'var(--border2)' : 'rgba(34,197,94,.2)'}` }}

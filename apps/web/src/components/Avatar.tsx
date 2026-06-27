@@ -56,6 +56,7 @@ export function Avatar({ username, avatarUrl, size = 32, className = '', frameKe
             left: -offset,
             pointerEvents: 'none',
             zIndex: 2,
+            mixBlendMode: 'screen',
           }}
         />
       </div>
