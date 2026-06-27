@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ColoredUsername, getUsernameStyle, type CosmeticItem } from '@/components/ColoredUsername';
+import { TokenIcon } from '@/components/TokenIcon';
 import Link from 'next/link';
 
 interface MyShop {
