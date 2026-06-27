@@ -6,11 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Avatar } from '@/components/Avatar';
 import { StackTag } from '@/components/StackTag';
+import { ColoredUsername } from '@/components/ColoredUsername';
 
 interface WinItem {
   id: string;
   createdAt: string;
-  user: { id: string; username: string; avatarUrl?: string | null };
+  user: { id: string; username: string; avatarUrl?: string | null; activeUsernameEffect?: string | null };
   match: { id: string; mode: string; map: { name: string; imageUrl: string } };
   team: { name: string };
   userStack?: { id: string; name: string; tag: string; tagColor: string } | null;
@@ -147,9 +148,9 @@ export default function WinsPage() {
                           <StackTag tag={w.userStack.tag} color={w.userStack.tagColor} />
                         </Link>
                       )}
-                      <span className="font-semibold text-sm" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
-                        {w.user.username}
-                      </span>
+                      <Link href={`/users/${w.user.id}`} className="font-semibold text-sm hover:underline" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
+                        <ColoredUsername username={w.user.username} effectKey={w.user.activeUsernameEffect} />
+                      </Link>
                       <span
                         className="font-mono text-[10px] px-2 py-0.5 rounded-full"
                         style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.04)', border: '1px solid var(--border2)' }}

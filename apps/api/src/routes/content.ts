@@ -138,6 +138,8 @@ export async function profileRoutes(app: FastifyInstance) {
         discordLinkedAt: true,
         referralCode: true,
         staticId: true,
+        tokenBalance: true,
+        activeUsernameEffect: true,
         achievements: { orderBy: { earnedAt: 'desc' } },
         wins: { include: { match: { include: { map: true } } }, orderBy: { createdAt: 'desc' }, take: 20 },
         _count: { select: { referrals: true } },
@@ -230,7 +232,7 @@ export async function winsRoutes(app: FastifyInstance) {
     const wins = await prisma.win.findMany({
       orderBy: { createdAt: 'desc' },
       take: 30,
-      include: { user: { select: { id: true, username: true, avatarUrl: true } }, match: { include: { map: true } }, team: true },
+      include: { user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true } }, match: { include: { map: true } }, team: true },
     });
     // Подтягиваем стак каждого победителя за один запрос
     const userIds = [...new Set(wins.map((w) => w.userId))];
@@ -248,7 +250,7 @@ export async function winsRoutes(app: FastifyInstance) {
       where: { userId: id },
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { user: { select: { id: true, username: true, avatarUrl: true } }, match: { include: { map: true } }, team: true },
+      include: { user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true } }, match: { include: { map: true } }, team: true },
     });
     reply.send(wins);
   });
@@ -257,6 +259,35 @@ export async function winsRoutes(app: FastifyInstance) {
     const { userId } = req.params as { userId: string };
     const achievements = await prisma.achievement.findMany({ where: { userId }, orderBy: { earnedAt: 'desc' }, take: 100 });
     reply.send(achievements);
+  });
+}
+
+export async function publicProfileRoutes(app: FastifyInstance) {
+  app.get('/api/users/:userId/profile', async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        avatarUrl: true,
+        createdAt: true,
+        activeUsernameEffect: true,
+        tokenBalance: true,
+        staticId: { select: { value: true } },
+        achievements: { orderBy: { earnedAt: 'desc' }, take: 20 },
+        wins: {
+          include: { match: { include: { map: true } }, team: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        stackMembership: { include: { stack: { select: { id: true, name: true, tag: true, tagColor: true, logoUrl: true } } } },
+        _count: { select: { wins: true } },
+      },
+    });
+    if (!user) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден' });
+    reply.send(user);
   });
 }
 

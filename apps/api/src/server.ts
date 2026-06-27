@@ -17,12 +17,13 @@ import { matchRoutes } from '@/routes/matches.js';
 import { lobbyRoutes } from '@/routes/lobby.js';
 import { mapRoutes } from '@/routes/maps.js';
 import { complaintRoutes } from '@/routes/complaints.js';
-import { newsRoutes, mediaRoutes, profileRoutes, winsRoutes, auditRoutes, userRoutes } from '@/routes/content.js';
+import { newsRoutes, mediaRoutes, profileRoutes, winsRoutes, auditRoutes, userRoutes, publicProfileRoutes } from '@/routes/content.js';
 import { uploadRoutes } from '@/routes/upload.js';
 import { discordRoutes } from '@/routes/discord.js';
 import { pollRoutes } from '@/routes/polls.js';
 import { liveStreamsRoutes } from '@/routes/liveStreams.js';
 import { stackRoutes } from '@/routes/stacks.js';
+import { tokenRoutes } from '@/routes/tokens.js';
 import { startDiscordBot } from '@/services/discordBot.js';
 
 async function main() {
@@ -68,10 +69,12 @@ async function main() {
   await app.register(winsRoutes);
   await app.register(auditRoutes);
   await app.register(userRoutes);
+  await app.register(publicProfileRoutes);
   await app.register(discordRoutes);
   await app.register((instance) => pollRoutes(instance, { io }));
   await app.register(liveStreamsRoutes);
   await app.register(stackRoutes);
+  await app.register(tokenRoutes);
 
   // ───────── DISCORD BOT (запускается вместе с проектом; не блокирует старт сайта,
   // если Discord временно недоступен — ошибка логируется, остальной сайт работает) ─────────

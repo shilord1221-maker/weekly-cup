@@ -5,6 +5,7 @@ import { requireAuth, requireOrganizerOrAdmin } from '@/middleware/auth.js';
 import { validateFinalZone } from '@/services/zones.js';
 import { logAudit } from '@/services/audit.js';
 import { scheduleMatchStart, scheduleMatchReminder, scheduleStartZoneClose, scheduleFinalZoneClose, cancelScheduledJobs } from '@/jobs/matchQueue.js';
+import { TOKENS_PER_WIN } from '@/services/cosmetics.js';
 import { setMatchStartTimer, setStartZoneWindow, setFinalZoneWindow, clearMatchTimers, getRemainingMs } from '@/services/timers.js';
 import type { Server as SocketServer } from 'socket.io';
 
@@ -379,13 +380,13 @@ export async function matchRoutes(app: FastifyInstance, opts: { io: SocketServer
     await clearMatchTimers(id);
     await cancelScheduledJobs(id);
 
-    // Победа всем участникам команды + достижение
+    // Победа всем участникам команды + достижение + токены
     await prisma.$transaction(
       team.members.flatMap((m) => [
         prisma.win.create({ data: { userId: m.userId, matchId: id, teamId: team.id } }),
-        prisma.achievement.create({
-          data: { userId: m.userId, type: 'MATCH_WIN', title: `Победа в Weekly Pracs` },
-        }),
+        prisma.achievement.create({ data: { userId: m.userId, type: 'MATCH_WIN', title: `Победа в Weekly Pracs` } }),
+        prisma.user.update({ where: { id: m.userId }, data: { tokenBalance: { increment: TOKENS_PER_WIN } } }),
+        prisma.tokenTransaction.create({ data: { userId: m.userId, amount: TOKENS_PER_WIN, reason: 'WIN' } }),
       ])
     );
 

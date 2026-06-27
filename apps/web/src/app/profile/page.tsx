@@ -8,12 +8,15 @@ import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, roleLabel, type Role } from '@/store/auth';
 import { ImageUploadField } from '@/components/ImageUploadField';
 import { Avatar } from '@/components/Avatar';
+import { ColoredUsername } from '@/components/ColoredUsername';
 
 interface ProfileData {
   id: string;
   username: string;
   email: string;
   role: Role;
+  tokenBalance?: number;
+  activeUsernameEffect?: string | null;
   staticId: { value: string } | null;
   discordId: string | null;
   discordUsername: string | null;
@@ -219,7 +222,7 @@ function ProfilePageContent() {
         <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} />
         <div>
           <h1 className="font-display font-bold uppercase" style={{ fontSize: '28px', letterSpacing: '0.02em' }}>
-            {profile.username}
+            <ColoredUsername username={profile.username} effectKey={profile.activeUsernameEffect} />
           </h1>
           <p className="text-sm flex items-center gap-2 flex-wrap" style={{ color: 'var(--muted)' }}>
             <span
@@ -459,6 +462,24 @@ function ProfilePageContent() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ТОКЕНЫ */}
+      <div className="card mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Weekly Pracs Token</h2>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '22px' }}>🪙</span>
+              <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>{profile.tokenBalance ?? 0}</span>
+              <span className="text-sm" style={{ color: 'var(--muted)' }}>токенов</span>
+            </div>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>+50 за победу в матче</p>
+          </div>
+          <Link href="/shop" className="btn-main" style={{ padding: '10px 20px', fontSize: '13px' }}>
+            🛍️ В магазин
+          </Link>
+        </div>
       </div>
 
       {/* БЕЗОПАСНОСТЬ */}

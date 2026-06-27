@@ -32,6 +32,7 @@ export function Header() {
     { href: '/complaints', label: 'Жалобы' },
     { href: '/wins', label: 'Победы', special: true },
     { href: '/stacks', label: 'Стаки' },
+    { href: '/shop', label: '🪙 Магазин' },
     { href: '/social', label: 'Соцсети' },
     { href: '/maps', label: 'Карты' },
   ] as { href: string; label: string; special?: boolean }[];

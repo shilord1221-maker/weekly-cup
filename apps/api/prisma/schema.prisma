@@ -136,6 +136,12 @@ model User {
   stackJoinRequests StackJoinRequest[]
   captainOfStack   Stack?           @relation("StackCaptain")
 
+  // Токены — внутренняя валюта платформы. Зарабатываются победами, тратятся в магазине эффектов.
+  tokenBalance       Int       @default(0)
+  activeUsernameEffect String? @db.VarChar(64) // ключ активного эффекта из каталога
+  cosmetics          UserCosmetic[]
+  tokenTransactions  TokenTransaction[]
+
   @@index([role])
   @@index([isBanned])
   @@index([registrationIp])
@@ -412,6 +418,30 @@ model Win {
 
   @@index([userId])
   @@index([matchId])
+}
+
+// ───────────────────────── TOKENS / COSMETICS ─────────────────────────
+
+model UserCosmetic {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cosmeticKey String   @db.VarChar(64)
+  purchasedAt DateTime @default(now())
+
+  @@unique([userId, cosmeticKey])
+  @@index([userId])
+}
+
+model TokenTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String   @db.VarChar(128)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ───────────────────────── STACKS (постоянные команды/кланы) ─────────────────────────
