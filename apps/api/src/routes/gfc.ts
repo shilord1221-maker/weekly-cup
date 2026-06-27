@@ -238,7 +238,7 @@ export async function gfcRoutes(app: FastifyInstance, opts: { io: SocketServer }
     const t1Score = updatedRounds.filter((r) => r.winnerTeam === 1).length;
     const t2Score = updatedRounds.filter((r) => r.winnerTeam === 2).length;
 
-    let newStatus = lobby.status;
+    let newStatus: string = lobby.status as string;
     let winnerTeam: number | null = null;
 
     if (t1Score >= 3 || t2Score >= 3) {
@@ -254,7 +254,7 @@ export async function gfcRoutes(app: FastifyInstance, opts: { io: SocketServer }
       }
     }
 
-    await prisma.gfcLobby.update({ where: { id }, data: { team1Score: t1Score, team2Score: t2Score, status: newStatus, winnerTeam } });
+    await prisma.gfcLobby.update({ where: { id }, data: { team1Score: t1Score, team2Score: t2Score, status: newStatus as any, winnerTeam } });
 
     const updated = await prisma.gfcLobby.findUnique({ where: { id }, include: lobbyInclude() });
     io.to(`gfc:${id}`).emit('gfc:state', updated);
