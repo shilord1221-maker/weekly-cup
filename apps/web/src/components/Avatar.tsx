@@ -39,7 +39,7 @@ export function Avatar({ username, avatarUrl, size = 32, className = '', frameKe
     // PNG 1024×1024, прозрачный круг ≈ 50% ширины → frameSize = size / 0.50
     // Контейнер = размер всей рамки, аватарка центрируется внутри
     // Нет проблем с overflow clipping — ничего не выходит за границы
-    const frameSize = Math.round(size / 0.62);
+    const frameSize = Math.round(size / 0.66);
     const avatarOffset = Math.round((frameSize - size) / 2);
 
     return (

@@ -7,14 +7,16 @@ import { api } from '@/lib/api';
 import { Avatar } from '@/components/Avatar';
 import { StackTag } from '@/components/StackTag';
 import { ColoredUsername } from '@/components/ColoredUsername';
+import { TokenIcon } from '@/components/TokenIcon';
 
-interface WinItem {
-  id: string;
-  createdAt: string;
-  user: { id: string; username: string; avatarUrl?: string | null; activeUsernameEffect?: string | null; activeFrameEffect?: string | null };
-  match: { id: string; mode: string; map: { name: string; imageUrl: string } };
-  team: { name: string };
-  userStack?: { id: string; name: string; tag: string; tagColor: string } | null;
+interface LeaderboardItem {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  activeUsernameEffect: string | null;
+  activeFrameEffect: string | null;
+  stack: { id: string; name: string; tag: string; tagColor: string } | null;
+  count: number;
 }
 
 interface DayTopItem {
@@ -25,10 +27,6 @@ interface DayTopItem {
   activeFrameEffect: string | null;
   count: number;
 }
-
-const MODE_LABELS: Record<string, string> = {
-  MODE_2X2: '2×2', MODE_3X3: '3×3', MODE_4X4: '4×4', MODE_5X5: '5×5',
-};
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -41,256 +39,144 @@ function timeAgo(dateStr: string): string {
   return `${d} дн. назад`;
 }
 
-export default function WinsPage() {
-  const [mode, setMode] = useState('');
+function Medal({ idx }: { idx: number }) {
+  if (idx === 0) return <span style={{ fontSize: '22px' }}>👑</span>;
+  if (idx === 1) return <span className="font-display font-bold text-lg" style={{ color: '#94a3b8' }}>2</span>;
+  if (idx === 2) return <span className="font-display font-bold text-lg" style={{ color: '#cd7f32' }}>3</span>;
+  return <span className="font-display font-bold text-sm" style={{ color: 'var(--muted)' }}>{idx + 1}</span>;
+}
 
-  const { data: todayTop } = useQuery<DayTopItem[]>({
+export default function WinsPage() {
+  const [tab, setTab] = useState<'top' | 'today'>('top');
+
+  const { data: leaderboard, isLoading: loadingTop } = useQuery<LeaderboardItem[]>({
+    queryKey: ['wins-leaderboard'],
+    queryFn: () => api.get('/wins/leaderboard', { auth: false }),
+  });
+
+  const { data: todayTop, isLoading: loadingToday } = useQuery<DayTopItem[]>({
     queryKey: ['wins-today-top'],
     queryFn: () => api.get('/wins/today-top', { auth: false }),
     refetchInterval: 60_000,
   });
 
-  const { data: wins, isLoading, refetch, isFetching } = useQuery<WinItem[]>({
-    queryKey: ['wins-full'],
-    queryFn: () => api.get('/wins', { auth: false }),
-  });
-
-  const filtered = mode ? wins?.filter((w) => w.match.mode === mode) : wins;
-  const today = wins?.filter((w) => {
-    const d = new Date(w.createdAt);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
-  }).length ?? 0;
+  const isLoading = tab === 'top' ? loadingTop : loadingToday;
+  const items = tab === 'top' ? leaderboard : todayTop;
 
   return (
-    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-5xl mx-auto" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-4xl mx-auto" style={{ background: 'var(--bg)' }}>
 
       {/* HEADER */}
-      <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-2">
             <span style={{ fontSize: '32px' }}>🏆</span>
-            <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
+            <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4vw,44px)', letterSpacing: '-0.01em' }}>
               Лента побед
             </h1>
           </div>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>Смотри, кто побеждает. Стань следующим.</p>
         </div>
-
-        {/* Фильтр по режиму */}
-        <div className="flex items-center gap-1.5 p-1 rounded-full" style={{ background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-          {[['', 'Все режимы'], ['MODE_2X2', '2×2'], ['MODE_3X3', '3×3'], ['MODE_4X4', '4×4'], ['MODE_5X5', '5×5']].map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setMode(val)}
-              className="text-xs font-medium px-4 py-2 rounded-full transition-all"
-              style={{ color: mode === val ? '#0a0d16' : 'var(--muted)', background: mode === val ? '#fff' : 'transparent' }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* ТОП ДНЯ */}
-      {todayTop && todayTop.length > 0 && (
-        <div className="mb-10 rounded-2xl px-6 py-5" style={{ background: 'linear-gradient(135deg,rgba(201,149,74,.06),rgba(79,127,255,.04))', border: '1px solid rgba(201,149,74,.2)' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <span style={{ fontSize: '18px' }}>🔥</span>
-            <span className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--gold)' }}>Топ сегодня</span>
-            <span className="font-mono text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.04)' }}>обновляется каждую минуту</span>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {todayTop.map((p, idx) => (
-              <Link key={p.userId} href={`/users/${p.userId}`} className="flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:scale-105" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)' }}>
-                <span className="font-display font-bold text-sm w-5 text-center" style={{ color: idx === 0 ? 'var(--gold)' : idx === 1 ? '#94a3b8' : idx === 2 ? '#cd7f32' : 'var(--muted)' }}>
-                  {idx === 0 ? '👑' : idx + 1}
-                </span>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <Avatar username={p.username} avatarUrl={p.avatarUrl} size={32} frameKey={p.activeFrameEffect} />
-                </div>
-                <div>
-                  <div className="text-xs font-medium">
-                    <ColoredUsername username={p.username} effectKey={p.activeUsernameEffect} />
-                  </div>
-                  <div className="font-mono text-[10px]" style={{ color: 'var(--gold)' }}>🏆 {p.count} {p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {/* ТАБЫ */}
+      <div className="flex gap-1 p-1 rounded-full mb-8 w-fit" style={{ background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+        <button
+          onClick={() => setTab('top')}
+          className="text-sm font-medium px-6 py-2 rounded-full transition-all"
+          style={{ color: tab === 'top' ? '#0a0d16' : 'var(--muted)', background: tab === 'top' ? '#fff' : 'transparent' }}
+        >
+          🏆 Топ всех времён
+        </button>
+        <button
+          onClick={() => setTab('today')}
+          className="text-sm font-medium px-6 py-2 rounded-full transition-all"
+          style={{ color: tab === 'today' ? '#0a0d16' : 'var(--muted)', background: tab === 'today' ? '#fff' : 'transparent' }}
+        >
+          🔥 Топ сегодня
+        </button>
+      </div>
+
+      {isLoading && <p style={{ color: 'var(--muted)' }}>Загрузка...</p>}
+
+      {!isLoading && (!items || items.length === 0) && (
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>Пока нет данных.</p>
       )}
 
-      <div className="flex gap-8 items-start">
-        {/* СПИСОК */}
-        <div className="flex-1 min-w-0">
-          {isLoading && <p style={{ color: 'var(--muted)' }}>Загрузка...</p>}
-
-          {!isLoading && (!filtered || filtered.length === 0) && (
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>Нет побед в этой категории.</p>
-          )}
-
-          <div className="flex flex-col gap-2">
-            {filtered?.map((w, idx) => {
-              const isFirst = idx === 0 && !mode;
-              return (
-                <Link
-                  key={w.id}
-                  href={`/lobby/${w.match.id}`}
-                  className="flex items-center gap-4 rounded-2xl transition-all hover:translate-x-1 overflow-hidden"
-                  style={{
-                    border: isFirst ? '1px solid rgba(201,149,74,.45)' : '1px solid var(--border)',
-                    background: isFirst ? 'linear-gradient(90deg,rgba(201,149,74,.07),var(--surface) 40%)' : 'var(--surface)',
-                    boxShadow: isFirst ? '0 0 32px rgba(201,149,74,.1)' : 'none',
-                    paddingRight: '20px',
-                  }}
-                >
-                  {/* ЛУЧШАЯ ПОБЕДА ДНЯ — левый блок только для первого */}
-                  {isFirst ? (
-                    <div
-                      className="flex-shrink-0 flex flex-col items-center justify-center gap-2 self-stretch px-4 py-5"
-                      style={{
-                        minWidth: '90px',
-                        background: 'linear-gradient(135deg,rgba(201,149,74,.18),rgba(201,149,74,.06))',
-                        borderRight: '1px solid rgba(201,149,74,.2)',
-                      }}
-                    >
-                      <span style={{ fontSize: '28px', filter: 'drop-shadow(0 0 8px rgba(201,149,74,.6))' }}>🏆</span>
-                      <div className="font-display font-bold text-center uppercase leading-tight" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--gold)' }}>
-                        Лучшая<br />победа<br />дня
-                      </div>
-                    </div>
-                  ) : (
-                    /* Позиция для остальных */
-                    <div className="flex-shrink-0 w-12 text-center pl-4">
-                      <span className="font-display font-bold text-sm" style={{ color: idx < 3 ? 'var(--gold)' : 'var(--muted)' }}>
-                        {idx + 1}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Аватар */}
-                  <div
-                    className="flex-shrink-0"
-                    style={isFirst ? {
-                      padding: w.user.activeFrameEffect ? 0 : '3px',
-                      borderRadius: '50%',
-                      background: w.user.activeFrameEffect ? 'none' : 'linear-gradient(135deg,#fde68a,#f59e0b,#d97706)',
-                      boxShadow: w.user.activeFrameEffect ? 'none' : '0 0 12px rgba(201,149,74,.5)',
-                    } : {}}
-                  >
-                    <Avatar username={w.user.username} avatarUrl={w.user.avatarUrl} size={isFirst ? 48 : 44} frameKey={w.user.activeFrameEffect} />
-                  </div>
-
-                  {/* Инфо */}
-                  <div className="flex-1 min-w-0 py-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {w.userStack && (
-                        <Link href={`/stacks/${w.userStack.id}`}>
-                          <StackTag tag={w.userStack.tag} color={w.userStack.tagColor} />
-                        </Link>
-                      )}
-                      <Link href={`/users/${w.user.id}`} className="font-semibold text-sm hover:underline" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
-                        <ColoredUsername username={w.user.username} effectKey={w.user.activeUsernameEffect} />
-                      </Link>
-                      <span
-                        className="font-mono text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.04)', border: '1px solid var(--border2)' }}
-                      >
-                        {w.team.name}
-                      </span>
-                      <span
-                        className="font-mono text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ color: 'var(--a)', background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.15)' }}
-                      >
-                        {MODE_LABELS[w.match.mode] ?? w.match.mode}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <span
-                        className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.07)', border: '1px solid rgba(201,149,74,.18)' }}
-                      >
-                        🏆 Победитель
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Время */}
-                  <div className="text-xs text-right flex-shrink-0" style={{ color: 'var(--muted)', minWidth: '80px' }}>
-                    {timeAgo(w.createdAt)}
-                  </div>
-
-                  {/* Карта */}
-                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                    <div className="w-20 h-12 rounded-lg overflow-hidden" style={{ border: isFirst ? '1px solid rgba(201,149,74,.3)' : '1px solid var(--border)' }}>
-                      {w.match.map?.imageUrl ? (
-                        <img src={w.match.map.imageUrl} alt={w.match.map.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs" style={{ background: 'var(--surface2)', color: 'var(--muted)' }}>🗺️</div>
-                      )}
-                    </div>
-                    <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
-                      📍 {w.match.map?.name}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Кнопка обновить */}
-          <div className="mt-8 flex justify-center">
-            <button
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="flex items-center gap-2 btn-out"
-              style={{ fontSize: '13px' }}
+      <div className="flex flex-col gap-2">
+        {items?.map((p, idx) => {
+          const isFirst = idx === 0;
+          const stack = 'stack' in p ? p.stack : null;
+          return (
+            <Link
+              key={p.userId}
+              href={`/users/${p.userId}`}
+              className="flex items-center gap-4 rounded-2xl transition-all hover:translate-x-1"
+              style={{
+                border: isFirst ? '1px solid rgba(201,149,74,.4)' : '1px solid var(--border)',
+                background: isFirst ? 'linear-gradient(90deg,rgba(201,149,74,.07),var(--surface))' : 'var(--surface)',
+                boxShadow: isFirst ? '0 0 24px rgba(201,149,74,.08)' : 'none',
+                paddingRight: '20px',
+              }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }}>
-                <polyline points="23 4 23 10 17 10"/>
-                <polyline points="1 20 1 14 7 14"/>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-              </svg>
-              {isFetching ? 'Обновляем...' : 'Обновить ленту'}
-            </button>
-          </div>
-        </div>
+              {/* Блок ЛУЧШАЯ ПОБЕДА / позиция */}
+              {isFirst ? (
+                <div
+                  className="flex-shrink-0 flex flex-col items-center justify-center gap-1 self-stretch px-4 py-4"
+                  style={{ minWidth: '90px', background: 'linear-gradient(135deg,rgba(201,149,74,.18),rgba(201,149,74,.06))', borderRight: '1px solid rgba(201,149,74,.2)' }}
+                >
+                  <span style={{ fontSize: '26px', filter: 'drop-shadow(0 0 8px rgba(201,149,74,.6))' }}>🏆</span>
+                  <div className="font-display font-bold text-center uppercase leading-tight" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--gold)' }}>
+                    {tab === 'top' ? 'Лучший\nигрок' : 'Лучший\nсегодня'}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-shrink-0 w-12 text-center pl-4">
+                  <Medal idx={idx} />
+                </div>
+              )}
 
-        {/* SIDEBAR — статистика */}
-        <div className="hidden lg:flex flex-col gap-3 flex-shrink-0" style={{ width: '200px' }}>
-          <div className="rounded-2xl px-5 py-5" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
-              Статистика ленты
-            </div>
-            <div className="flex flex-col gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span>🏆</span>
-                  <span className="font-display font-bold text-xl">{wins?.length ?? 0}</span>
-                </div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>Всего побед</div>
+              {/* Аватар */}
+              <div className="flex-shrink-0 py-3">
+                <Avatar
+                  username={p.username}
+                  avatarUrl={p.avatarUrl}
+                  size={isFirst ? 52 : 44}
+                  frameKey={p.activeFrameEffect}
+                />
               </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span>☀️</span>
-                  <span className="font-display font-bold text-xl">{today}</span>
-                </div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>За сегодня</div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span>👥</span>
-                  <span className="font-display font-bold text-xl">
-                    {new Set(wins?.map((w) => w.user.id)).size ?? 0}
+
+              {/* Инфо */}
+              <div className="flex-1 min-w-0 py-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {stack && (
+                    <Link href={`/stacks/${stack.id}`} onClick={(e) => e.stopPropagation()}>
+                      <StackTag tag={stack.tag} color={stack.tagColor} />
+                    </Link>
+                  )}
+                  <span className="font-semibold text-sm" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
+                    <ColoredUsername username={p.username} effectKey={p.activeUsernameEffect} />
                   </span>
                 </div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>Победителей</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.07)', border: '1px solid rgba(201,149,74,.18)' }}>
+                    🏆 Победитель
+                  </span>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
+
+              {/* Счётчик побед */}
+              <div className="flex-shrink-0 text-right">
+                <div className="font-display font-bold" style={{ fontSize: '28px', color: isFirst ? 'var(--gold)' : idx < 3 ? 'var(--text)' : 'var(--muted)', lineHeight: 1 }}>
+                  {p.count}
+                </div>
+                <div className="text-xs font-mono" style={{ color: 'var(--muted)' }}>
+                  {p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

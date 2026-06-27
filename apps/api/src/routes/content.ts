@@ -250,6 +250,35 @@ export async function winsRoutes(app: FastifyInstance) {
     reply.send(wins.map((w) => ({ ...w, userStack: stackByUser.get(w.userId) ?? null })));
   });
 
+  // Топ игроков по общему числу побед (лидерборд)
+  app.get('/api/wins/leaderboard', async (req, reply) => {
+    const wins = await prisma.win.findMany({
+      select: { userId: true, user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true, activeFrameEffect: true, stackMembership: { include: { stack: { select: { id: true, name: true, tag: true, tagColor: true } } } } } } },
+    });
+
+    const counts = new Map<string, { user: typeof wins[0]['user']; count: number }>();
+    for (const w of wins) {
+      const e = counts.get(w.userId);
+      if (e) e.count++;
+      else counts.set(w.userId, { user: w.user, count: 1 });
+    }
+
+    const top = [...counts.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 50)
+      .map(({ user, count }) => ({
+        userId: user.id,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        activeUsernameEffect: user.activeUsernameEffect,
+        activeFrameEffect: user.activeFrameEffect,
+        stack: user.stackMembership?.stack ?? null,
+        count,
+      }));
+
+    reply.send(top);
+  });
+
   // Топ игроков за сегодня по числу побед
   app.get('/api/wins/today-top', async (req, reply) => {
     const startOfDay = new Date();
