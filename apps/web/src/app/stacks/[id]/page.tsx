@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore, isAdminOrOwner } from '@/store/auth';
 import { Avatar } from '@/components/Avatar';
 import { StackTag } from '@/components/StackTag';
 import { ImageUploadField } from '@/components/ImageUploadField';
@@ -76,7 +76,7 @@ export default function StackDetailPage() {
   const { data: requests } = useQuery<JoinRequest[]>({
     queryKey: ['stack-requests', id],
     queryFn: () => api.get(`/stacks/${id}/requests`),
-    enabled: !!user && !!stack && stack.captainId === user.id,
+    enabled: !!user && !!stack && (stack.captainId === user.id || isAdminOrOwner(user.role)),
     refetchInterval: 15_000,
   });
 
@@ -91,6 +91,8 @@ export default function StackDetailPage() {
   if (!stack) return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}><p style={{ color: 'var(--muted)' }}>Стак не найден.</p></div>;
 
   const isCaptain = user?.id === stack.captainId;
+  const isStaff = isAdminOrOwner(user?.role);
+  const canManage = isCaptain || isStaff;
   const isMember = stack.members.some((m) => m.userId === user?.id);
   const isInOtherStack = myStack && myStack.id !== id;
   const hasRequest = false; // TODO: track pending request
@@ -190,7 +192,7 @@ export default function StackDetailPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {isCaptain && (
+          {canManage && (
             <>
               <button onClick={openEdit} className="btn-out" style={{ padding: '10px 16px', fontSize: '13px' }}>✏️ Редактировать</button>
               <button onClick={handleDelete} className="text-xs font-medium px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)' }}>
@@ -232,7 +234,7 @@ export default function StackDetailPage() {
       )}
 
       {/* ЗАЯВКИ (только капитан) */}
-      {isCaptain && requests && requests.length > 0 && (
+      {canManage && requests && requests.length > 0 && (
         <div className="card mb-6">
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
             Заявки на вступление ({requests.length})
@@ -284,7 +286,7 @@ export default function StackDetailPage() {
               <span className="text-[10px] font-mono" style={{ color: 'var(--muted)' }}>
                 с {new Date(m.joinedAt).toLocaleDateString('ru-RU')}
               </span>
-              {isCaptain && m.userId !== stack.captainId && (
+              {canManage && m.userId !== stack.captainId && (
                 <button
                   onClick={() => handleKick(m.userId, m.user.username)}
                   className="text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
