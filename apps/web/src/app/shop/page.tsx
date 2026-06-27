@@ -447,10 +447,12 @@ export default function ShopPage() {
               const owned = ownedKeys.has(item.key);
               const isActive = myShop?.activeFrameEffect === item.key;
               return (
-                <div key={item.key} className="flex flex-col gap-3 p-4 rounded-2xl" style={{ border: isActive ? '1px solid rgba(139,92,246,.4)' : '1px solid var(--border)', background: 'var(--surface)' }}>
-                  {/* Превью рамки — используем Avatar компонент для единообразия */}
-                  <div className="flex justify-center py-4">
-                    <Avatar username="Preview" avatarUrl={null} size={64} frameKey={item.frameUrl ? item.key : undefined} />
+                <div key={item.key} className="flex flex-col gap-3 p-4 rounded-2xl" style={{ border: isActive ? '1px solid rgba(139,92,246,.4)' : '1px solid var(--border)', background: 'var(--surface)', overflow: 'visible' }}>
+                  {/* Превью рамки */}
+                  <div className="flex justify-center py-6" style={{ overflow: 'visible' }}>
+                    <div style={{ overflow: 'visible', position: 'relative' }}>
+                      <Avatar username="P" avatarUrl={null} size={56} frameKey={item.frameUrl ? item.key : undefined} />
+                    </div>
                   </div>
                   <div className="text-sm font-medium text-center">{item.name}</div>
                   <div className="text-xs text-center" style={{ color: 'var(--muted)' }}>{item.description}</div>
