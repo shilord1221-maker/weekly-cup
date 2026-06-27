@@ -25,6 +25,7 @@ interface DayTopItem {
   avatarUrl: string | null;
   activeUsernameEffect: string | null;
   activeFrameEffect: string | null;
+  stack?: { id: string; name: string; tag: string; tagColor: string } | null;
   count: number;
 }
 
@@ -106,7 +107,7 @@ export default function WinsPage() {
       <div className="flex flex-col gap-2">
         {items?.map((p, idx) => {
           const isFirst = idx === 0;
-          const stack = 'stack' in p ? p.stack : null;
+          const stack = (p as LeaderboardItem).stack ?? null;
           return (
             <Link
               key={p.userId}
