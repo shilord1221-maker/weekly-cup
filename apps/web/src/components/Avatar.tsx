@@ -6,7 +6,6 @@ const FRAME_URLS: Record<string, string> = {
   FRAME_GOLD:         '/frames/gold.png',
 };
 
-// Минимальный размер аватара для показа рамки
 const FRAME_MIN_SIZE = 40;
 
 interface AvatarProps {
@@ -37,48 +36,52 @@ export function Avatar({ username, avatarUrl, size = 32, className = '', frameKe
   );
 
   if (frameUrl) {
-    // Крылья PNG: внутреннее кольцо занимает ~52% ширины.
-    // Чтобы кольцо = аватарке: frameSize = size / 0.52
-    const frameSize = Math.round(size / 0.52);
-    const offset = Math.round((frameSize - size) / 2);
+    // PNG 1024×1024, прозрачный круг ≈ 50% ширины → frameSize = size / 0.50
+    // Контейнер = размер всей рамки, аватарка центрируется внутри
+    // Нет проблем с overflow clipping — ничего не выходит за границы
+    const frameSize = Math.round(size / 0.50);
+    const avatarOffset = Math.round((frameSize - size) / 2);
 
     return (
       <div
-        className={`relative inline-flex items-center justify-center flex-shrink-0 ${className}`}
-        style={{ width: size, height: size }}
+        className={`relative flex-shrink-0 ${className}`}
+        style={{ width: frameSize, height: frameSize, display: 'inline-block' }}
       >
-        {/* Аватар в круглом контейнере */}
+        {/* Аватарка по центру, под рамкой */}
         <div
           style={{
+            position: 'absolute',
+            top: avatarOffset,
+            left: avatarOffset,
             width: size,
             height: size,
             borderRadius: '50%',
             overflow: 'hidden',
-            flexShrink: 0,
+            zIndex: 1,
           }}
         >
           {avatarContent}
         </div>
 
-        {/* Рамка поверх — mix-blend-mode:screen делает чёрные пиксели прозрачными */}
+        {/* Рамка поверх, заполняет весь контейнер */}
         <img
           src={frameUrl}
           alt=""
           style={{
             position: 'absolute',
+            top: 0,
+            left: 0,
             width: frameSize,
             height: frameSize,
-            top: -offset,
-            left: -offset,
             pointerEvents: 'none',
-            zIndex: 3,
+            zIndex: 2,
           }}
         />
       </div>
     );
   }
 
-  // Без рамки — обычная аватарка
+  // Без рамки
   if (avatarUrl) {
     return (
       <img
