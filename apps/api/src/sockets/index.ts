@@ -225,6 +225,14 @@ export function registerSocketHandlers(io: SocketServer) {
       io.to('chat:global').emit('poll:updated', { pollId, options: updatedOptions });
     });
 
+    // ───────── GFC LOBBY ROOMS ─────────
+    socket.on('gfc:subscribe', ({ lobbyId }: { lobbyId: string }) => {
+      socket.join(`gfc:${lobbyId}`);
+    });
+    socket.on('gfc:unsubscribe', ({ lobbyId }: { lobbyId: string }) => {
+      socket.leave(`gfc:${lobbyId}`);
+    });
+
     socket.on('disconnect', () => {
       // no-op; socket.io снимает все room-подписки автоматически
     });
