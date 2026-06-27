@@ -10,6 +10,7 @@ import { ImageUploadField } from '@/components/ImageUploadField';
 import { Avatar } from '@/components/Avatar';
 import { TokenIcon } from '@/components/TokenIcon';
 import { ColoredUsername } from '@/components/ColoredUsername';
+import { BgPositionPicker } from '@/components/BgPositionPicker';
 
 interface ProfileData {
   id: string;
@@ -20,6 +21,7 @@ interface ProfileData {
   activeUsernameEffect?: string | null;
   activeFrameEffect?: string | null;
   profileBg?: string | null;
+  profileBgPosition?: string | null;
   pendingProfileBg?: string | null;
   profileBgStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   profileBgRejectedReason?: string | null;
@@ -101,6 +103,7 @@ function ProfilePageContent() {
 
   // Фон профиля
   const [bgUrl, setBgUrl] = useState('');
+  const [bgPosition, setBgPosition] = useState('50% 30%');
   const [bgError, setBgError] = useState<string | null>(null);
   const [bgLoading, setBgLoading] = useState(false);
   const [bgSuccess, setBgSuccess] = useState(false);
@@ -110,7 +113,7 @@ function ProfilePageContent() {
     if (!bgUrl.trim()) { setBgError('Загрузите изображение'); return; }
     setBgLoading(true);
     try {
-      await api.post('/shop/buy-profile-bg', { imageUrl: bgUrl.trim() });
+      await api.post('/shop/buy-profile-bg', { imageUrl: bgUrl.trim(), position: bgPosition });
       setBgSuccess(true); setBgUrl('');
       qc.invalidateQueries({ queryKey: ['profile'] });
     } catch (e) {
@@ -247,7 +250,7 @@ function ProfilePageContent() {
       {/* ФОН ВВЕРХУ СТРАНИЦЫ */}
       {profile.profileBg && (
         <div className="absolute top-0 left-0 right-0 h-72 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          <img src={profile.profileBg} alt="" className="w-full h-full object-cover" />
+          <img src={profile.profileBg} alt="" className="w-full h-full object-cover" style={{ objectPosition: profile.profileBgPosition ?? '50% 30%' }} />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,7,15,.1) 0%, rgba(5,7,15,.7) 60%, rgba(5,7,15,1) 100%)' }} />
         </div>
       )}
@@ -529,7 +532,12 @@ function ProfilePageContent() {
             </p>
             {bgError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{bgError}</div>}
             {bgSuccess && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>Отправлено на модерацию ✓</div>}
-            <ImageUploadField label="Изображение для фона" value={bgUrl} onChange={setBgUrl} folder="media-thumbs" />
+            <ImageUploadField label="Изображение для фона" value={bgUrl} onChange={(url) => { setBgUrl(url); setBgPosition('50% 30%'); }} folder="media-thumbs" />
+            {bgUrl && (
+              <div className="mt-3">
+                <BgPositionPicker imageUrl={bgUrl} position={bgPosition} onChange={setBgPosition} />
+              </div>
+            )}
             <button onClick={handleBuyProfileBg} disabled={bgLoading || !bgUrl} className="btn-main justify-center mt-3">
               {bgLoading ? 'Отправляем...' : '🖼️ Отправить на модерацию (500 токенов)'}
             </button>

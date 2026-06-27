@@ -7,6 +7,8 @@ import { useAuthStore, isAdminOrOwner } from '@/store/auth';
 import { ColoredUsername, getUsernameStyle, getGradientClass, isGradientEffect, type CosmeticItem } from '@/components/ColoredUsername';
 import { TokenIcon } from '@/components/TokenIcon';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { Avatar } from '@/components/Avatar';
+import { BgPositionPicker } from '@/components/BgPositionPicker';
 import Link from 'next/link';
 
 interface MyShop {
@@ -137,6 +139,7 @@ export default function ShopPage() {
 
   // Состояние покупки фона прямо из магазина
   const [bgUploadUrl, setBgUploadUrl] = useState('');
+  const [bgPosition, setBgPosition] = useState('50% 30%');
   const [bgBuying, setBgBuying] = useState(false);
   const [bgBuyErr, setBgBuyErr] = useState<string | null>(null);
   const [bgBuyOk, setBgBuyOk] = useState(false);
@@ -145,7 +148,7 @@ export default function ShopPage() {
     if (!bgUploadUrl) { setBgBuyErr('Загрузите изображение'); return; }
     setBgBuyErr(null); setBgBuying(true); setBgBuyOk(false);
     try {
-      await api.post('/shop/buy-profile-bg', { imageUrl: bgUploadUrl });
+      await api.post('/shop/buy-profile-bg', { imageUrl: bgUploadUrl, position: bgPosition });
       setBgBuyOk(true); setBgUploadUrl('');
       refetchMy();
     } catch (e) { setBgBuyErr(e instanceof ApiClientError ? e.message : 'Ошибка'); }
@@ -371,7 +374,12 @@ export default function ShopPage() {
             <>
               {bgBuyErr && <div className="text-sm rounded-xl px-4 py-3 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{bgBuyErr}</div>}
               {bgBuyOk && <div className="text-sm rounded-xl px-4 py-3 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>✓ Отправлено на модерацию!</div>}
-              <ImageUploadField label="Изображение для фона" value={bgUploadUrl} onChange={setBgUploadUrl} folder="media-thumbs" />
+              <ImageUploadField label="Изображение для фона" value={bgUploadUrl} onChange={(url) => { setBgUploadUrl(url); setBgPosition('50% 30%'); }} folder="media-thumbs" />
+              {bgUploadUrl && (
+                <div className="mt-3">
+                  <BgPositionPicker imageUrl={bgUploadUrl} position={bgPosition} onChange={setBgPosition} />
+                </div>
+              )}
               <button
                 onClick={handleBuyBg}
                 disabled={bgBuying || !bgUploadUrl || (myShop?.tokenBalance ?? 0) < profileBgItem.price}
@@ -440,18 +448,9 @@ export default function ShopPage() {
               const isActive = myShop?.activeFrameEffect === item.key;
               return (
                 <div key={item.key} className="flex flex-col gap-3 p-4 rounded-2xl" style={{ border: isActive ? '1px solid rgba(139,92,246,.4)' : '1px solid var(--border)', background: 'var(--surface)' }}>
-                  {/* Превью — mix-blend-mode: screen убирает чёрный фон PNG */}
-                  <div className="flex justify-center py-2">
-                    <div className="relative flex items-center justify-center" style={{ width: 80, height: 80 }}>
-                      <div className="rounded-full" style={{ width: 56, height: 56, background: 'linear-gradient(135deg,var(--a),var(--a2))' }} />
-                      {item.frameUrl && (
-                        <img
-                          src={item.frameUrl}
-                          alt=""
-                          style={{ position: 'absolute', width: 140, height: 140, top: -30, left: -30, pointerEvents: 'none', mixBlendMode: 'screen' }}
-                        />
-                      )}
-                    </div>
+                  {/* Превью рамки — используем Avatar компонент для единообразия */}
+                  <div className="flex justify-center py-4">
+                    <Avatar username="Preview" avatarUrl={null} size={64} frameKey={item.frameUrl ? item.key : undefined} />
                   </div>
                   <div className="text-sm font-medium text-center">{item.name}</div>
                   <div className="text-xs text-center" style={{ color: 'var(--muted)' }}>{item.description}</div>

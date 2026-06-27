@@ -69,12 +69,12 @@ export function registerSocketHandlers(io: SocketServer) {
       socket.join(`lobby:${matchId}`);
       const lobby = await prisma.lobby.findUnique({
         where: { matchId },
-        include: { teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true } } } } } }, match: true },
+        include: { teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true } } } } } }, match: true },
       });
       if (lobby) {
         const unassignedMembers = await prisma.lobbyMember.findMany({
           where: { lobbyId: lobby.id, teamId: null },
-          include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+          include: { user: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true } } },
         });
         socket.emit('lobby:state', { ...lobby, unassignedMembers });
       } else {
@@ -123,7 +123,7 @@ export function registerSocketHandlers(io: SocketServer) {
         where: teamId ? { teamId } : matchId ? { lobbyMatchId: matchId, teamId: null } : { lobbyMatchId: null, teamId: null },
         orderBy: { createdAt: 'desc' },
         take: 50,
-        include: { author: { select: { id: true, username: true, avatarUrl: true } } },
+        include: { author: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true } } },
       });
       const withPolls = await Promise.all(
         history.map(async (msg) => {
@@ -157,7 +157,7 @@ export function registerSocketHandlers(io: SocketServer) {
 
       const message = await prisma.chatMessage.create({
         data: { authorId: socket.data.userId, text: trimmed, lobbyMatchId: teamId ? undefined : matchId ?? null, teamId: teamId ?? null },
-        include: { author: { select: { id: true, username: true, avatarUrl: true } } },
+        include: { author: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true } } },
       });
 
       io.to(chatRoomFor(matchId, teamId)).emit(chatMessageEventFor(matchId, teamId), message);
@@ -196,7 +196,7 @@ export function registerSocketHandlers(io: SocketServer) {
 
       const message = await prisma.chatMessage.create({
         data: { authorId: socket.data.userId!, text: `📊 ${poll.title}`, pollId: poll.id },
-        include: { author: { select: { id: true, username: true, avatarUrl: true } } },
+        include: { author: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true } } },
       });
 
       io.to('chat:global').emit('chat:message', { ...message, poll });

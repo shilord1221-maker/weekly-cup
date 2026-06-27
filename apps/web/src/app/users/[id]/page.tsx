@@ -18,6 +18,7 @@ interface PublicProfile {
   createdAt: string;
   activeUsernameEffect: string | null;
   profileBg: string | null;
+  profileBgPosition: string | null;
   tokenBalance: number;
   staticId: { value: string } | null;
   achievements: { id: string; title: string; earnedAt: string }[];
@@ -68,16 +69,14 @@ export default function PublicProfilePage() {
       {/* ФОН ПРОФИЛЯ */}
       {profile.profileBg && (
         <div className="absolute top-0 left-0 right-0 h-72 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          <img src={profile.profileBg} alt="" className="w-full h-full object-cover" />
+          <img src={profile.profileBg} alt="" className="w-full h-full object-cover" style={{ objectPosition: profile.profileBgPosition ?? '50% 30%' }} />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,7,15,.1) 0%, rgba(5,7,15,.7) 60%, rgba(5,7,15,1) 100%)' }} />
         </div>
       )}
 
       {/* HEADER */}
       <div className={`flex items-start gap-6 mb-8 flex-wrap relative z-10 ${profile.profileBg ? 'pt-32' : 'pt-32'}`}>
-        <div className="relative">
-          <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={80} />
-        </div>
+        <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={80} frameKey={profile.activeFrameEffect} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap mb-2">
             <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(22px,4vw,34px)', letterSpacing: '-0.01em' }}>

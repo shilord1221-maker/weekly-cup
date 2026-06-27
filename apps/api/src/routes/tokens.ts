@@ -66,7 +66,7 @@ export async function tokenRoutes(app: FastifyInstance) {
 
   // Купить фон профиля (отдельный flow — нужна ссылка на картинку)
   app.post('/api/shop/buy-profile-bg', { preHandler: requireAuth }, async (req, reply) => {
-    const Schema = z.object({ imageUrl: z.string().url() });
+    const Schema = z.object({ imageUrl: z.string().url(), position: z.string().max(32).default('50% 30%') });
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
@@ -78,7 +78,7 @@ export async function tokenRoutes(app: FastifyInstance) {
     if (user.tokenBalance < price) return reply.code(402).send({ error: 'NOT_ENOUGH_TOKENS', message: `Недостаточно токенов. Нужно: ${price}, у вас: ${user.tokenBalance}` });
 
     await prisma.$transaction([
-      prisma.user.update({ where: { id: req.user!.id }, data: { tokenBalance: { decrement: price }, pendingProfileBg: parsed.data.imageUrl, profileBgStatus: 'PENDING' } }),
+      prisma.user.update({ where: { id: req.user!.id }, data: { tokenBalance: { decrement: price }, pendingProfileBg: parsed.data.imageUrl, pendingProfileBgPosition: parsed.data.position, profileBgStatus: 'PENDING' } }),
       prisma.tokenTransaction.create({ data: { userId: req.user!.id, amount: -price, reason: 'PURCHASE:PROFILE_BG' } }),
     ]);
 
@@ -100,7 +100,7 @@ export async function tokenRoutes(app: FastifyInstance) {
     const { userId } = req.params as { userId: string };
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target?.pendingProfileBg) return reply.code(404).send({ error: 'NOT_FOUND' });
-    await prisma.user.update({ where: { id: userId }, data: { profileBg: target.pendingProfileBg, pendingProfileBg: null, profileBgStatus: 'APPROVED', profileBgReviewedById: req.user!.id } });
+    await prisma.user.update({ where: { id: userId }, data: { profileBg: target.pendingProfileBg, profileBgPosition: (target as any).pendingProfileBgPosition ?? '50% 30%', pendingProfileBg: null, pendingProfileBgPosition: null, profileBgStatus: 'APPROVED', profileBgReviewedById: req.user!.id } });
     reply.send({ success: true });
   });
 

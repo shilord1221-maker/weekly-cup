@@ -142,6 +142,7 @@ export async function profileRoutes(app: FastifyInstance) {
         activeUsernameEffect: true,
         activeFrameEffect: true,
         profileBg: true,
+        profileBgPosition: true,
         pendingProfileBg: true,
         profileBgStatus: true,
         profileBgRejectedReason: true,
@@ -307,6 +308,7 @@ export async function publicProfileRoutes(app: FastifyInstance) {
         activeFrameEffect: true,
         tokenBalance: true,
         profileBg: true,
+        profileBgPosition: true,
         staticId: { select: { value: true } },
         achievements: { orderBy: { earnedAt: 'desc' }, take: 20 },
         wins: {

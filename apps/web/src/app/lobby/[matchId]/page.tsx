@@ -178,7 +178,7 @@ interface Member {
   userId: string;
   dynamicId?: string | null;
   isEliminated?: boolean;
-  user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null };
+  user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null; activeFrameEffect?: string | null };
 }
 interface TeamData {
   id: string;
@@ -1104,7 +1104,7 @@ export default function LobbyPage() {
                     className="flex items-center gap-2.5 text-sm py-1 group"
                     style={{ borderBottom: '1px solid var(--border)', opacity: m.isEliminated ? 0.45 : 1 }}
                   >
-                    <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={24} />
+                    <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={24} frameKey={m.user.activeFrameEffect} />
                     <span style={{ textDecoration: m.isEliminated ? 'line-through' : 'none' }}>
                       {m.isEliminated && '💀 '}
                       {m.user.username}

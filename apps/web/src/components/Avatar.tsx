@@ -35,16 +35,19 @@ export function Avatar({ username, avatarUrl, size = 32, className = '', frameKe
   );
 
   if (frameUrl) {
-    // Рамка накладывается поверх аватара — PNG с прозрачным центром
-    // Рамка на 40% больше аватара чтобы выходить за края
-    const frameSize = Math.round(size * 1.8);
+    // Кольцо крыльев занимает ~55% ширины PNG — масштабируем так чтобы
+    // оно точно совпало с диаметром аватарки.
+    // frameSize * 0.55 ≈ size  →  frameSize ≈ size / 0.55 * 1.05 (небольшой запас)
+    const frameSize = Math.round(size * 2.0);
     const offset = Math.round((frameSize - size) / 2);
     return (
       <div
-        className={`relative inline-flex flex-shrink-0 ${className}`}
+        className={`relative inline-flex items-center justify-center flex-shrink-0 ${className}`}
         style={{ width: size, height: size }}
       >
-        {inner}
+        <div style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+          {inner}
+        </div>
         <img
           src={frameUrl}
           alt=""
