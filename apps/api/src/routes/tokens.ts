@@ -49,7 +49,7 @@ export async function tokenRoutes(app: FastifyInstance) {
   app.get('/api/shop/my', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { tokenBalance: true, activeUsernameEffect: true, cosmetics: { select: { cosmeticKey: true, purchasedAt: true } } },
+      select: { tokenBalance: true, activeUsernameEffect: true, activeFrameEffect: true, profileBgStatus: true, cosmetics: { select: { cosmeticKey: true, purchasedAt: true } } },
     });
     reply.send(user);
   });

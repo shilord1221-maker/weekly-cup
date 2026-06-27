@@ -6,11 +6,14 @@ import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isAdminOrOwner } from '@/store/auth';
 import { ColoredUsername, getUsernameStyle, getGradientClass, isGradientEffect, type CosmeticItem } from '@/components/ColoredUsername';
 import { TokenIcon } from '@/components/TokenIcon';
+import { ImageUploadField } from '@/components/ImageUploadField';
 import Link from 'next/link';
 
 interface MyShop {
   tokenBalance: number;
   activeUsernameEffect: string | null;
+  activeFrameEffect: string | null;
+  profileBgStatus: string | null;
   cosmetics: { cosmeticKey: string; purchasedAt: string }[];
 }
 
@@ -130,6 +133,24 @@ export default function ShopPage() {
   const colors = catalog?.filter((c) => c.type === 'username' && c.color) ?? [];
   const gradients = catalog?.filter((c) => c.type === 'username' && c.gradient) ?? [];
   const frames = catalog?.filter((c) => c.type === 'frame') ?? [];
+  const profileBgItem = catalog?.find((c) => c.key === 'PROFILE_BG');
+
+  // Состояние покупки фона прямо из магазина
+  const [bgUploadUrl, setBgUploadUrl] = useState('');
+  const [bgBuying, setBgBuying] = useState(false);
+  const [bgBuyErr, setBgBuyErr] = useState<string | null>(null);
+  const [bgBuyOk, setBgBuyOk] = useState(false);
+
+  const handleBuyBg = async () => {
+    if (!bgUploadUrl) { setBgBuyErr('Загрузите изображение'); return; }
+    setBgBuyErr(null); setBgBuying(true); setBgBuyOk(false);
+    try {
+      await api.post('/shop/buy-profile-bg', { imageUrl: bgUploadUrl });
+      setBgBuyOk(true); setBgUploadUrl('');
+      refetchMy();
+    } catch (e) { setBgBuyErr(e instanceof ApiClientError ? e.message : 'Ошибка'); }
+    finally { setBgBuying(false); }
+  };
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-5xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -325,6 +346,52 @@ export default function ShopPage() {
         </div>
       </div>
 
+      {/* ФОН ПРОФИЛЯ */}
+      {profileBgItem && (
+        <div className="mt-10 rounded-2xl p-6" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+          <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-1" style={{ color: 'var(--muted)' }}>
+                Фон профиля 🖼️
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                Загрузи своё изображение — оно появится на твоём профиле после модерации
+              </p>
+            </div>
+            <span className="font-mono text-sm flex items-center gap-1.5" style={{ color: 'var(--gold)' }}>
+              <TokenIcon size={16} /> {profileBgItem.price} токенов
+            </span>
+          </div>
+
+          {myShop?.profileBgStatus === 'PENDING' ? (
+            <div className="text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(201,149,74,.06)', border: '1px solid rgba(201,149,74,.2)', color: 'var(--gold)' }}>
+              ⏳ Фон на модерации — появится после одобрения
+            </div>
+          ) : user ? (
+            <>
+              {bgBuyErr && <div className="text-sm rounded-xl px-4 py-3 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{bgBuyErr}</div>}
+              {bgBuyOk && <div className="text-sm rounded-xl px-4 py-3 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>✓ Отправлено на модерацию!</div>}
+              <ImageUploadField label="Изображение для фона" value={bgUploadUrl} onChange={setBgUploadUrl} folder="media-thumbs" />
+              <button
+                onClick={handleBuyBg}
+                disabled={bgBuying || !bgUploadUrl || (myShop?.tokenBalance ?? 0) < profileBgItem.price}
+                className="btn-main justify-center mt-3"
+                style={{ opacity: (myShop?.tokenBalance ?? 0) < profileBgItem.price ? 0.5 : 1 }}
+              >
+                {bgBuying ? 'Отправляем...' : `Купить и отправить на модерацию`}
+              </button>
+              {(myShop?.tokenBalance ?? 0) < profileBgItem.price && (
+                <p className="text-xs text-center mt-2" style={{ color: 'var(--muted)' }}>
+                  Нужно ещё {profileBgItem.price - (myShop?.tokenBalance ?? 0)} токенов
+                </p>
+              )}
+            </>
+          ) : (
+            <Link href="/login" className="btn-out">Войти чтобы купить</Link>
+          )}
+        </div>
+      )}
+
       {/* PRICE MODAL (Owner only) */}
       {showPriceModal && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.75)' }} onClick={() => setShowPriceModal(false)}>
@@ -370,15 +437,19 @@ export default function ShopPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {frames.map((item) => {
               const owned = ownedKeys.has(item.key);
-              const isActive = myShop?.activeUsernameEffect === item.key;
+              const isActive = myShop?.activeFrameEffect === item.key;
               return (
                 <div key={item.key} className="flex flex-col gap-3 p-4 rounded-2xl" style={{ border: isActive ? '1px solid rgba(139,92,246,.4)' : '1px solid var(--border)', background: 'var(--surface)' }}>
-                  {/* Превью */}
+                  {/* Превью — mix-blend-mode: screen убирает чёрный фон PNG */}
                   <div className="flex justify-center py-2">
-                    <div className="relative" style={{ width: 64, height: 64 }}>
-                      <div className="w-16 h-16 rounded-full" style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }} />
+                    <div className="relative flex items-center justify-center" style={{ width: 80, height: 80 }}>
+                      <div className="rounded-full" style={{ width: 56, height: 56, background: 'linear-gradient(135deg,var(--a),var(--a2))' }} />
                       {item.frameUrl && (
-                        <img src={item.frameUrl} alt="" style={{ position: 'absolute', width: 120, height: 120, top: -28, left: -28, pointerEvents: 'none' }} />
+                        <img
+                          src={item.frameUrl}
+                          alt=""
+                          style={{ position: 'absolute', width: 140, height: 140, top: -30, left: -30, pointerEvents: 'none', mixBlendMode: 'screen' }}
+                        />
                       )}
                     </div>
                   </div>

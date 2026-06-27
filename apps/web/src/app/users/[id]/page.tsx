@@ -67,9 +67,9 @@ export default function PublicProfilePage() {
 
       {/* ФОН ПРОФИЛЯ */}
       {profile.profileBg && (
-        <div className="absolute top-0 left-0 right-0 h-56 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+        <div className="absolute top-0 left-0 right-0 h-72 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
           <img src={profile.profileBg} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,7,15,.2) 0%, rgba(5,7,15,.95) 100%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,7,15,.1) 0%, rgba(5,7,15,.7) 60%, rgba(5,7,15,1) 100%)' }} />
         </div>
       )}
 

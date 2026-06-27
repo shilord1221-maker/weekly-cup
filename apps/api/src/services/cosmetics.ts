@@ -31,9 +31,7 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   { key: 'GRADIENT_PRACS',   name: 'Weekly Pracs 🏆', description: 'Эксклюзивный градиент платформы', price: 1000, type: 'username', gradient: 'linear-gradient(90deg,#4f7fff,#8b5cf6,#f59e0b)', preview: 'linear-gradient(90deg,#4f7fff,#8b5cf6,#f59e0b)' },
 
   // ── Рамки аватара ──
-  { key: 'FRAME_WINGS_PURPLE', name: 'Крылья 🪽',      description: 'Фиолетовые крылья вокруг аватара',   price: 800,  type: 'frame', frameUrl: '/frames/wings-purple.png', preview: '/frames/wings-purple.png' },
-  { key: 'FRAME_FIRE',         name: 'Огненная 🔥',    description: 'Огненная рамка вокруг аватара',      price: 600,  type: 'frame', frameUrl: '/frames/fire.png',         preview: '/frames/fire.png' },
-  { key: 'FRAME_GOLD',         name: 'Золотая ✨',     description: 'Золотая рамка победителя',           price: 1000, type: 'frame', frameUrl: '/frames/gold.png',         preview: '/frames/gold.png' },
+  { key: 'FRAME_WINGS_PURPLE', name: 'Крылья 🪽', description: 'Фиолетовые крылья вокруг аватара', price: 800, type: 'frame', frameUrl: '/frames/wings-purple.png', preview: '/frames/wings-purple.png' },
 ];
 
 export const CATALOG_BY_KEY = new Map(COSMETICS_CATALOG.map((c) => [c.key, c]));

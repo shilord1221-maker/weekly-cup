@@ -241,7 +241,17 @@ function ProfilePageContent() {
     : null;
 
   return (
-    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-screen pb-20 relative" style={{ background: 'var(--bg)' }}>
+
+      {/* ФОН ВВЕРХУ СТРАНИЦЫ */}
+      {profile.profileBg && (
+        <div className="absolute top-0 left-0 right-0 h-72 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+          <img src={profile.profileBg} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,7,15,.1) 0%, rgba(5,7,15,.7) 60%, rgba(5,7,15,1) 100%)' }} />
+        </div>
+      )}
+
+      <div className="relative z-10 px-6 md:px-10 pt-32 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 mb-12">
         <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} />
         <div>
@@ -646,6 +656,7 @@ function ProfilePageContent() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
