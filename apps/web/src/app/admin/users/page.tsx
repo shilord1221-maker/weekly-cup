@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { TokenIcon } from '@/components/TokenIcon';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
