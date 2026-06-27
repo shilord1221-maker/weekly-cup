@@ -199,9 +199,21 @@ export default function GfcLobbyPage() {
           </div>
         </div>
         {isOrganizer && (
-          <button onClick={async () => { if (confirm('Удалить лобби?')) { await api.delete(`/gfc/${id}`); router.push('/gfc'); } }} className="text-xs px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)' }}>
-            Удалить
-          </button>
+          <div className="flex gap-2">
+            {lobby.status === 'WAITING' && (
+              <button
+                onClick={async () => { setLoading(true); try { await api.post(`/gfc/${id}/force-start`); qc.invalidateQueries({ queryKey: ['gfc', id] }); } catch(e) { setActionErr(e instanceof ApiClientError ? e.message : 'Ошибка'); } finally { setLoading(false); } }}
+                disabled={loading}
+                className="btn-main"
+                style={{ padding: '10px 20px', fontSize: '13px' }}
+              >
+                ▶ Старт матча
+              </button>
+            )}
+            <button onClick={async () => { if (confirm('Удалить лобби?')) { await api.delete(`/gfc/${id}`); router.push('/gfc'); } }} className="text-xs px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)' }}>
+              Удалить
+            </button>
+          </div>
         )}
       </div>
 

@@ -48,7 +48,7 @@ function Medal({ idx }: { idx: number }) {
 }
 
 export default function WinsPage() {
-  const [tab, setTab] = useState<'top' | 'today'>('top');
+  const [tab, setTab] = useState<'top' | 'today' | 'gfc'>('top');
 
   const { data: leaderboard, isLoading: loadingTop } = useQuery<LeaderboardItem[]>({
     queryKey: ['wins-leaderboard'],
@@ -61,8 +61,8 @@ export default function WinsPage() {
     refetchInterval: 60_000,
   });
 
-  const isLoading = tab === 'top' ? loadingTop : loadingToday;
-  const items = tab === 'top' ? leaderboard : todayTop;
+  const isLoading = tab === 'top' ? loadingTop : tab === 'today' ? loadingToday : false;
+  const items = tab === 'top' ? leaderboard : tab === 'today' ? todayTop : [];
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-4xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -81,22 +81,27 @@ export default function WinsPage() {
       </div>
 
       {/* ТАБЫ */}
-      <div className="flex gap-1 p-1 rounded-full mb-8 w-fit" style={{ background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-        <button
-          onClick={() => setTab('top')}
-          className="text-sm font-medium px-6 py-2 rounded-full transition-all"
-          style={{ color: tab === 'top' ? '#0a0d16' : 'var(--muted)', background: tab === 'top' ? '#fff' : 'transparent' }}
-        >
-          🏆 Топ всех времён
-        </button>
-        <button
-          onClick={() => setTab('today')}
-          className="text-sm font-medium px-6 py-2 rounded-full transition-all"
-          style={{ color: tab === 'today' ? '#0a0d16' : 'var(--muted)', background: tab === 'today' ? '#fff' : 'transparent' }}
-        >
-          🔥 Топ сегодня
-        </button>
+      <div className="flex gap-1 p-1 rounded-full mb-8 w-fit flex-wrap" style={{ background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+        {([['top', '🏆 Топ всех времён'], ['today', '🔥 Топ сегодня'], ['gfc', '⚔️ GFC Топ']] as const).map(([t, label]) => (
+          <button key={t} onClick={() => setTab(t)} className="text-sm font-medium px-5 py-2 rounded-full transition-all"
+            style={{ color: tab === t ? '#0a0d16' : 'var(--muted)', background: tab === t ? '#fff' : 'transparent' }}>
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* GFC Топ */}
+      {tab === 'gfc' && (
+        <div className="flex flex-col gap-3 mb-8">
+          <div className="rounded-xl px-5 py-4 mb-2" style={{ background: 'rgba(79,127,255,.04)', border: '1px solid rgba(79,127,255,.15)' }}>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              ⚔️ Рейтинг GFC — топ игроков по выигранным матчам в режиме Gang Fight Club.
+              <Link href="/gfc" className="ml-2" style={{ color: 'var(--a)' }}>Перейти в GFC →</Link>
+            </p>
+          </div>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>GFC матчи пока не завершены — топ появится после первых результатов.</p>
+        </div>
+      )}
 
       {isLoading && <p style={{ color: 'var(--muted)' }}>Загрузка...</p>}
 

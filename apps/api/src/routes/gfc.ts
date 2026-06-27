@@ -266,6 +266,24 @@ export async function gfcRoutes(app: FastifyInstance, opts: { io: SocketServer }
     reply.send({ success: true });
   });
 
+  // Форс-старт (организатор запускает без ожидания готовности всех)
+  app.post('/api/gfc/:id/force-start', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const lobby = await prisma.gfcLobby.findUnique({ where: { id }, include: { players: true } });
+    if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (lobby.status !== 'WAITING') return reply.code(409).send({ error: 'WRONG_PHASE' });
+
+    const t1 = lobby.players.filter((p) => p.teamNum === 1);
+    const t2 = lobby.players.filter((p) => p.teamNum === 2);
+    if (t1.length === 0 || t2.length === 0) return reply.code(400).send({ error: 'EMPTY_TEAM', message: 'Обе команды должны иметь хотя бы одного игрока' });
+
+    await prisma.gfcLobby.update({ where: { id }, data: { status: 'BAN_PICK', banTurn: 1 } });
+    const updated = await prisma.gfcLobby.findUnique({ where: { id }, include: lobbyInclude() });
+    io.to(`gfc:${id}`).emit('gfc:state', updated);
+    io.to(`gfc:${id}`).emit('gfc:ban_pick_start', { lobbyId: id });
+    reply.send({ success: true });
+  });
+
   // Удалить лобби
   app.delete('/api/gfc/:id', { preHandler: [requireAuth, requireOrganizerOrAdmin()] }, async (req, reply) => {
     const { id } = req.params as { id: string };

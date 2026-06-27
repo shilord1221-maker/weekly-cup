@@ -10,6 +10,7 @@ import { TokenIcon } from '@/components/TokenIcon';
 export function Header() {
   const [stuck, setStuck] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -33,7 +34,6 @@ export function Header() {
     { href: '/complaints', label: 'Жалобы' },
     { href: '/wins', label: 'Победы', special: true },
     { href: '/stacks', label: 'Стаки' },
-    { href: '/gfc', label: 'GFC' },
     { href: '/social', label: 'Соцсети' },
     { href: '/maps', label: 'Карты' },
   ] as { href: string; label: string; special?: boolean }[];
@@ -126,20 +126,31 @@ export function Header() {
             );
           })}
 
-          <button
-            disabled
-            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full cursor-not-allowed"
-            style={{ color: 'rgba(96,104,128,.5)' }}
-            title="Скоро — выбор режимов в разработке"
-          >
-            Режимы
-            <span
-              className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-full"
-              style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.12)', letterSpacing: '0.04em' }}
+          <div className="relative">
+            <button
+              onClick={() => setMoreOpen((v) => !v)}
+              className="text-sm font-medium px-4 py-2 rounded-full transition-all flex items-center gap-1.5"
+              style={{ color: 'var(--muted)' }}
             >
-              скоро
-            </span>
-          </button>
+              Режимы
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {moreOpen && (
+              <>
+                <div className="fixed inset-0 z-[90]" onClick={() => setMoreOpen(false)} />
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 rounded-xl py-2 z-[100] min-w-[160px]" style={{ background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 16px 40px rgba(0,0,0,.4)' }}>
+                  <Link href="/matches" onClick={() => setMoreOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:text-white" style={{ color: 'var(--muted)' }}>
+                    🎮 Weekly Pracs
+                  </Link>
+                  <Link href="/gfc" onClick={() => setMoreOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:text-white" style={{ color: 'var(--muted)' }}>
+                    ⚔️ GFC
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
         </nav>
 
         {/* RIGHT SIDE */}
@@ -266,6 +277,14 @@ export function Header() {
           style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
         >
           Стаки
+        </Link>
+        <Link
+          href="/gfc"
+          onClick={() => setMobileOpen(false)}
+          className="font-display text-2xl font-semibold uppercase py-3.5"
+          style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}
+        >
+          ⚔️ GFC
         </Link>
         <Link
           href="/rules"
