@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore, isOrganizerOrAbove } from '@/store/auth';
 import { Avatar } from '@/components/Avatar';
+import { TokenIcon } from '@/components/TokenIcon';
 
 export function Header() {
   const [stuck, setStuck] = useState(false);
@@ -149,7 +150,7 @@ export function Header() {
             aria-label="Магазин токенов"
             title="Магазин токенов"
           >
-            <img src="/token.png" alt="Token" className="w-8 h-8 object-contain" style={{ filter: 'drop-shadow(0 0 4px rgba(201,149,74,.4))' }} />
+            <TokenIcon size={32} />
           </Link>
           <Link
             href="/rules"

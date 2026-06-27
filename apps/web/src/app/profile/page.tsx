@@ -8,6 +8,7 @@ import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, roleLabel, type Role } from '@/store/auth';
 import { ImageUploadField } from '@/components/ImageUploadField';
 import { Avatar } from '@/components/Avatar';
+import { TokenIcon } from '@/components/TokenIcon';
 import { ColoredUsername } from '@/components/ColoredUsername';
 
 interface ProfileData {
@@ -470,7 +471,7 @@ function ProfilePageContent() {
           <div>
             <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Weekly Pracs Token</h2>
             <div className="flex items-center gap-2">
-              <img src="/token.png" alt="Token" className="w-7 h-7 object-contain" />
+              <TokenIcon size={28} />
               <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>{profile.tokenBalance ?? 0}</span>
               <span className="text-sm" style={{ color: 'var(--muted)' }}>токенов</span>
             </div>

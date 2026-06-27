@@ -85,7 +85,8 @@ export async function stackRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const stack = await prisma.stack.findUnique({ where: { id } });
     if (!stack) return reply.code(404).send({ error: 'NOT_FOUND' });
-    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER') {
+    const isStaff = req.user!.role === 'OWNER' || req.user!.role === 'ADMIN';
+    if (stack.captainId !== req.user!.id && !isStaff) {
       return reply.code(403).send({ error: 'FORBIDDEN', message: 'Только капитан может редактировать стак' });
     }
     const parsed = UpdateStackSchema.safeParse(req.body);
@@ -95,12 +96,13 @@ export async function stackRoutes(app: FastifyInstance) {
     reply.send(updated);
   });
 
-  // ── DELETE (captain only) ──
+  // ── DELETE (captain / admin / owner) ──
   app.delete('/api/stacks/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const stack = await prisma.stack.findUnique({ where: { id } });
     if (!stack) return reply.code(404).send({ error: 'NOT_FOUND' });
-    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER') {
+    const isStaff = req.user!.role === 'OWNER' || req.user!.role === 'ADMIN';
+    if (stack.captainId !== req.user!.id && !isStaff) {
       return reply.code(403).send({ error: 'FORBIDDEN' });
     }
     await prisma.stack.delete({ where: { id } });
@@ -159,7 +161,7 @@ export async function stackRoutes(app: FastifyInstance) {
     const { id, reqId } = req.params as { id: string; reqId: string };
     const stack = await prisma.stack.findUnique({ where: { id } });
     if (!stack) return reply.code(404).send({ error: 'NOT_FOUND' });
-    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER' && req.user!.role !== 'ADMIN') return reply.code(403).send({ error: 'FORBIDDEN' });
 
     const joinReq = await prisma.stackJoinRequest.findUnique({ where: { id: reqId } });
     if (!joinReq || joinReq.stackId !== id) return reply.code(404).send({ error: 'NOT_FOUND' });
@@ -184,7 +186,7 @@ export async function stackRoutes(app: FastifyInstance) {
     const { id, reqId } = req.params as { id: string; reqId: string };
     const stack = await prisma.stack.findUnique({ where: { id } });
     if (!stack) return reply.code(404).send({ error: 'NOT_FOUND' });
-    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER' && req.user!.role !== 'ADMIN') return reply.code(403).send({ error: 'FORBIDDEN' });
 
     const joinReq = await prisma.stackJoinRequest.findUnique({ where: { id: reqId } });
     if (!joinReq || joinReq.stackId !== id) return reply.code(404).send({ error: 'NOT_FOUND' });
@@ -199,7 +201,7 @@ export async function stackRoutes(app: FastifyInstance) {
     const { id, userId } = req.params as { id: string; userId: string };
     const stack = await prisma.stack.findUnique({ where: { id } });
     if (!stack) return reply.code(404).send({ error: 'NOT_FOUND' });
-    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    if (stack.captainId !== req.user!.id && req.user!.role !== 'OWNER' && req.user!.role !== 'ADMIN') return reply.code(403).send({ error: 'FORBIDDEN' });
     if (userId === stack.captainId) return reply.code(400).send({ error: 'CANNOT_KICK_CAPTAIN' });
 
     await prisma.stackMember.deleteMany({ where: { stackId: id, userId } });

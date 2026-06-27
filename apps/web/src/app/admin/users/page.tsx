@@ -347,7 +347,7 @@ export default function AdminUsersPage() {
                 )}
                 {typeof u.tokenBalance === 'number' && (
                   <div className="flex items-center gap-1 mt-0.5">
-                    <img src="/token.png" alt="" className="w-3 h-3 object-contain" />
+                    <TokenIcon size={12} />
                     <span className="font-mono text-[10px]" style={{ color: 'var(--gold)' }}>{u.tokenBalance}</span>
                   </div>
                 )}
@@ -410,7 +410,7 @@ export default function AdminUsersPage() {
                   className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
                   style={{ color: 'var(--gold)', background: 'rgba(201,149,74,0.06)', border: '1px solid rgba(201,149,74,0.18)' }}
                 >
-                  <img src="/token.png" alt="" className="w-3.5 h-3.5 object-contain" />
+                  <TokenIcon size={14} />
                   Токены
                 </button>
               </div>
@@ -510,7 +510,7 @@ export default function AdminUsersPage() {
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setTokenTarget(null)}>
           <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <img src="/token.png" alt="Token" className="w-6 h-6 object-contain" />
+              <TokenIcon size={24} />
               <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--gold)' }}>
                 Выдать токены — {tokenTarget.username}
               </h2>
@@ -518,7 +518,7 @@ export default function AdminUsersPage() {
             <div className="flex items-center gap-2 mb-3 text-xs" style={{ color: 'var(--muted)' }}>
               Текущий баланс:
               <span className="font-mono font-bold flex items-center gap-1" style={{ color: 'var(--gold)' }}>
-                <img src="/token.png" alt="" className="w-3 h-3 object-contain" />
+                <TokenIcon size={12} />
                 {tokenTarget.tokenBalance ?? 0}
               </span>
             </div>
