@@ -3,7 +3,7 @@ export interface CosmeticItem {
   name: string;
   description: string;
   price: number;
-  type: 'username' | 'frame';
+  type: 'username' | 'frame' | 'profile';
   color?: string;
   gradient?: string;
   preview: string;

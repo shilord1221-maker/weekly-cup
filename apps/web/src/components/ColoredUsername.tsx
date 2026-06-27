@@ -3,11 +3,13 @@
 export interface CosmeticItem {
   key: string;
   name: string;
+  description?: string;
   price: number;
   type: string;
   color?: string;
   gradient?: string;
   preview: string;
+  frameUrl?: string;
 }
 
 // Маппинг ключа эффекта → CSS-класс для градиентов
