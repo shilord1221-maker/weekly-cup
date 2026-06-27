@@ -3,10 +3,11 @@ export interface CosmeticItem {
   name: string;
   description: string;
   price: number;
-  type: 'username';
-  color?: string;           // solid color
-  gradient?: string;        // CSS gradient
-  preview: string;          // как выглядит в магазине (hex или gradient string)
+  type: 'username' | 'frame';
+  color?: string;
+  gradient?: string;
+  preview: string;
+  frameUrl?: string;   // путь к PNG рамки (type === 'frame')
 }
 
 export const COSMETICS_CATALOG: CosmeticItem[] = [
@@ -28,6 +29,11 @@ export const COSMETICS_CATALOG: CosmeticItem[] = [
   { key: 'GRADIENT_SUNSET',  name: 'Закат 🌅',        description: 'Тёплый градиент заката',          price: 700,  type: 'username', gradient: 'linear-gradient(90deg,#f97316,#ec4899,#8b5cf6)', preview: 'linear-gradient(90deg,#f97316,#ec4899,#8b5cf6)' },
   { key: 'GRADIENT_RAINBOW', name: 'Радуга 🌈',       description: 'Все цвета радуги',                price: 800,  type: 'username', gradient: 'linear-gradient(90deg,#ef4444,#f97316,#fbbf24,#22c55e,#4f7fff,#8b5cf6)', preview: 'linear-gradient(90deg,#ef4444,#f97316,#fbbf24,#22c55e,#4f7fff,#8b5cf6)' },
   { key: 'GRADIENT_PRACS',   name: 'Weekly Pracs 🏆', description: 'Эксклюзивный градиент платформы', price: 1000, type: 'username', gradient: 'linear-gradient(90deg,#4f7fff,#8b5cf6,#f59e0b)', preview: 'linear-gradient(90deg,#4f7fff,#8b5cf6,#f59e0b)' },
+
+  // ── Рамки аватара ──
+  { key: 'FRAME_WINGS_PURPLE', name: 'Крылья 🪽',      description: 'Фиолетовые крылья вокруг аватара',   price: 800,  type: 'frame', frameUrl: '/frames/wings-purple.png', preview: '/frames/wings-purple.png' },
+  { key: 'FRAME_FIRE',         name: 'Огненная 🔥',    description: 'Огненная рамка вокруг аватара',      price: 600,  type: 'frame', frameUrl: '/frames/fire.png',         preview: '/frames/fire.png' },
+  { key: 'FRAME_GOLD',         name: 'Золотая ✨',     description: 'Золотая рамка победителя',           price: 1000, type: 'frame', frameUrl: '/frames/gold.png',         preview: '/frames/gold.png' },
 ];
 
 export const CATALOG_BY_KEY = new Map(COSMETICS_CATALOG.map((c) => [c.key, c]));

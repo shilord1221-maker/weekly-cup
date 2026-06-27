@@ -140,6 +140,11 @@ export async function profileRoutes(app: FastifyInstance) {
         staticId: true,
         tokenBalance: true,
         activeUsernameEffect: true,
+        activeFrameEffect: true,
+        profileBg: true,
+        pendingProfileBg: true,
+        profileBgStatus: true,
+        profileBgRejectedReason: true,
         achievements: { orderBy: { earnedAt: 'desc' } },
         wins: { include: { match: { include: { map: true } } }, orderBy: { createdAt: 'desc' }, take: 20 },
         _count: { select: { referrals: true } },
@@ -232,7 +237,7 @@ export async function winsRoutes(app: FastifyInstance) {
     const wins = await prisma.win.findMany({
       orderBy: { createdAt: 'desc' },
       take: 30,
-      include: { user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true } }, match: { include: { map: true } }, team: true },
+      include: { user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true, activeFrameEffect: true } }, match: { include: { map: true } }, team: true },
     });
     // Подтягиваем стак каждого победителя за один запрос
     const userIds = [...new Set(wins.map((w) => w.userId))];
@@ -244,13 +249,38 @@ export async function winsRoutes(app: FastifyInstance) {
     reply.send(wins.map((w) => ({ ...w, userStack: stackByUser.get(w.userId) ?? null })));
   });
 
+  // Топ игроков за сегодня по числу побед
+  app.get('/api/wins/today-top', async (req, reply) => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const wins = await prisma.win.findMany({
+      where: { createdAt: { gte: startOfDay } },
+      select: { userId: true, user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true, activeFrameEffect: true } } },
+    });
+
+    const counts = new Map<string, { user: typeof wins[0]['user']; count: number }>();
+    for (const w of wins) {
+      const existing = counts.get(w.userId);
+      if (existing) existing.count++;
+      else counts.set(w.userId, { user: w.user, count: 1 });
+    }
+
+    const top = [...counts.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+      .map(({ user, count }) => ({ userId: user.id, username: user.username, avatarUrl: user.avatarUrl, activeUsernameEffect: user.activeUsernameEffect, activeFrameEffect: user.activeFrameEffect, count }));
+
+    reply.send(top);
+  });
+
   app.get('/api/wins/user/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const wins = await prisma.win.findMany({
       where: { userId: id },
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true } }, match: { include: { map: true } }, team: true },
+      include: { user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true, activeFrameEffect: true } }, match: { include: { map: true } }, team: true },
     });
     reply.send(wins);
   });
@@ -274,7 +304,9 @@ export async function publicProfileRoutes(app: FastifyInstance) {
         avatarUrl: true,
         createdAt: true,
         activeUsernameEffect: true,
+        activeFrameEffect: true,
         tokenBalance: true,
+        profileBg: true,
         staticId: { select: { value: true } },
         achievements: { orderBy: { earnedAt: 'desc' }, take: 20 },
         wins: {

@@ -11,10 +11,19 @@ import { ColoredUsername } from '@/components/ColoredUsername';
 interface WinItem {
   id: string;
   createdAt: string;
-  user: { id: string; username: string; avatarUrl?: string | null; activeUsernameEffect?: string | null };
+  user: { id: string; username: string; avatarUrl?: string | null; activeUsernameEffect?: string | null; activeFrameEffect?: string | null };
   match: { id: string; mode: string; map: { name: string; imageUrl: string } };
   team: { name: string };
   userStack?: { id: string; name: string; tag: string; tagColor: string } | null;
+}
+
+interface DayTopItem {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  activeUsernameEffect: string | null;
+  activeFrameEffect: string | null;
+  count: number;
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -34,6 +43,12 @@ function timeAgo(dateStr: string): string {
 
 export default function WinsPage() {
   const [mode, setMode] = useState('');
+
+  const { data: todayTop } = useQuery<DayTopItem[]>({
+    queryKey: ['wins-today-top'],
+    queryFn: () => api.get('/wins/today-top', { auth: false }),
+    refetchInterval: 60_000,
+  });
 
   const { data: wins, isLoading, refetch, isFetching } = useQuery<WinItem[]>({
     queryKey: ['wins-full'],
@@ -76,6 +91,35 @@ export default function WinsPage() {
           ))}
         </div>
       </div>
+
+      {/* ТОП ДНЯ */}
+      {todayTop && todayTop.length > 0 && (
+        <div className="mb-10 rounded-2xl px-6 py-5" style={{ background: 'linear-gradient(135deg,rgba(201,149,74,.06),rgba(79,127,255,.04))', border: '1px solid rgba(201,149,74,.2)' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <span style={{ fontSize: '18px' }}>🔥</span>
+            <span className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--gold)' }}>Топ сегодня</span>
+            <span className="font-mono text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.04)' }}>обновляется каждую минуту</span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {todayTop.map((p, idx) => (
+              <Link key={p.userId} href={`/users/${p.userId}`} className="flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all hover:scale-105" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)' }}>
+                <span className="font-display font-bold text-sm w-5 text-center" style={{ color: idx === 0 ? 'var(--gold)' : idx === 1 ? '#94a3b8' : idx === 2 ? '#cd7f32' : 'var(--muted)' }}>
+                  {idx === 0 ? '👑' : idx + 1}
+                </span>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <Avatar username={p.username} avatarUrl={p.avatarUrl} size={32} frameKey={p.activeFrameEffect} />
+                </div>
+                <div>
+                  <div className="text-xs font-medium">
+                    <ColoredUsername username={p.username} effectKey={p.activeUsernameEffect} />
+                  </div>
+                  <div className="font-mono text-[10px]" style={{ color: 'var(--gold)' }}>🏆 {p.count} {p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-8 items-start">
         {/* СПИСОК */}
@@ -129,15 +173,13 @@ export default function WinsPage() {
                   <div
                     className="flex-shrink-0"
                     style={isFirst ? {
-                      padding: '3px',
+                      padding: w.user.activeFrameEffect ? 0 : '3px',
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg,#fde68a,#f59e0b,#d97706)',
-                      boxShadow: '0 0 12px rgba(201,149,74,.5)',
+                      background: w.user.activeFrameEffect ? 'none' : 'linear-gradient(135deg,#fde68a,#f59e0b,#d97706)',
+                      boxShadow: w.user.activeFrameEffect ? 'none' : '0 0 12px rgba(201,149,74,.5)',
                     } : {}}
                   >
-                    <div style={isFirst ? { borderRadius: '50%', overflow: 'hidden' } : {}}>
-                      <Avatar username={w.user.username} avatarUrl={w.user.avatarUrl} size={isFirst ? 48 : 44} />
-                    </div>
+                    <Avatar username={w.user.username} avatarUrl={w.user.avatarUrl} size={isFirst ? 48 : 44} frameKey={w.user.activeFrameEffect} />
                   </div>
 
                   {/* Инфо */}

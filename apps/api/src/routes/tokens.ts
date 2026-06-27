@@ -1,13 +1,48 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@/db.js';
+import { redis } from '@/redis.js';
 import { requireAuth, requireRole } from '@/middleware/auth.js';
 import { COSMETICS_CATALOG, CATALOG_BY_KEY } from '@/services/cosmetics.js';
 
+const PRICES_KEY = 'shop:prices';
+const PROFILE_BG_PRICE_KEY = 'shop:price:PROFILE_BG';
+
+async function getItemPrice(key: string, defaultPrice: number): Promise<number> {
+  const override = await redis.hget(PRICES_KEY, key);
+  return override ? Number(override) : defaultPrice;
+}
+
 export async function tokenRoutes(app: FastifyInstance) {
-  // Каталог косметики — публичный
+  // Каталог косметики с актуальными ценами
   app.get('/api/shop/catalog', async (req, reply) => {
-    reply.send(COSMETICS_CATALOG);
+    const overrides = await redis.hgetall(PRICES_KEY) ?? {};
+    const catalog = COSMETICS_CATALOG.map((item) => ({
+      ...item,
+      price: overrides[item.key] ? Number(overrides[item.key]) : item.price,
+    }));
+    // Добавляем виртуальный предмет "Фон профиля"
+    const bgPrice = overrides['PROFILE_BG'] ? Number(overrides['PROFILE_BG']) : 500;
+    catalog.push({ key: 'PROFILE_BG', name: 'Фон профиля 🖼️', description: 'Загрузи своё изображение — оно появится на твоём профиле после модерации', price: bgPrice, type: 'profile', preview: '', color: undefined, gradient: undefined });
+    reply.send(catalog);
+  });
+
+  // Текущие цены (для отображения в управлении)
+  app.get('/api/shop/prices', { preHandler: [requireAuth, requireRole('OWNER')] }, async (req, reply) => {
+    const overrides = await redis.hgetall(PRICES_KEY) ?? {};
+    reply.send(overrides);
+  });
+
+  // Изменить цену — только Owner
+  app.patch('/api/shop/prices', { preHandler: [requireAuth, requireRole('OWNER')] }, async (req, reply) => {
+    const Schema = z.record(z.string(), z.number().int().min(0).max(100000));
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+    const entries = Object.entries(parsed.data);
+    if (entries.length > 0) {
+      await redis.hset(PRICES_KEY, ...entries.flatMap(([k, v]) => [k, String(v)]));
+    }
+    reply.send({ success: true });
   });
 
   // Баланс и купленная косметика текущего пользователя
@@ -29,14 +64,66 @@ export async function tokenRoutes(app: FastifyInstance) {
     reply.send(txs);
   });
 
+  // Купить фон профиля (отдельный flow — нужна ссылка на картинку)
+  app.post('/api/shop/buy-profile-bg', { preHandler: requireAuth }, async (req, reply) => {
+    const Schema = z.object({ imageUrl: z.string().url() });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const overrides = await redis.hgetall(PRICES_KEY) ?? {};
+    const price = overrides['PROFILE_BG'] ? Number(overrides['PROFILE_BG']) : 500;
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { tokenBalance: true } });
+    if (!user) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (user.tokenBalance < price) return reply.code(402).send({ error: 'NOT_ENOUGH_TOKENS', message: `Недостаточно токенов. Нужно: ${price}, у вас: ${user.tokenBalance}` });
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: req.user!.id }, data: { tokenBalance: { decrement: price }, pendingProfileBg: parsed.data.imageUrl, profileBgStatus: 'PENDING' } }),
+      prisma.tokenTransaction.create({ data: { userId: req.user!.id, amount: -price, reason: 'PURCHASE:PROFILE_BG' } }),
+    ]);
+
+    reply.send({ success: true, message: 'Фон отправлен на модерацию' });
+  });
+
+  // Фоны на модерации — Admin/Owner
+  app.get('/api/shop/profile-bg/pending', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const users = await prisma.user.findMany({
+      where: { profileBgStatus: 'PENDING' },
+      select: { id: true, username: true, pendingProfileBg: true, profileBg: true },
+      orderBy: { updatedAt: 'asc' },
+    });
+    reply.send(users);
+  });
+
+  // Одобрить фон
+  app.post('/api/shop/profile-bg/:userId/approve', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target?.pendingProfileBg) return reply.code(404).send({ error: 'NOT_FOUND' });
+    await prisma.user.update({ where: { id: userId }, data: { profileBg: target.pendingProfileBg, pendingProfileBg: null, profileBgStatus: 'APPROVED', profileBgReviewedById: req.user!.id } });
+    reply.send({ success: true });
+  });
+
+  // Отклонить фон
+  app.post('/api/shop/profile-bg/:userId/reject', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const Schema = z.object({ reason: z.string().max(500).optional() });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+    await prisma.user.update({ where: { id: userId }, data: { pendingProfileBg: null, profileBgStatus: 'REJECTED', profileBgReviewedById: req.user!.id, profileBgRejectedReason: parsed.data.reason ?? null } });
+    reply.send({ success: true });
+  });
+
   // Купить косметику
   app.post('/api/shop/buy', { preHandler: requireAuth }, async (req, reply) => {
     const Schema = z.object({ cosmeticKey: z.string() });
     const parsed = Schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
 
-    const item = CATALOG_BY_KEY.get(parsed.data.cosmeticKey);
-    if (!item) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Косметика не найдена' });
+    const baseItem = CATALOG_BY_KEY.get(parsed.data.cosmeticKey);
+    if (!baseItem) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Косметика не найдена' });
+    const overrides = await redis.hgetall(PRICES_KEY) ?? {};
+    const item = { ...baseItem, price: overrides[baseItem.key] ? Number(overrides[baseItem.key]) : baseItem.price };
 
     const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { tokenBalance: true } });
     if (!user) return reply.code(404).send({ error: 'NOT_FOUND' });
@@ -67,7 +154,12 @@ export async function tokenRoutes(app: FastifyInstance) {
       if (!owned) return reply.code(403).send({ error: 'NOT_OWNED', message: 'Этот эффект не куплен' });
     }
 
-    await prisma.user.update({ where: { id: req.user!.id }, data: { activeUsernameEffect: parsed.data.cosmeticKey } });
+    const item = parsed.data.cosmeticKey ? CATALOG_BY_KEY.get(parsed.data.cosmeticKey) : null;
+    if (item?.type === 'frame') {
+      await prisma.user.update({ where: { id: req.user!.id }, data: { activeFrameEffect: parsed.data.cosmeticKey } });
+    } else {
+      await prisma.user.update({ where: { id: req.user!.id }, data: { activeUsernameEffect: parsed.data.cosmeticKey } });
+    }
     reply.send({ success: true });
   });
 

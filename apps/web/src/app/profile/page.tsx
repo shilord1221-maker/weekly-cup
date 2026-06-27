@@ -18,6 +18,10 @@ interface ProfileData {
   role: Role;
   tokenBalance?: number;
   activeUsernameEffect?: string | null;
+  profileBg?: string | null;
+  pendingProfileBg?: string | null;
+  profileBgStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  profileBgRejectedReason?: string | null;
   staticId: { value: string } | null;
   discordId: string | null;
   discordUsername: string | null;
@@ -93,6 +97,25 @@ function ProfilePageContent() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { logout } = useAuthStore();
+
+  // Фон профиля
+  const [bgUrl, setBgUrl] = useState('');
+  const [bgError, setBgError] = useState<string | null>(null);
+  const [bgLoading, setBgLoading] = useState(false);
+  const [bgSuccess, setBgSuccess] = useState(false);
+
+  const handleBuyProfileBg = async () => {
+    setBgError(null); setBgSuccess(false);
+    if (!bgUrl.trim()) { setBgError('Загрузите изображение'); return; }
+    setBgLoading(true);
+    try {
+      await api.post('/shop/buy-profile-bg', { imageUrl: bgUrl.trim() });
+      setBgSuccess(true); setBgUrl('');
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    } catch (e) {
+      setBgError(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setBgLoading(false); }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -462,6 +485,44 @@ function ProfilePageContent() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* ФОН ПРОФИЛЯ */}
+      <div className="card mb-6">
+        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+          Фон профиля
+        </h2>
+
+        {profile.profileBg && (
+          <div className="mb-3 rounded-xl overflow-hidden" style={{ height: '100px', border: '1px solid var(--border)' }}>
+            <img src={profile.profileBg} alt="Фон профиля" className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        {profile.profileBgStatus === 'PENDING' && (
+          <div className="text-xs rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(201,149,74,.06)', border: '1px solid rgba(201,149,74,.2)', color: 'var(--gold)' }}>
+            ⏳ Фон отправлен на модерацию — появится после одобрения
+          </div>
+        )}
+        {profile.profileBgStatus === 'REJECTED' && (
+          <div className="text-xs rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>
+            ✕ Фон отклонён{profile.profileBgRejectedReason ? `: ${profile.profileBgRejectedReason}` : ''}
+          </div>
+        )}
+
+        {profile.profileBgStatus !== 'PENDING' && (
+          <>
+            <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+              Загрузи изображение — оно появится на твоём профиле после модерации. Стоит <span style={{ color: 'var(--gold)' }}>500 токенов</span>.
+            </p>
+            {bgError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{bgError}</div>}
+            {bgSuccess && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>Отправлено на модерацию ✓</div>}
+            <ImageUploadField label="Изображение для фона" value={bgUrl} onChange={setBgUrl} folder="media-thumbs" />
+            <button onClick={handleBuyProfileBg} disabled={bgLoading || !bgUrl} className="btn-main justify-center mt-3">
+              {bgLoading ? 'Отправляем...' : '🖼️ Отправить на модерацию (500 токенов)'}
+            </button>
+          </>
         )}
       </div>
 

@@ -137,10 +137,18 @@ model User {
   captainOfStack   Stack?           @relation("StackCaptain")
 
   // Токены — внутренняя валюта платформы. Зарабатываются победами, тратятся в магазине эффектов.
-  tokenBalance       Int       @default(0)
-  activeUsernameEffect String? @db.VarChar(64) // ключ активного эффекта из каталога
-  cosmetics          UserCosmetic[]
-  tokenTransactions  TokenTransaction[]
+  tokenBalance         Int       @default(0)
+  activeUsernameEffect String?   @db.VarChar(64)
+  activeFrameEffect    String?   @db.VarChar(64)
+  cosmetics            UserCosmetic[]
+  tokenTransactions    TokenTransaction[]
+
+  // Фон профиля — проходит модерацию как аватарка
+  profileBg            String?
+  pendingProfileBg     String?
+  profileBgStatus      AvatarStatus?
+  profileBgReviewedById String?
+  profileBgRejectedReason String? @db.VarChar(500)
 
   @@index([role])
   @@index([isBanned])

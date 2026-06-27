@@ -17,6 +17,7 @@ interface PublicProfile {
   avatarUrl: string | null;
   createdAt: string;
   activeUsernameEffect: string | null;
+  profileBg: string | null;
   tokenBalance: number;
   staticId: { value: string } | null;
   achievements: { id: string; title: string; earnedAt: string }[];
@@ -62,10 +63,18 @@ export default function PublicProfilePage() {
   const joinDate = new Date(profile.createdAt).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-3xl mx-auto" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-screen px-6 md:px-10 pb-20 max-w-3xl mx-auto relative" style={{ background: 'var(--bg)' }}>
+
+      {/* ФОН ПРОФИЛЯ */}
+      {profile.profileBg && (
+        <div className="absolute top-0 left-0 right-0 h-56 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+          <img src={profile.profileBg} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,7,15,.2) 0%, rgba(5,7,15,.95) 100%)' }} />
+        </div>
+      )}
 
       {/* HEADER */}
-      <div className="flex items-start gap-6 mb-8 flex-wrap">
+      <div className={`flex items-start gap-6 mb-8 flex-wrap relative z-10 ${profile.profileBg ? 'pt-32' : 'pt-32'}`}>
         <div className="relative">
           <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={80} />
         </div>
@@ -97,7 +106,7 @@ export default function PublicProfilePage() {
       </div>
 
       {/* СТАТИСТИКА */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-3 mb-8 relative z-10">
         <div className="rounded-2xl px-4 py-4 text-center" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
           <div className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>🏆 {profile._count.wins}</div>
           <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Побед</div>

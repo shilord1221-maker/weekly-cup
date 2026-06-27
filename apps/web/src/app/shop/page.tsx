@@ -27,6 +27,11 @@ export default function ShopPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const canGrant = isAdminOrOwner(user?.role);
+  const isOwner = user?.role === 'OWNER';
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [priceSaving, setPriceSaving] = useState(false);
+  const [priceSuccess, setPriceSuccess] = useState(false);
 
   const [buying, setBuying] = useState<string | null>(null);
   const [buyErr, setBuyErr] = useState<string | null>(null);
@@ -51,6 +56,25 @@ export default function ShopPage() {
       setSearchResults(users.slice(0, 5));
     } catch { setSearchResults([]); }
     finally { setSearching(false); }
+  };
+
+  const openPriceModal = () => {
+    const initial: Record<string, string> = {};
+    catalog?.forEach((item) => { initial[item.key] = String(item.price); });
+    setPrices(initial); setPriceSuccess(false); setShowPriceModal(true);
+  };
+
+  const handleSavePrices = async () => {
+    setPriceSaving(true); setPriceSuccess(false);
+    try {
+      const body: Record<string, number> = {};
+      Object.entries(prices).forEach(([k, v]) => { if (v) body[k] = Number(v); });
+      await api.patch('/shop/prices', body);
+      qc.invalidateQueries({ queryKey: ['shop-catalog'] });
+      setPriceSuccess(true);
+      setTimeout(() => setShowPriceModal(false), 1000);
+    } catch { /* ignore */ }
+    finally { setPriceSaving(false); }
   };
 
   const handleGrant = async () => {
@@ -103,8 +127,9 @@ export default function ShopPage() {
     finally { setActivating(null); }
   };
 
-  const colors = catalog?.filter((c) => c.color) ?? [];
-  const gradients = catalog?.filter((c) => c.gradient) ?? [];
+  const colors = catalog?.filter((c) => c.type === 'username' && c.color) ?? [];
+  const gradients = catalog?.filter((c) => c.type === 'username' && c.gradient) ?? [];
+  const frames = catalog?.filter((c) => c.type === 'frame') ?? [];
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-5xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -122,16 +147,27 @@ export default function ShopPage() {
           <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>Трать токены на эффекты для своего ника</p>
         </div>
 
-        {canGrant && (
-          <button
-            onClick={() => { setShowGrantModal(true); setGrantErr(null); setGrantSuccess(null); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={{ background: 'rgba(201,149,74,.1)', border: '1px solid rgba(201,149,74,.3)', color: 'var(--gold)' }}
-          >
-            <TokenIcon size={18} />
-            Выдать токены
-          </button>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          {isOwner && (
+            <button
+              onClick={openPriceModal}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+              style={{ background: 'rgba(79,127,255,.08)', border: '1px solid rgba(79,127,255,.2)', color: 'var(--a)' }}
+            >
+              ✏️ Цены
+            </button>
+          )}
+          {canGrant && (
+            <button
+              onClick={() => { setShowGrantModal(true); setGrantErr(null); setGrantSuccess(null); }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+              style={{ background: 'rgba(201,149,74,.1)', border: '1px solid rgba(201,149,74,.3)', color: 'var(--gold)' }}
+            >
+              <TokenIcon size={18} />
+              Выдать токены
+            </button>
+          )}
+        </div>
 
         {user ? (
           <div className="flex flex-col items-end gap-1">
@@ -288,6 +324,96 @@ export default function ShopPage() {
           })}
         </div>
       </div>
+
+      {/* PRICE MODAL (Owner only) */}
+      {showPriceModal && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.75)' }} onClick={() => setShowPriceModal(false)}>
+          <div className="card max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              ✏️ Управление ценами
+            </h2>
+            {priceSuccess && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>Сохранено ✓</div>}
+            <div className="flex flex-col gap-2 mb-4">
+              {catalog?.map((item) => (
+                <div key={item.key} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <div className="flex-1 text-sm">{item.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <TokenIcon size={14} />
+                    <input
+                      type="number"
+                      value={prices[item.key] ?? item.price}
+                      onChange={(e) => setPrices((p) => ({ ...p, [item.key]: e.target.value }))}
+                      className="input-field text-right font-mono"
+                      style={{ width: '90px', padding: '6px 10px', fontSize: '13px' }}
+                      min={0}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowPriceModal(false)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button onClick={handleSavePrices} disabled={priceSaving} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {priceSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* РАМКИ АВАТАРА */}
+      {frames.length > 0 && (
+        <div className="mt-10">
+          <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+            Рамки аватара
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {frames.map((item) => {
+              const owned = ownedKeys.has(item.key);
+              const isActive = myShop?.activeUsernameEffect === item.key;
+              return (
+                <div key={item.key} className="flex flex-col gap-3 p-4 rounded-2xl" style={{ border: isActive ? '1px solid rgba(139,92,246,.4)' : '1px solid var(--border)', background: 'var(--surface)' }}>
+                  {/* Превью */}
+                  <div className="flex justify-center py-2">
+                    <div className="relative" style={{ width: 64, height: 64 }}>
+                      <div className="w-16 h-16 rounded-full" style={{ background: 'linear-gradient(135deg,var(--a),var(--a2))' }} />
+                      {item.frameUrl && (
+                        <img src={item.frameUrl} alt="" style={{ position: 'absolute', width: 120, height: 120, top: -28, left: -28, pointerEvents: 'none' }} />
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium text-center">{item.name}</div>
+                  <div className="text-xs text-center" style={{ color: 'var(--muted)' }}>{item.description}</div>
+                  <div className="flex items-center justify-between mt-auto">
+                    <span className="font-mono text-xs flex items-center gap-1.5" style={{ color: 'var(--gold)' }}>
+                      <TokenIcon size={14} /> {item.price}
+                    </span>
+                    {!user ? null : owned ? (
+                      <button
+                        onClick={() => handleActivate(isActive ? null : item.key)}
+                        disabled={!!activating}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg"
+                        style={{ color: isActive ? 'var(--muted)' : 'var(--green)', background: isActive ? 'rgba(255,255,255,.04)' : 'rgba(34,197,94,.06)', border: `1px solid ${isActive ? 'var(--border2)' : 'rgba(34,197,94,.2)'}` }}
+                      >
+                        {isActive ? 'Снять' : 'Надеть'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleBuy(item.key)}
+                        disabled={buying === item.key || (myShop?.tokenBalance ?? 0) < item.price}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg"
+                        style={{ color: 'var(--a)', background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.2)', opacity: (myShop?.tokenBalance ?? 0) < item.price ? 0.5 : 1 }}
+                      >
+                        {buying === item.key ? '...' : 'Купить'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* GRANT MODAL */}
       {showGrantModal && (
