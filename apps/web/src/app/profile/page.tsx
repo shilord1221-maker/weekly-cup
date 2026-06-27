@@ -10,6 +10,7 @@ import { ImageUploadField } from '@/components/ImageUploadField';
 import { Avatar } from '@/components/Avatar';
 import { TokenIcon } from '@/components/TokenIcon';
 import { ColoredUsername } from '@/components/ColoredUsername';
+import { StackTag } from '@/components/StackTag';
 import { BgPositionPicker } from '@/components/BgPositionPicker';
 
 interface ProfileData {
@@ -22,6 +23,7 @@ interface ProfileData {
   activeFrameEffect?: string | null;
   profileBg?: string | null;
   profileBgPosition?: string | null;
+  stackMembership?: { stack: { id: string; name: string; tag: string; tagColor: string } } | null;
   pendingProfileBg?: string | null;
   profileBgStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   profileBgRejectedReason?: string | null;
@@ -259,9 +261,16 @@ function ProfilePageContent() {
       <div className="flex items-center gap-4 mb-12">
         <Avatar username={profile.username} avatarUrl={profile.avatarUrl} size={64} frameKey={profile.activeFrameEffect} />
         <div>
-          <h1 className="font-display font-bold uppercase" style={{ fontSize: '28px', letterSpacing: '0.02em' }}>
-            <ColoredUsername username={profile.username} effectKey={profile.activeUsernameEffect} />
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            {profile.stackMembership?.stack && (
+              <a href={`/stacks/${profile.stackMembership.stack.id}`}>
+                <StackTag tag={profile.stackMembership.stack.tag} color={profile.stackMembership.stack.tagColor} />
+              </a>
+            )}
+            <h1 className="font-display font-bold uppercase" style={{ fontSize: '28px', letterSpacing: '0.02em' }}>
+              <ColoredUsername username={profile.username} effectKey={profile.activeUsernameEffect} />
+            </h1>
+          </div>
           <p className="text-sm flex items-center gap-2 flex-wrap" style={{ color: 'var(--muted)' }}>
             <span
               className="font-mono"

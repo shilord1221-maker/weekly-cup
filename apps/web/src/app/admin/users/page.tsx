@@ -5,6 +5,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { TokenIcon } from '@/components/TokenIcon';
+import { Avatar } from '@/components/Avatar';
+import { StackTag } from '@/components/StackTag';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -31,6 +34,7 @@ interface UserItem {
   id: string;
   username: string;
   email: string;
+  avatarUrl?: string | null;
   role: 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'PLAYER';
   staticId: string | null;
   staticIdProofUrl: string | null;
@@ -43,6 +47,7 @@ interface UserItem {
   lastLoginIp?: string | null;
   createdAt: string;
   tokenBalance?: number;
+  stack?: { id: string; name: string; tag: string; tagColor: string } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -79,6 +84,12 @@ export default function AdminUsersPage() {
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState(false);
   const [tokenLoading, setTokenLoading] = useState(false);
+
+  // Аватарка напрямую
+  const [avatarTarget, setAvatarTarget] = useState<UserItem | null>(null);
+  const [avatarInput, setAvatarInput] = useState('');
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
   // не увидит этот пункт (backend всё равно заблокирует попытку, если обойти UI).
@@ -191,6 +202,28 @@ export default function AdminUsersPage() {
     } catch (e) {
       setTokenError(e instanceof ApiClientError ? e.message : 'Не удалось выдать токены');
     } finally { setTokenLoading(false); }
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!avatarTarget) return;
+    setAvatarError(null); setAvatarSaving(true);
+    try {
+      await api.patch(`/users/${avatarTarget.id}/avatar-direct`, { avatarUrl: avatarInput.trim() || null });
+      setAvatarTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setAvatarError(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setAvatarSaving(false); }
+  };
+
+  const handleRemoveFromStack = async (userId: string, username: string, stackName: string) => {
+    if (!confirm(`Удалить ${username} из стака «${stackName}»?`)) return;
+    try {
+      await api.delete(`/users/${userId}/stack`);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : 'Ошибка');
+    }
   };
 
   const handleSaveUsername = async () => {
@@ -314,30 +347,33 @@ export default function AdminUsersPage() {
                   {isOwner && (
                     <>
                       {' · '}
-                      <button
-                        onClick={() => {
-                          setStaticIdTarget(u);
-                          setStaticIdInput(u.staticId ?? '');
-                          setStaticIdError(null);
-                        }}
-                        style={{ color: 'var(--a)' }}
-                      >
-                        изменить Static ID
+                      <button onClick={() => { setStaticIdTarget(u); setStaticIdInput(u.staticId ?? ''); setStaticIdError(null); }} style={{ color: 'var(--a)' }}>
+                        Static ID
                       </button>
                       {' · '}
-                      <button
-                        onClick={() => {
-                          setUsernameTarget(u);
-                          setUsernameInput(u.username);
-                          setUsernameError(null);
-                        }}
-                        style={{ color: 'var(--a)' }}
-                      >
-                        изменить ник
+                      <button onClick={() => { setUsernameTarget(u); setUsernameInput(u.username); setUsernameError(null); }} style={{ color: 'var(--a)' }}>
+                        ник
+                      </button>
+                      {' · '}
+                      <button onClick={() => { setAvatarTarget(u); setAvatarInput(u.avatarUrl ?? ''); setAvatarError(null); }} style={{ color: 'var(--a)' }}>
+                        аватарка
                       </button>
                     </>
                   )}
                 </div>
+                {u.stack && isOwner && (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <StackTag tag={u.stack.tag} color={u.stack.tagColor} />
+                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>{u.stack.name}</span>
+                    <button
+                      onClick={() => handleRemoveFromStack(u.id, u.username, u.stack!.name)}
+                      className="text-[10px] ml-1"
+                      style={{ color: '#f87171' }}
+                    >
+                      [удалить из стака]
+                    </button>
+                  </div>
+                )}
                 {(u.registrationIp || u.lastLoginIp) && (
                   <div className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(96,104,128,.6)' }}>
                     IP:{' '}
@@ -545,6 +581,35 @@ export default function AdminUsersPage() {
               <button onClick={() => setTokenTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
               <button onClick={handleGrantTokens} disabled={tokenLoading || !tokenAmount} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
                 {tokenLoading ? 'Выдаём...' : 'Выдать'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AVATAR MODAL — только Owner */}
+      {avatarTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setAvatarTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Аватарка — {avatarTarget.username}
+            </h2>
+            {avatarTarget.avatarUrl && (
+              <div className="flex items-center gap-3 mb-4">
+                <Avatar username={avatarTarget.username} avatarUrl={avatarTarget.avatarUrl} size={48} />
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--muted)' }}>Текущая аватарка</div>
+                  <button onClick={() => setAvatarInput('')} className="text-xs" style={{ color: '#f87171' }}>Удалить</button>
+                </div>
+              </div>
+            )}
+            {avatarError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{avatarError}</div>}
+            <ImageUploadField label="Новая аватарка" value={avatarInput} onChange={setAvatarInput} folder="media-thumbs" />
+            <p className="text-xs mt-2 mb-4" style={{ color: 'var(--muted)' }}>Устанавливается напрямую без модерации (Owner only)</p>
+            <div className="flex gap-2">
+              <button onClick={() => setAvatarTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button onClick={handleSaveAvatar} disabled={avatarSaving} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {avatarSaving ? 'Сохраняем...' : 'Сохранить'}
               </button>
             </div>
           </div>

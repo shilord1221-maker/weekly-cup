@@ -9,6 +9,8 @@ import { useAuthStore, isOrganizerOrAbove, isAdminOrOwner } from '@/store/auth';
 import { useSocket } from '@/hooks/useSocket';
 import { ChatPanel } from '@/components/ChatPanel';
 import { Avatar } from '@/components/Avatar';
+import { StackTag } from '@/components/StackTag';
+import { ColoredUsername } from '@/components/ColoredUsername';
 
 interface LiveStream {
   id: string;
@@ -178,7 +180,7 @@ interface Member {
   userId: string;
   dynamicId?: string | null;
   isEliminated?: boolean;
-  user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null; activeFrameEffect?: string | null };
+  user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null; activeFrameEffect?: string | null; activeUsernameEffect?: string | null; stackMembership?: { stack: { id: string; tag: string; tagColor: string } } | null };
 }
 interface TeamData {
   id: string;
@@ -1105,9 +1107,12 @@ export default function LobbyPage() {
                     style={{ borderBottom: '1px solid var(--border)', opacity: m.isEliminated ? 0.45 : 1 }}
                   >
                     <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={24} frameKey={m.user.activeFrameEffect} />
+                    {m.user.stackMembership?.stack && (
+                      <StackTag tag={m.user.stackMembership.stack.tag} color={m.user.stackMembership.stack.tagColor} />
+                    )}
                     <span style={{ textDecoration: m.isEliminated ? 'line-through' : 'none' }}>
                       {m.isEliminated && '💀 '}
-                      {m.user.username}
+                      <ColoredUsername username={m.user.username} effectKey={m.user.activeUsernameEffect} />
                     </span>
                     {m.user.staticId && (
                       <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>

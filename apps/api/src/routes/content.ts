@@ -145,6 +145,7 @@ export async function profileRoutes(app: FastifyInstance) {
         profileBgPosition: true,
         pendingProfileBg: true,
         profileBgStatus: true,
+        stackMembership: { select: { stack: { select: { id: true, name: true, tag: true, tagColor: true } } } },
         profileBgRejectedReason: true,
         achievements: { orderBy: { earnedAt: 'desc' } },
         wins: { include: { match: { include: { map: true } } }, orderBy: { createdAt: 'desc' }, take: 20 },
@@ -388,11 +389,13 @@ export async function userRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, username: true, email: true, role: true,
+        avatarUrl: true,
         staticId: { select: { value: true, proofUrl: true } },
         isBanned: true, bannedReason: true,
         isSuspended: true, suspendedReason: true, suspendedUntil: true,
         registrationIp: true, lastLoginIp: true, createdAt: true,
         tokenBalance: true,
+        stackMembership: { select: { stackId: true, stack: { select: { id: true, name: true, tag: true, tagColor: true } } } },
       },
       take: 200,
     });
@@ -401,6 +404,7 @@ export async function userRoutes(app: FastifyInstance) {
       users.map((u) => ({
         id: u.id,
         username: u.username,
+        avatarUrl: u.avatarUrl,
         ...(isOwner ? { email: u.email } : {}),
         role: u.role,
         staticId: u.staticId?.value ?? null,
@@ -411,6 +415,7 @@ export async function userRoutes(app: FastifyInstance) {
         suspendedReason: u.suspendedReason,
         suspendedUntil: u.suspendedUntil,
         tokenBalance: u.tokenBalance,
+        stack: (u as any).stackMembership?.stack ?? null,
         ...(isOwner ? { registrationIp: u.registrationIp, lastLoginIp: u.lastLoginIp } : {}),
         createdAt: u.createdAt,
       }))
@@ -583,6 +588,28 @@ export async function userRoutes(app: FastifyInstance) {
     });
 
     reply.send({ staticId: result.value });
+  });
+
+  // Прямая установка аватарки — строго Owner (без модерации)
+  app.patch('/api/users/:id/avatar-direct', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    const { id } = req.params as { id: string };
+    const Schema = z.object({ avatarUrl: z.string().url().nullable() });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    await prisma.user.update({ where: { id }, data: { avatarUrl: parsed.data.avatarUrl, avatarStatus: parsed.data.avatarUrl ? 'APPROVED' : null, pendingAvatarUrl: null } });
+    await logAudit({ actorId: req.user!.id, action: 'AVATAR_SET_BY_OWNER', entityType: 'User', entityId: id });
+    reply.send({ success: true });
+  });
+
+  // Удалить пользователя из стака — строго Owner
+  app.delete('/api/users/:id/stack', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    const { id } = req.params as { id: string };
+    await prisma.stackMember.deleteMany({ where: { userId: id } });
+    await logAudit({ actorId: req.user!.id, action: 'USER_REMOVED_FROM_STACK', entityType: 'User', entityId: id });
+    reply.send({ success: true });
   });
 
   // Изменение ника игрока — строго Owner. Обычные игроки не могут сами поменять ник на сайте,
