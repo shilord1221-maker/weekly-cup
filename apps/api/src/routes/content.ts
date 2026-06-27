@@ -323,7 +323,14 @@ export async function userRoutes(app: FastifyInstance) {
     const users = await prisma.user.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { staticId: true },
+      select: {
+        id: true, username: true, email: true, role: true,
+        staticId: { select: { value: true, proofUrl: true } },
+        isBanned: true, bannedReason: true,
+        isSuspended: true, suspendedReason: true, suspendedUntil: true,
+        registrationIp: true, lastLoginIp: true, createdAt: true,
+        tokenBalance: true,
+      },
       take: 200,
     });
     const isOwner = req.user!.role === 'OWNER';
@@ -340,7 +347,7 @@ export async function userRoutes(app: FastifyInstance) {
         isSuspended: u.isSuspended,
         suspendedReason: u.suspendedReason,
         suspendedUntil: u.suspendedUntil,
-        // IP-адреса видны только Owner — Admin и Organizer не должны иметь доступ к этим данным.
+        tokenBalance: u.tokenBalance,
         ...(isOwner ? { registrationIp: u.registrationIp, lastLoginIp: u.lastLoginIp } : {}),
         createdAt: u.createdAt,
       }))

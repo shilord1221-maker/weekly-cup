@@ -32,7 +32,6 @@ export function Header() {
     { href: '/complaints', label: 'Жалобы' },
     { href: '/wins', label: 'Победы', special: true },
     { href: '/stacks', label: 'Стаки' },
-    { href: '/shop', label: '🪙 Магазин' },
     { href: '/social', label: 'Соцсети' },
     { href: '/maps', label: 'Карты' },
   ] as { href: string; label: string; special?: boolean }[];
@@ -143,6 +142,15 @@ export function Header() {
 
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-3">
+          <Link
+            href="/shop"
+            className="flex items-center justify-center w-11 h-11 rounded-full transition-all hover:border-white/20 relative"
+            style={{ border: '1px solid rgba(201,149,74,.35)', background: 'rgba(201,149,74,.08)', backdropFilter: 'blur(20px)' }}
+            aria-label="Магазин токенов"
+            title="Магазин токенов"
+          >
+            <img src="/token.png" alt="Token" className="w-6 h-6 rounded-full object-cover" />
+          </Link>
           <Link
             href="/rules"
             className="flex items-center justify-center h-11 px-4 rounded-full text-sm font-medium transition-all hover:border-white/20"

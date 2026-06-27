@@ -470,7 +470,7 @@ function ProfilePageContent() {
           <div>
             <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Weekly Pracs Token</h2>
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: '22px' }}>🪙</span>
+              <img src="/token.png" alt="Token" className="w-7 h-7 rounded-full object-cover" />
               <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>{profile.tokenBalance ?? 0}</span>
               <span className="text-sm" style={{ color: 'var(--muted)' }}>токенов</span>
             </div>

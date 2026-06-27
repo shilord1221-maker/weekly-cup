@@ -41,6 +41,7 @@ interface UserItem {
   registrationIp?: string | null;
   lastLoginIp?: string | null;
   createdAt: string;
+  tokenBalance?: number;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -72,6 +73,11 @@ export default function AdminUsersPage() {
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const isOwner = currentUser?.role === 'OWNER';
   const [showSensitive, setShowSensitive] = useState(false);
+  const [tokenTarget, setTokenTarget] = useState<UserItem | null>(null);
+  const [tokenAmount, setTokenAmount] = useState('');
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenSuccess, setTokenSuccess] = useState(false);
+  const [tokenLoading, setTokenLoading] = useState(false);
 
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
   // не увидит этот пункт (backend всё равно заблокирует попытку, если обойти UI).
@@ -168,6 +174,22 @@ export default function AdminUsersPage() {
     } catch (e) {
       setStaticIdError(e instanceof ApiClientError ? e.message : 'Не удалось изменить Static ID');
     }
+  };
+
+  const handleGrantTokens = async () => {
+    if (!tokenTarget) return;
+    const amount = Number(tokenAmount);
+    if (!amount || amount < 1) { setTokenError('Укажите количество токенов'); return; }
+    setTokenError(null); setTokenSuccess(false); setTokenLoading(true);
+    try {
+      await api.post('/shop/grant', { userId: tokenTarget.id, amount });
+      setTokenSuccess(true);
+      setTokenAmount('');
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      setTimeout(() => { setTokenTarget(null); setTokenSuccess(false); }, 1500);
+    } catch (e) {
+      setTokenError(e instanceof ApiClientError ? e.message : 'Не удалось выдать токены');
+    } finally { setTokenLoading(false); }
   };
 
   const handleSaveUsername = async () => {
@@ -318,11 +340,15 @@ export default function AdminUsersPage() {
                 {(u.registrationIp || u.lastLoginIp) && (
                   <div className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(96,104,128,.6)' }}>
                     IP:{' '}
-                    <span
-                      style={{ filter: showSensitive ? 'none' : 'blur(4px)', userSelect: showSensitive ? 'text' : 'none', transition: 'filter .15s' }}
-                    >
+                    <span style={{ filter: showSensitive ? 'none' : 'blur(4px)', userSelect: showSensitive ? 'text' : 'none', transition: 'filter .15s' }}>
                       {u.lastLoginIp ?? u.registrationIp}
                     </span>
+                  </div>
+                )}
+                {typeof u.tokenBalance === 'number' && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <img src="/token.png" alt="" className="w-3 h-3 rounded-full object-cover" />
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--gold)' }}>{u.tokenBalance}</span>
                   </div>
                 )}
               </div>
@@ -379,6 +405,14 @@ export default function AdminUsersPage() {
                     </button>
                   )
                 )}
+                <button
+                  onClick={() => { setTokenTarget(u); setTokenAmount(''); setTokenError(null); setTokenSuccess(false); }}
+                  className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                  style={{ color: 'var(--gold)', background: 'rgba(201,149,74,0.06)', border: '1px solid rgba(201,149,74,0.18)' }}
+                >
+                  <img src="/token.png" alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+                  Токены
+                </button>
               </div>
             </div>
           );
@@ -465,6 +499,51 @@ export default function AdminUsersPage() {
               </button>
               <button onClick={handleSaveStaticId} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
                 Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOKEN MODAL */}
+      {tokenTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setTokenTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/token.png" alt="Token" className="w-6 h-6 rounded-full object-cover" />
+              <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--gold)' }}>
+                Выдать токены — {tokenTarget.username}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 mb-3 text-xs" style={{ color: 'var(--muted)' }}>
+              Текущий баланс:
+              <span className="font-mono font-bold flex items-center gap-1" style={{ color: 'var(--gold)' }}>
+                <img src="/token.png" alt="" className="w-3 h-3 rounded-full object-cover" />
+                {tokenTarget.tokenBalance ?? 0}
+              </span>
+            </div>
+            {tokenError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{tokenError}</div>}
+            {tokenSuccess && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>Токены выданы ✓</div>}
+            <label className="label-field">Количество токенов</label>
+            <input
+              value={tokenAmount}
+              onChange={(e) => setTokenAmount(e.target.value.replace(/\D/g, ''))}
+              placeholder="например: 100"
+              inputMode="numeric"
+              className="input-field mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2 flex-wrap mb-2">
+              {[50, 100, 200, 500, 1000].map((n) => (
+                <button key={n} onClick={() => setTokenAmount(String(n))} className="text-xs px-3 py-1.5 rounded-lg" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.08)', border: '1px solid rgba(201,149,74,.2)' }}>
+                  +{n}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => setTokenTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button onClick={handleGrantTokens} disabled={tokenLoading || !tokenAmount} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {tokenLoading ? 'Выдаём...' : 'Выдать'}
               </button>
             </div>
           </div>

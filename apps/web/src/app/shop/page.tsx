@@ -76,7 +76,7 @@ export default function ShopPage() {
       <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
         <div>
           <div className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--gold)' }}>
-            <span className="text-lg">🪙</span>
+            <img src="/token.png" alt="Token" className="w-5 h-5 rounded-full object-cover" />
             Weekly Pracs Token
           </div>
           <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4vw,44px)', letterSpacing: '-0.01em' }}>
@@ -88,7 +88,7 @@ export default function ShopPage() {
         {user ? (
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-2 px-5 py-3 rounded-2xl" style={{ background: 'rgba(201,149,74,.08)', border: '1px solid rgba(201,149,74,.25)' }}>
-              <span style={{ fontSize: '20px' }}>🪙</span>
+              <img src="/token.png" alt="Token" className="w-7 h-7 rounded-full object-cover" />
               <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>
                 {myShop?.tokenBalance ?? 0}
               </span>
@@ -155,8 +155,9 @@ export default function ShopPage() {
                 </div>
                 <div className="text-xs font-medium" style={{ color: 'var(--text)' }}>{item.name}</div>
                 <div className="flex items-center gap-2 mt-auto">
-                  <span className="font-mono text-xs flex items-center gap-1" style={{ color: 'var(--gold)' }}>
-                    🪙 {item.price}
+                  <span className="font-mono text-xs flex items-center gap-1.5" style={{ color: 'var(--gold)' }}>
+                    <img src="/token.png" alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+                    {item.price}
                   </span>
                   {!user ? null : owned ? (
                     <button
@@ -212,7 +213,7 @@ export default function ShopPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs font-medium" style={{ color: 'var(--text)' }}>{item.name}</div>
-                    <span className="font-mono text-xs flex items-center gap-1 mt-0.5" style={{ color: 'var(--gold)' }}>🪙 {item.price}</span>
+                    <span className="font-mono text-xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--gold)' }}><img src="/token.png" alt="" className="w-3.5 h-3.5 rounded-full object-cover" />{item.price}</span>
                   </div>
                   {!user ? null : owned ? (
                     <button
@@ -242,17 +243,14 @@ export default function ShopPage() {
 
       {/* КАК ЗАРАБАТЫВАТЬ */}
       <div className="mt-12 rounded-2xl px-6 py-6" style={{ background: 'rgba(201,149,74,.05)', border: '1px solid rgba(201,149,74,.15)' }}>
-        <h3 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--gold)' }}>
-          🪙 Как зарабатывать токены
+        <h3 className="font-display font-semibold uppercase text-sm tracking-wider mb-3 flex items-center gap-2" style={{ color: 'var(--gold)' }}>
+          <img src="/token.png" alt="Token" className="w-4 h-4 rounded-full object-cover" />
+          Как зарабатывать токены
         </h3>
         <div className="flex flex-col gap-2 text-sm" style={{ color: 'var(--muted)' }}>
           <div className="flex items-center gap-3">
             <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.1)' }}>+50</span>
             <span>Победа в матче</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ color: 'var(--a)', background: 'rgba(79,127,255,.08)' }}>скоро</span>
-            <span>Покупка токенов за реальные деньги</span>
           </div>
         </div>
       </div>

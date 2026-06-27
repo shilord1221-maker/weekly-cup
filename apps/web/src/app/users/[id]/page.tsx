@@ -106,8 +106,9 @@ export default function PublicProfilePage() {
           <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Достижений</div>
         </div>
         <div className="rounded-2xl px-4 py-4 text-center" style={{ border: '1px solid rgba(201,149,74,.2)', background: 'rgba(201,149,74,.04)' }}>
-          <div className="font-display font-bold text-2xl flex items-center justify-center gap-1" style={{ color: 'var(--gold)' }}>
-            🪙 {profile.tokenBalance}
+          <div className="font-display font-bold text-2xl flex items-center justify-center gap-2" style={{ color: 'var(--gold)' }}>
+            <img src="/token.png" alt="Token" className="w-6 h-6 rounded-full object-cover" />
+            {profile.tokenBalance}
           </div>
           <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Токенов</div>
         </div>
