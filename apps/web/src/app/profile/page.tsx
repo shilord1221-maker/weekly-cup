@@ -324,7 +324,7 @@ function ProfilePageContent() {
         </div>
         {profile.avatarStatus === 'PENDING' && (
           <div className="flex items-center gap-3 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(201,149,74,.08)', color: 'var(--gold)' }}>
-            {profile.pendingAvatarUrl && <img src={profile.pendingAvatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />}
+            {profile.pendingAvatarUrl && <img src={profile.pendingAvatarUrl} alt="" className="w-8 h-8 object-contain" />}
             На рассмотрении у модераторов
           </div>
         )}
@@ -470,7 +470,7 @@ function ProfilePageContent() {
           <div>
             <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Weekly Pracs Token</h2>
             <div className="flex items-center gap-2">
-              <img src="/token.png" alt="Token" className="w-7 h-7 rounded-full object-cover" />
+              <img src="/token.png" alt="Token" className="w-7 h-7 object-contain" />
               <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>{profile.tokenBalance ?? 0}</span>
               <span className="text-sm" style={{ color: 'var(--muted)' }}>токенов</span>
             </div>

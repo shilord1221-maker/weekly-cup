@@ -57,7 +57,7 @@ export function Header() {
 
         {/* MOBILE LOGO (visible only on small screens, replaces home button) */}
         <Link href="/" className="md:hidden font-display font-bold text-lg uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text)' }}>
-          <img src="/branding/logo.png" alt="Weekly Pracs" className="w-6 h-6 rounded-full object-cover" />
+          <img src="/branding/logo.png" alt="Weekly Pracs" className="w-6 h-6 object-contain" />
           WEEKLY <span style={{ color: 'var(--a)' }}>PRACS</span>
         </Link>
 
@@ -149,7 +149,7 @@ export function Header() {
             aria-label="Магазин токенов"
             title="Магазин токенов"
           >
-            <img src="/token.png" alt="Token" className="w-6 h-6 rounded-full object-cover" />
+            <img src="/token.png" alt="Token" className="w-8 h-8 object-contain" style={{ filter: 'drop-shadow(0 0 4px rgba(201,149,74,.4))' }} />
           </Link>
           <Link
             href="/rules"
