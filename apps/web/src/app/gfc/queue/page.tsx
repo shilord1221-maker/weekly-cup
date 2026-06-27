@@ -50,7 +50,7 @@ export default function GfcQueuePage() {
 
   const { data: party, refetch: refetchParty } = useQuery<Party | null>({
     queryKey: ['gfc-party'],
-    queryFn: () => api.get('/gfc/party/my').catch(() => null),
+    queryFn: () => api.get<Party>('/gfc/party/my').catch(() => null),
     enabled: !!user,
   });
 

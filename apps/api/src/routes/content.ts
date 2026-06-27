@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import argon2 from 'argon2';
 import { prisma } from '@/db.js';
 import { requireAuth, requireRole } from '@/middleware/auth.js';
 import { logAudit } from '@/services/audit.js';
