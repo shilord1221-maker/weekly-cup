@@ -29,18 +29,28 @@
 }
 
 @keyframes gradientFlow {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0%   { background-position: 0% center; }
+  50%  { background-position: 100% center; }
+  100% { background-position: 0% center; }
 }
 
-.username-gradient-animated {
-  background-size: 200% auto !important;
+/* Базовые свойства для всех градиентных ников */
+[class^="ug-"], [class*=" ug-"] {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
   animation: gradientFlow 3s ease-in-out infinite;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
 }
+
+.ug-fire    { background-image: linear-gradient(90deg,#ef4444,#f97316,#fbbf24,#f97316,#ef4444); }
+.ug-ice     { background-image: linear-gradient(90deg,#06b6d4,#3b82f6,#8b5cf6,#3b82f6,#06b6d4); }
+.ug-gold    { background-image: linear-gradient(90deg,#fde68a,#f59e0b,#d97706,#f59e0b,#fde68a); }
+.ug-toxic   { background-image: linear-gradient(90deg,#4ade80,#a3e635,#facc15,#a3e635,#4ade80); }
+.ug-galaxy  { background-image: linear-gradient(90deg,#8b5cf6,#4f7fff,#ec4899,#4f7fff,#8b5cf6); }
+.ug-sunset  { background-image: linear-gradient(90deg,#f97316,#ec4899,#8b5cf6,#ec4899,#f97316); }
+.ug-rainbow { background-image: linear-gradient(90deg,#ef4444,#f97316,#fbbf24,#22c55e,#4f7fff,#8b5cf6,#ef4444); }
+.ug-pracs   { background-image: linear-gradient(90deg,#4f7fff,#8b5cf6,#f59e0b,#8b5cf6,#4f7fff); }
 
 /* ─── WINS NAV — корона + искры ─── */
 .wins-nav-btn {

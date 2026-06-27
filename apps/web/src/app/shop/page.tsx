@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore, isAdminOrOwner } from '@/store/auth';
-import { ColoredUsername, getUsernameStyle, isGradientEffect, type CosmeticItem } from '@/components/ColoredUsername';
+import { ColoredUsername, getUsernameStyle, getGradientClass, isGradientEffect, type CosmeticItem } from '@/components/ColoredUsername';
 import { TokenIcon } from '@/components/TokenIcon';
 import Link from 'next/link';
 
@@ -255,7 +255,7 @@ export default function ShopPage() {
                 {/* Превью полосой */}
                 <div className="h-2 rounded-full" style={{ background: item.gradient }} />
                 <div className="flex items-center justify-between">
-                  <span className={`font-display font-bold text-base${isGradientEffect(item.key) ? ' username-gradient-animated' : ''}`} style={previewStyle}>{user?.username ?? 'PlayerName'}</span>
+                  <span className={`font-display font-bold text-base ${getGradientClass(item.key)}`} style={getUsernameStyle(item.key)}>{user?.username ?? 'PlayerName'}</span>
                   {isActive && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: 'rgba(255,255,255,.6)', background: 'rgba(255,255,255,.08)' }}>АКТИВЕН</span>}
                 </div>
                 <div className="flex items-center justify-between">
