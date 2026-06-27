@@ -277,6 +277,72 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  // ───────── CHANGE PASSWORD ─────────
+  app.patch('/api/auth/password', { preHandler: requireAuth }, async (req, reply) => {
+    const Schema = z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(8, 'Новый пароль должен быть не короче 8 символов'),
+    });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', issues: parsed.error.flatten().fieldErrors });
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const valid = await argon2.verify(user.passwordHash, parsed.data.currentPassword).catch(() => false);
+    if (!valid) return reply.code(401).send({ error: 'WRONG_PASSWORD', message: 'Неверный текущий пароль' });
+
+    const newHash = await argon2.hash(parsed.data.newPassword);
+    await prisma.user.update({ where: { id: req.user!.id }, data: { passwordHash: newHash } });
+    // Отзываем все сессии кроме текущей — пересоздание токенов через повторный вход
+    await prisma.refreshToken.updateMany({ where: { userId: req.user!.id }, data: { revoked: true } });
+
+    await logAudit({ actorId: req.user!.id, action: 'PASSWORD_CHANGED', entityType: 'User', entityId: req.user!.id });
+    reply.send({ success: true });
+  });
+
+  // ───────── CHANGE EMAIL ─────────
+  app.patch('/api/auth/email', { preHandler: requireAuth }, async (req, reply) => {
+    const Schema = z.object({
+      newEmail: z.string().email('Некорректный email'),
+      currentPassword: z.string().min(1),
+    });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', issues: parsed.error.flatten().fieldErrors });
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    const valid = await argon2.verify(user.passwordHash, parsed.data.currentPassword).catch(() => false);
+    if (!valid) return reply.code(401).send({ error: 'WRONG_PASSWORD', message: 'Неверный пароль' });
+
+    const taken = await prisma.user.findUnique({ where: { email: parsed.data.newEmail } });
+    if (taken) return reply.code(409).send({ error: 'EMAIL_TAKEN', message: 'Этот email уже используется' });
+
+    await prisma.user.update({ where: { id: req.user!.id }, data: { email: parsed.data.newEmail } });
+    await logAudit({ actorId: req.user!.id, action: 'EMAIL_CHANGED', entityType: 'User', entityId: req.user!.id });
+    reply.send({ success: true });
+  });
+
+  // ───────── DELETE ACCOUNT ─────────
+  app.post('/api/auth/account-delete', { preHandler: requireAuth }, async (req, reply) => {
+    const Schema = z.object({ currentPassword: z.string().min(1) });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR' });
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) return reply.code(404).send({ error: 'NOT_FOUND' });
+
+    // Owner не может удалить сам себя — слишком опасно
+    if (user.role === 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN', message: 'Owner не может удалить свой аккаунт через сайт' });
+
+    const valid = await argon2.verify(user.passwordHash, parsed.data.currentPassword).catch(() => false);
+    if (!valid) return reply.code(401).send({ error: 'WRONG_PASSWORD', message: 'Неверный пароль' });
+
+    await prisma.user.delete({ where: { id: req.user!.id } });
+    reply.clearCookie('access_token', { path: '/' }).clearCookie('refresh_token', { path: '/api/auth' }).send({ success: true });
+  });
+
   // Static ID больше нельзя менять самому игроку — это закреплённый игровой идентификатор,
   // изменить его может только Owner через админ-панель (см. PATCH /api/users/:id/static-id ниже).
 }

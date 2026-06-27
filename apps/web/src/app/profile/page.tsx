@@ -65,6 +65,75 @@ function ProfilePageContent() {
   const [avatarSubmitError, setAvatarSubmitError] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
 
+  // Смена пароля
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+
+  // Смена email
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPwd, setEmailPwd] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  // Удаление аккаунта
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePwd, setDeletePwd] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const { logout } = useAuthStore();
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError(null); setPwdSuccess(false);
+    if (newPwd !== confirmPwd) { setPwdError('Пароли не совпадают'); return; }
+    if (newPwd.length < 8) { setPwdError('Новый пароль должен быть не короче 8 символов'); return; }
+    setPwdLoading(true);
+    try {
+      await api.patch('/auth/password', { currentPassword: currentPwd, newPassword: newPwd });
+      setPwdSuccess(true);
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+      setTimeout(() => setShowPasswordForm(false), 1500);
+    } catch (e) {
+      setPwdError(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setPwdLoading(false); }
+  };
+
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null); setEmailSuccess(false);
+    setPwdLoading(true);
+    setEmailLoading(true);
+    try {
+      await api.patch('/auth/email', { newEmail, currentPassword: emailPwd });
+      setEmailSuccess(true);
+      setNewEmail(''); setEmailPwd('');
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      setTimeout(() => setShowEmailForm(false), 1500);
+    } catch (e) {
+      setEmailError(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setEmailLoading(false); setPwdLoading(false); }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError(null);
+    setDeleteLoading(true);
+    try {
+      await api.post('/auth/account-delete', { currentPassword: deletePwd });
+      await logout();
+      router.push('/');
+    } catch (e) {
+      setDeleteError(e instanceof ApiClientError ? e.message : 'Ошибка');
+    } finally { setDeleteLoading(false); }
+  };
+
   useEffect(() => {
     if (isInitialized && !user) router.push('/login');
   }, [isInitialized, user, router]);
@@ -369,7 +438,7 @@ function ProfilePageContent() {
       </div>
 
       {/* MATCH HISTORY */}
-      <div className="card">
+      <div className="card mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>
             История побед
@@ -379,22 +448,121 @@ function ProfilePageContent() {
           </Link>
         </div>
         {profile.wins.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Пока нет побед в истории.
-          </p>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>Пока нет побед в истории.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {profile.wins.map((w) => (
               <div key={w.id} className="flex items-center justify-between text-sm py-2" style={{ borderBottom: '1px solid var(--border)' }}>
                 <span>🏆 Победа · {w.match.map.name}</span>
-                <span className="font-mono text-xs" style={{ color: 'var(--muted)' }}>
-                  {new Date(w.createdAt).toLocaleDateString('ru-RU')}
-                </span>
+                <span className="font-mono text-xs" style={{ color: 'var(--muted)' }}>{new Date(w.createdAt).toLocaleDateString('ru-RU')}</span>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* БЕЗОПАСНОСТЬ */}
+      <div className="card mb-6">
+        <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+          Безопасность
+        </h2>
+
+        {/* Смена пароля */}
+        <div className="mb-3" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">Пароль</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Минимум 8 символов</div>
+            </div>
+            <button onClick={() => { setShowPasswordForm((v) => !v); setPwdError(null); setPwdSuccess(false); }} className="btn-out" style={{ padding: '8px 14px', fontSize: '12px' }}>
+              {showPasswordForm ? 'Отмена' : 'Изменить'}
+            </button>
+          </div>
+          {showPasswordForm && (
+            <form onSubmit={handleChangePassword} className="flex flex-col gap-3 mt-4">
+              {pwdError && <div className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{pwdError}</div>}
+              {pwdSuccess && <div className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>Пароль успешно изменён ✓</div>}
+              <input type="password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} placeholder="Текущий пароль" className="input-field" autoComplete="current-password" />
+              <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Новый пароль (мин. 8 символов)" className="input-field" autoComplete="new-password" />
+              <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="Повторите новый пароль" className="input-field" autoComplete="new-password" />
+              <button type="submit" disabled={pwdLoading} className="btn-main justify-center" style={{ padding: '10px' }}>
+                {pwdLoading ? 'Сохраняем...' : 'Сохранить пароль'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Смена email */}
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">Email</div>
+              <div className="text-xs mt-0.5 font-mono" style={{ color: 'var(--muted)', filter: showEmail ? 'none' : 'blur(4px)' }}>{profile.email}</div>
+            </div>
+            <button onClick={() => { setShowEmailForm((v) => !v); setEmailError(null); setEmailSuccess(false); }} className="btn-out" style={{ padding: '8px 14px', fontSize: '12px' }}>
+              {showEmailForm ? 'Отмена' : 'Изменить'}
+            </button>
+          </div>
+          {showEmailForm && (
+            <form onSubmit={handleChangeEmail} className="flex flex-col gap-3 mt-4">
+              {emailError && <div className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{emailError}</div>}
+              {emailSuccess && <div className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.2)', color: 'var(--green)' }}>Email успешно изменён ✓</div>}
+              <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Новый email" className="input-field" autoComplete="email" />
+              <input type="password" value={emailPwd} onChange={(e) => setEmailPwd(e.target.value)} placeholder="Текущий пароль для подтверждения" className="input-field" autoComplete="current-password" />
+              <button type="submit" disabled={emailLoading} className="btn-main justify-center" style={{ padding: '10px' }}>
+                {emailLoading ? 'Сохраняем...' : 'Сохранить email'}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* УДАЛИТЬ АККАУНТ */}
+      <div className="rounded-2xl px-6 py-5" style={{ border: '1px solid rgba(239,68,68,.2)', background: 'rgba(239,68,68,.03)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: '#f87171' }}>Удалить аккаунт</div>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Это действие нельзя отменить. Все данные будут удалены навсегда.</p>
+          </div>
+          <button onClick={() => { setShowDeleteModal(true); setDeletePwd(''); setDeleteError(null); }} className="text-xs font-medium px-4 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)' }}>
+            Удалить аккаунт
+          </button>
+        </div>
+      </div>
+
+      {/* МОДАЛКА УДАЛЕНИЯ */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.75)' }} onClick={() => setShowDeleteModal(false)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-2" style={{ color: '#f87171' }}>
+              Удалить аккаунт
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+              Введите пароль для подтверждения. Аккаунт, побды, достижения и все данные будут удалены <strong>навсегда</strong>.
+            </p>
+            {deleteError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{deleteError}</div>}
+            <input
+              type="password"
+              value={deletePwd}
+              onChange={(e) => setDeletePwd(e.target.value)}
+              placeholder="Введите пароль"
+              className="input-field mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteModal(false)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading || !deletePwd}
+                className="flex-1 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}
+              >
+                {deleteLoading ? 'Удаляем...' : 'Удалить навсегда'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
