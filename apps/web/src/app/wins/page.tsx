@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Avatar } from '@/components/Avatar';
-import { StackTag } from '@/app/stacks/page';
+import { StackTag } from '@/components/StackTag';
 
 interface WinItem {
   id: string;

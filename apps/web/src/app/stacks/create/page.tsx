@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ImageUploadField } from '@/components/ImageUploadField';
-import { StackTag } from '../page';
+import { StackTag } from '@/components/StackTag';
 
 export default function CreateStackPage() {
   const { user } = useAuthStore();

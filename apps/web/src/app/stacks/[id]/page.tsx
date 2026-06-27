@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiClientError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Avatar } from '@/components/Avatar';
-import { StackTag } from '../page';
+import { StackTag } from '@/components/StackTag';
 import { ImageUploadField } from '@/components/ImageUploadField';
 
 interface StackMember {

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Avatar } from '@/components/Avatar';
+import { StackTag } from '@/components/StackTag';
 
 interface StackItem {
   id: string;
@@ -29,17 +30,6 @@ function StackLogo({ stack, size = 48 }: { stack: Pick<StackItem, 'name' | 'tag'
     >
       {stack.tag.toUpperCase()}
     </div>
-  );
-}
-
-export function StackTag({ tag, color }: { tag: string; color: string }) {
-  return (
-    <span
-      className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded"
-      style={{ color, background: `${color}18`, border: `1px solid ${color}40`, letterSpacing: '0.04em' }}
-    >
-      [{tag.toUpperCase()}]
-    </span>
   );
 }
 
