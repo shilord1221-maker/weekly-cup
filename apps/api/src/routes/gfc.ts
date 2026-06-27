@@ -24,6 +24,48 @@ export async function gfcRoutes(app: FastifyInstance, opts: { io: SocketServer }
   // Каталог карт
   app.get('/api/gfc/maps', async (req, reply) => reply.send(GFC_MAPS));
 
+  // Лидерборд GFC — топ по победам в завершённых матчах
+  app.get('/api/gfc/leaderboard', async (req, reply) => {
+    const finished = await prisma.gfcLobby.findMany({
+      where: { status: 'FINISHED', winnerTeam: { not: null } },
+      select: {
+        winnerTeam: true,
+        players: {
+          select: {
+            teamNum: true,
+            user: { select: { id: true, username: true, avatarUrl: true, activeUsernameEffect: true, activeFrameEffect: true, stackMembership: { select: { stack: { select: { id: true, tag: true, tagColor: true, name: true } } } } } },
+          },
+        },
+      },
+    });
+
+    const counts = new Map<string, { user: typeof finished[0]['players'][0]['user']; count: number }>();
+
+    for (const lobby of finished) {
+      const winners = lobby.players.filter((p) => p.teamNum === lobby.winnerTeam);
+      for (const w of winners) {
+        const existing = counts.get(w.user.id);
+        if (existing) existing.count++;
+        else counts.set(w.user.id, { user: w.user, count: 1 });
+      }
+    }
+
+    const top = [...counts.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 50)
+      .map(({ user, count }) => ({
+        userId: user.id,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        activeUsernameEffect: user.activeUsernameEffect,
+        activeFrameEffect: user.activeFrameEffect,
+        stack: user.stackMembership?.stack ?? null,
+        count,
+      }));
+
+    reply.send(top);
+  });
+
   // Список лобби
   app.get('/api/gfc', async (req, reply) => {
     const lobbies = await prisma.gfcLobby.findMany({

@@ -590,6 +590,48 @@ export async function userRoutes(app: FastifyInstance) {
     reply.send({ staticId: result.value });
   });
 
+  // Удаление аккаунта пользователя — строго Owner
+  app.delete('/api/users/:id/account', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    const { id } = req.params as { id: string };
+    if (id === req.user!.id) return reply.code(400).send({ error: 'CANNOT_DELETE_SELF', message: 'Нельзя удалить собственный аккаунт' });
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (target.role === 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN', message: 'Нельзя удалить другого Owner' });
+    await prisma.user.delete({ where: { id } });
+    await logAudit({ actorId: req.user!.id, action: 'USER_DELETED_BY_OWNER', entityType: 'User', entityId: id, payload: { username: target.username } });
+    reply.send({ success: true });
+  });
+
+  // Смена email пользователя — строго Owner
+  app.patch('/api/users/:id/email', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    const { id } = req.params as { id: string };
+    const Schema = z.object({ email: z.string().email('Некорректный email') });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: parsed.error.errors[0]?.message });
+    const taken = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    if (taken && taken.id !== id) return reply.code(409).send({ error: 'EMAIL_TAKEN', message: 'Email уже используется' });
+    await prisma.user.update({ where: { id }, data: { email: parsed.data.email } });
+    await logAudit({ actorId: req.user!.id, action: 'USER_EMAIL_CHANGED_BY_OWNER', entityType: 'User', entityId: id, payload: { email: parsed.data.email } });
+    reply.send({ success: true });
+  });
+
+  // Смена пароля пользователя — строго Owner
+  app.patch('/api/users/:id/password', { preHandler: requireAuth }, async (req, reply) => {
+    if (req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });
+    const { id } = req.params as { id: string };
+    const Schema = z.object({ newPassword: z.string().min(8, 'Минимум 8 символов') });
+    const parsed = Schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: parsed.error.errors[0]?.message });
+    const hash = await argon2.hash(parsed.data.newPassword);
+    await prisma.user.update({ where: { id }, data: { passwordHash: hash } });
+    // Отзываем все сессии пользователя
+    await prisma.refreshToken.updateMany({ where: { userId: id }, data: { revoked: true } });
+    await logAudit({ actorId: req.user!.id, action: 'USER_PASSWORD_CHANGED_BY_OWNER', entityType: 'User', entityId: id });
+    reply.send({ success: true });
+  });
+
   // Прямая установка аватарки — строго Owner (без модерации)
   app.patch('/api/users/:id/avatar-direct', { preHandler: requireAuth }, async (req, reply) => {
     if (req.user!.role !== 'OWNER') return reply.code(403).send({ error: 'FORBIDDEN' });

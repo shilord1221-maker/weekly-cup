@@ -61,8 +61,14 @@ export default function WinsPage() {
     refetchInterval: 60_000,
   });
 
-  const isLoading = tab === 'top' ? loadingTop : tab === 'today' ? loadingToday : false;
-  const items = tab === 'top' ? leaderboard : tab === 'today' ? todayTop : [];
+  const { data: gfcTop, isLoading: loadingGfc } = useQuery<LeaderboardItem[]>({
+    queryKey: ['gfc-leaderboard'],
+    queryFn: () => api.get('/gfc/leaderboard', { auth: false }),
+    enabled: tab === 'gfc',
+  });
+
+  const isLoading = tab === 'top' ? loadingTop : tab === 'today' ? loadingToday : loadingGfc;
+  const items = tab === 'top' ? leaderboard : tab === 'today' ? todayTop : gfcTop;
 
   return (
     <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-4xl mx-auto" style={{ background: 'var(--bg)' }}>
@@ -90,16 +96,13 @@ export default function WinsPage() {
         ))}
       </div>
 
-      {/* GFC Топ */}
+      {/* GFC Топ — шапка */}
       {tab === 'gfc' && (
-        <div className="flex flex-col gap-3 mb-8">
-          <div className="rounded-xl px-5 py-4 mb-2" style={{ background: 'rgba(79,127,255,.04)', border: '1px solid rgba(79,127,255,.15)' }}>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>
-              ⚔️ Рейтинг GFC — топ игроков по выигранным матчам в режиме Gang Fight Club.
-              <Link href="/gfc" className="ml-2" style={{ color: 'var(--a)' }}>Перейти в GFC →</Link>
-            </p>
-          </div>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>GFC матчи пока не завершены — топ появится после первых результатов.</p>
+        <div className="rounded-xl px-5 py-3 mb-6 flex items-center justify-between" style={{ background: 'rgba(79,127,255,.04)', border: '1px solid rgba(79,127,255,.15)' }}>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+            ⚔️ Топ игроков по победам в GFC (Gang Fight Club)
+          </p>
+          <Link href="/gfc" style={{ color: 'var(--a)', fontSize: '13px' }}>Все лобби →</Link>
         </div>
       )}
 
@@ -133,7 +136,7 @@ export default function WinsPage() {
                 >
                   <span style={{ fontSize: '26px', filter: 'drop-shadow(0 0 8px rgba(201,149,74,.6))' }}>🏆</span>
                   <div className="font-display font-bold text-center uppercase leading-tight" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--gold)' }}>
-                    {tab === 'top' ? 'Лучший\nигрок' : 'Лучший\nсегодня'}
+                    {tab === 'top' ? 'Лучший\nигрок' : tab === 'today' ? 'Лучший\nсегодня' : 'Лучший\nGFC'}
                   </div>
                 </div>
               ) : (
@@ -177,7 +180,7 @@ export default function WinsPage() {
                   {p.count}
                 </div>
                 <div className="text-xs font-mono" style={{ color: 'var(--muted)' }}>
-                  {p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}
+                  {tab === 'gfc' ? 'GFC побед' : p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}
                 </div>
               </div>
             </Link>

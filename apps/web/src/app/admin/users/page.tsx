@@ -91,6 +91,24 @@ export default function AdminUsersPage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
 
+  // Email пользователя
+  const [emailTarget, setEmailTarget] = useState<UserItem | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSaving, setEmailSaving] = useState(false);
+
+  // Пароль пользователя
+  const [pwdTarget, setPwdTarget] = useState<UserItem | null>(null);
+  const [pwdInput, setPwdInput] = useState('');
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSaving, setPwdSaving] = useState(false);
+
+  // Удаление аккаунта
+  const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Owner-роль предлагается в списке только самому Owner — обычный Admin физически
   // не увидит этот пункт (backend всё равно заблокирует попытку, если обойти UI).
   const availableRoles = isOwner ? ['PLAYER', 'ORGANIZER', 'ADMIN', 'OWNER'] : ['PLAYER', 'ORGANIZER', 'ADMIN'];
@@ -202,6 +220,38 @@ export default function AdminUsersPage() {
     } catch (e) {
       setTokenError(e instanceof ApiClientError ? e.message : 'Не удалось выдать токены');
     } finally { setTokenLoading(false); }
+  };
+
+  const handleSaveEmail = async () => {
+    if (!emailTarget) return;
+    setEmailError(null); setEmailSaving(true);
+    try {
+      await api.patch(`/users/${emailTarget.id}/email`, { email: emailInput.trim() });
+      setEmailTarget(null);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) { setEmailError(e instanceof ApiClientError ? e.message : 'Ошибка'); }
+    finally { setEmailSaving(false); }
+  };
+
+  const handleSavePassword = async () => {
+    if (!pwdTarget) return;
+    setPwdError(null); setPwdSaving(true);
+    try {
+      await api.patch(`/users/${pwdTarget.id}/password`, { newPassword: pwdInput });
+      setPwdTarget(null); setPwdInput('');
+    } catch (e) { setPwdError(e instanceof ApiClientError ? e.message : 'Ошибка'); }
+    finally { setPwdSaving(false); }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteTarget || deleteConfirmName !== deleteTarget.username) return;
+    setDeleteError(null); setDeleteLoading(true);
+    try {
+      await api.delete(`/users/${deleteTarget.id}/account`);
+      setDeleteTarget(null); setDeleteConfirmName('');
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e) { setDeleteError(e instanceof ApiClientError ? e.message : 'Ошибка'); }
+    finally { setDeleteLoading(false); }
   };
 
   const handleSaveAvatar = async () => {
@@ -355,9 +405,13 @@ export default function AdminUsersPage() {
                         ник
                       </button>
                       {' · '}
-                      <button onClick={() => { setAvatarTarget(u); setAvatarInput(u.avatarUrl ?? ''); setAvatarError(null); }} style={{ color: 'var(--a)' }}>
-                        аватарка
-                      </button>
+                      <button onClick={() => { setAvatarTarget(u); setAvatarInput(u.avatarUrl ?? ''); setAvatarError(null); }} style={{ color: 'var(--a)' }}>аватарка</button>
+                      {' · '}
+                      <button onClick={() => { setEmailTarget(u); setEmailInput(u.email ?? ''); setEmailError(null); }} style={{ color: 'var(--a)' }}>email</button>
+                      {' · '}
+                      <button onClick={() => { setPwdTarget(u); setPwdInput(''); setPwdError(null); }} style={{ color: 'var(--a)' }}>пароль</button>
+                      {' · '}
+                      <button onClick={() => { setDeleteTarget(u); setDeleteConfirmName(''); setDeleteError(null); }} style={{ color: '#f87171' }}>🗑 удалить</button>
                     </>
                   )}
                 </div>
@@ -610,6 +664,81 @@ export default function AdminUsersPage() {
               <button onClick={() => setAvatarTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
               <button onClick={handleSaveAvatar} disabled={avatarSaving} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
                 {avatarSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMAIL MODAL */}
+      {emailTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setEmailTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Изменить email — {emailTarget.username}
+            </h2>
+            {emailError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{emailError}</div>}
+            <label className="label-field">Новый email</label>
+            <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} className="input-field mb-4" placeholder="новый@email.com" />
+            <div className="flex gap-2">
+              <button onClick={() => setEmailTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button onClick={handleSaveEmail} disabled={emailSaving} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {emailSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PASSWORD MODAL */}
+      {pwdTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setPwdTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4" style={{ color: 'var(--muted)' }}>
+              Сменить пароль — {pwdTarget.username}
+            </h2>
+            <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>После смены все сессии пользователя будут завершены.</p>
+            {pwdError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{pwdError}</div>}
+            <label className="label-field">Новый пароль (мин. 8 символов)</label>
+            <input type="password" value={pwdInput} onChange={(e) => setPwdInput(e.target.value)} className="input-field mb-4" placeholder="Минимум 8 символов" autoFocus />
+            <div className="flex gap-2">
+              <button onClick={() => setPwdTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button onClick={handleSavePassword} disabled={pwdSaving || pwdInput.length < 8} className="btn-main flex-1" style={{ padding: '10px', fontSize: '13px' }}>
+                {pwdSaving ? 'Сохраняем...' : 'Сменить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ACCOUNT MODAL */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.75)' }} onClick={() => setDeleteTarget(null)}>
+          <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-2" style={{ color: '#f87171' }}>
+              Удалить аккаунт
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+              Введите ник <strong style={{ color: 'var(--text)' }}>{deleteTarget.username}</strong> для подтверждения. Все данные будут удалены навсегда.
+            </p>
+            {deleteError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{deleteError}</div>}
+            <label className="label-field">Введите ник для подтверждения</label>
+            <input
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder={deleteTarget.username}
+              className="input-field mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteTarget(null)} className="btn-out flex-1" style={{ padding: '10px', fontSize: '13px' }}>Отмена</button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading || deleteConfirmName !== deleteTarget.username}
+                className="flex-1 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)', opacity: deleteConfirmName !== deleteTarget.username ? 0.5 : 1 }}
+              >
+                {deleteLoading ? 'Удаляем...' : 'Удалить навсегда'}
               </button>
             </div>
           </div>

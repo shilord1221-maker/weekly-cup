@@ -232,6 +232,12 @@ export function registerSocketHandlers(io: SocketServer) {
     socket.on('gfc:unsubscribe', ({ lobbyId }: { lobbyId: string }) => {
       socket.leave(`gfc:${lobbyId}`);
     });
+    socket.on('gfc-party:subscribe', ({ partyId }: { partyId: string }) => {
+      socket.join(`gfc-party:${partyId}`);
+    });
+    socket.on('gfc-party:unsubscribe', ({ partyId }: { partyId: string }) => {
+      socket.leave(`gfc-party:${partyId}`);
+    });
 
     socket.on('disconnect', () => {
       // no-op; socket.io снимает все room-подписки автоматически

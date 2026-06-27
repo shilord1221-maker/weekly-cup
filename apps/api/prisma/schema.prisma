@@ -138,6 +138,9 @@ model User {
   gfcLobbiesCreated GfcLobby[]     @relation("GfcCreator")
   gfcPlayerSlots    GfcPlayer[]    @relation("GfcPlayers")
   gfcQueue          GfcQueue?      @relation("GfcQueue")
+  gfcPartyCaptain   GfcParty?      @relation("GfcPartyCaptain")
+  gfcPartyMember    GfcPartyMember? @relation("GfcPartyMembers")
+  gfcPartyInvites   GfcPartyInvite[] @relation("GfcPartyInvites")
 
   // Токены — внутренняя валюта платформы. Зарабатываются победами, тратятся в магазине эффектов.
   tokenBalance         Int       @default(0)
@@ -549,6 +552,42 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ───────────────────────── GFC PARTY (группа для матчмейкинга) ─────────────────────────
+
+model GfcParty {
+  id        String           @id @default(uuid())
+  captainId String           @unique
+  captain   User             @relation("GfcPartyCaptain", fields: [captainId], references: [id])
+  status    String           @default("FORMING") // FORMING | SEARCHING
+  members   GfcPartyMember[]
+  invites   GfcPartyInvite[]
+  createdAt DateTime         @default(now())
+}
+
+model GfcPartyMember {
+  id      String   @id @default(uuid())
+  partyId String
+  party   GfcParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  userId  String   @unique
+  user    User     @relation("GfcPartyMembers", fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@index([partyId])
+}
+
+model GfcPartyInvite {
+  id        String   @id @default(uuid())
+  partyId   String
+  party     GfcParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("GfcPartyInvites", fields: [userId], references: [id])
+  status    String   @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  createdAt DateTime @default(now())
+
+  @@unique([partyId, userId])
+  @@index([userId, status])
 }
 
 // ───────────────────────── GFC (Gang Fight Club — 5v5 тактический режим) ─────────────────────────
