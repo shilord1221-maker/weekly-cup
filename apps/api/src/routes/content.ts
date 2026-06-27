@@ -144,7 +144,6 @@ export async function profileRoutes(app: FastifyInstance) {
         profileBg: true,
         pendingProfileBg: true,
         profileBgStatus: true,
-        profileBgStatus: true,
         profileBgRejectedReason: true,
         achievements: { orderBy: { earnedAt: 'desc' } },
         wins: { include: { match: { include: { map: true } } }, orderBy: { createdAt: 'desc' }, take: 20 },
