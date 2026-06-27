@@ -17,6 +17,7 @@ interface PublicProfile {
   avatarUrl: string | null;
   createdAt: string;
   activeUsernameEffect: string | null;
+  activeFrameEffect: string | null;
   profileBg: string | null;
   profileBgPosition: string | null;
   tokenBalance: number;
