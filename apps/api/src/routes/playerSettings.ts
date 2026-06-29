@@ -4,25 +4,19 @@ import { prisma } from '@/db.js';
 import { requireAuth } from '@/middleware/auth.js';
 
 const SettingsSchema = z.object({
-  // Мышь
-  mouseDpi:       z.number().int().min(100).max(32000).optional().nullable(),
-  sensitivity:    z.number().min(0).max(10).optional().nullable(),
-  aimSensitivity: z.number().min(0).max(10).optional().nullable(),
-  zoomSensitivity:z.number().min(0).max(10).optional().nullable(),
-  // Железо
-  cpu:     z.string().max(64).optional().nullable(),
-  gpu:     z.string().max(64).optional().nullable(),
-  ram:     z.number().int().min(1).max(512).optional().nullable(),
-  monitor: z.string().max(64).optional().nullable(),
-  mouse:   z.string().max(64).optional().nullable(),
-  mousepad:z.string().max(64).optional().nullable(),
-  headset: z.string().max(64).optional().nullable(),
-  keyboard:z.string().max(64).optional().nullable(),
-  // GTA
-  fov:           z.number().int().min(60).max(130).optional().nullable(),
-  resolution:    z.string().max(16).optional().nullable(),
-  graphicsPreset:z.string().max(32).optional().nullable(),
-  fps:           z.number().int().min(30).max(999).optional().nullable(),
+  mouseDpi:    z.number().int().min(100).max(32000).optional().nullable(),
+  sensitivity: z.number().min(0).max(100).optional().nullable(),
+  mouse:       z.string().max(64).optional().nullable(),
+  mousepad:    z.string().max(64).optional().nullable(),
+  keyboard:    z.string().max(64).optional().nullable(),
+  monitor:     z.string().max(64).optional().nullable(),
+  cpu:         z.string().max(64).optional().nullable(),
+  gpu:         z.string().max(64).optional().nullable(),
+  ram:         z.number().int().min(1).max(512).optional().nullable(),
+  resolution:               z.string().max(32).optional().nullable(),
+  aspectRatio:              z.string().max(8).optional().nullable(),
+  graphicsPreset:           z.string().max(32).optional().nullable(),
+  graphicsScreenshotUrl:    z.string().url().optional().nullable(),
 });
 
 export async function playerSettingsRoutes(app: FastifyInstance) {

@@ -154,22 +154,7 @@ export default function PublicProfilePage() {
         </div>
       </div>
 
-      {/* ДОСТИЖЕНИЯ */}
-      {profile.achievements.length > 0 && (
-        <div className="card mb-6">
-          <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
-            Достижения
-          </h2>
-          <div className="flex flex-col gap-1">
-            {profile.achievements.slice(0, 10).map((a) => (
-              <div key={a.id} className="flex items-center justify-between text-sm py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
-                <span>🏆 {a.title}</span>
-                <span className="font-mono text-xs" style={{ color: 'var(--muted)' }}>{new Date(a.earnedAt).toLocaleDateString('ru-RU')}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Достижения убраны из публичного профиля — показываем только в /profile */}
 
       {/* КАРТОЧКА НАСТРОЕК */}
       {playerSettings && (Object.values(playerSettings).some((v) => v !== null && v !== undefined)) && (

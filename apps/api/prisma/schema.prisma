@@ -677,27 +677,24 @@ model PlayerSettings {
   userId     String   @unique
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Мышь
+  // Мышь и периферия
   mouseDpi       Int?
-  sensitivity    Float?   // общая чувствительность GTA
-  aimSensitivity Float?   // прицеливание
-  zoomSensitivity Float?  // зум
+  sensitivity    Float?
+  mouse          String?  @db.VarChar(64)
+  mousepad       String?  @db.VarChar(64)
+  keyboard       String?  @db.VarChar(64)
+  monitor        String?  @db.VarChar(64)
 
   // Железо
   cpu            String?  @db.VarChar(64)
   gpu            String?  @db.VarChar(64)
-  ram            Int?     // GB
-  monitor        String?  @db.VarChar(64)  // например "144hz 1080p"
-  mouse          String?  @db.VarChar(64)
-  mousepad       String?  @db.VarChar(64)
-  headset        String?  @db.VarChar(64)
-  keyboard       String?  @db.VarChar(64)
+  ram            Int?
 
-  // Настройки GTA
-  fov            Int?
-  resolution     String?  @db.VarChar(16)  // "1920x1080"
-  graphicsPreset String?  @db.VarChar(32)  // "Низкое", "Среднее", "Высокое"
-  fps            Int?     // ограничение FPS
+  // Настройки Majestic
+  resolution           String?  @db.VarChar(32)
+  aspectRatio          String?  @db.VarChar(8)
+  graphicsPreset       String?  @db.VarChar(32)
+  graphicsScreenshotUrl String? @db.VarChar(512)
 
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())

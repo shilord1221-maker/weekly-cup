@@ -162,7 +162,7 @@ export function Header() {
             aria-label="Магазин токенов"
             title="Магазин токенов"
           >
-            <TokenIcon size={32} />
+            <TokenIcon size={24} />
           </Link>
           <Link
             href="/settings"
