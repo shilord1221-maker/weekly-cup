@@ -340,6 +340,8 @@ export async function publicProfileRoutes(app: FastifyInstance) {
         tokenBalance: true,
         profileBg: true,
         profileBgPosition: true,
+        discordUsername: true,
+        discordId: true,
         staticId: { select: { value: true } },
         achievements: { orderBy: { earnedAt: 'desc' }, take: 20 },
         wins: {

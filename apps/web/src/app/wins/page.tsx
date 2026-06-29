@@ -112,9 +112,48 @@ export default function WinsPage() {
         <p className="text-sm" style={{ color: 'var(--muted)' }}>Пока нет данных.</p>
       )}
 
+      {/* Первое место — hero карточка */}
+      {items && items.length > 0 && (() => {
+        const p = items[0];
+        const stack = (p as LeaderboardItem).stack ?? null;
+        return (
+          <Link href={`/users/${p.userId}`} className="block relative rounded-2xl overflow-hidden mb-3 transition-all hover:scale-[1.01]"
+            style={{ border: '1px solid rgba(201,149,74,.4)', boxShadow: '0 0 40px rgba(201,149,74,.12)' }}>
+            {/* Фон */}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(201,149,74,.15) 0%, rgba(139,92,246,.08) 50%, rgba(5,7,15,1) 100%)' }} />
+            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, rgba(201,149,74,.06), transparent 60%)' }} />
+            <div className="relative z-10 flex items-center gap-6 px-6 py-6 flex-wrap">
+              {/* Лейбл */}
+              <div className="flex-shrink-0 text-center">
+                <span style={{ fontSize: '36px', filter: 'drop-shadow(0 0 12px rgba(201,149,74,.8))' }}>👑</span>
+                <div className="font-mono text-[9px] uppercase tracking-widest mt-1" style={{ color: 'var(--gold)' }}>
+                  {tab === 'top' ? '#1 Лучший' : tab === 'today' ? '#1 Сегодня' : '#1 GFC'}
+                </div>
+              </div>
+              {/* Аватар */}
+              <Avatar username={p.username} avatarUrl={p.avatarUrl} size={64} frameKey={p.activeFrameEffect} />
+              {/* Инфо */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  {stack && <Link href={`/stacks/${stack.id}`} onClick={(e) => e.stopPropagation()}><StackTag tag={stack.tag} color={stack.tagColor} /></Link>}
+                </div>
+                <div className="font-display font-bold" style={{ fontSize: 'clamp(20px,3vw,28px)', color: 'var(--gold)' }}>
+                  <ColoredUsername username={p.username} effectKey={p.activeUsernameEffect} />
+                </div>
+              </div>
+              {/* Счётчик */}
+              <div className="text-right flex-shrink-0">
+                <div className="font-display font-bold" style={{ fontSize: '48px', color: 'var(--gold)', lineHeight: 1, textShadow: '0 0 30px rgba(201,149,74,.5)' }}>{p.count}</div>
+                <div className="text-xs font-mono" style={{ color: 'rgba(201,149,74,.6)' }}>{tab === 'gfc' ? 'GFC побед' : p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}</div>
+              </div>
+            </div>
+          </Link>
+        );
+      })()}
+
       <div className="flex flex-col gap-2">
-        {items?.map((p, idx) => {
-          const isFirst = idx === 0;
+        {items?.slice(1).map((p, idx) => {
+          const isTop3 = idx < 2; // idx 0,1 = позиции 2,3
           const stack = (p as LeaderboardItem).stack ?? null;
           return (
             <Link
@@ -122,37 +161,18 @@ export default function WinsPage() {
               href={`/users/${p.userId}`}
               className="flex items-center gap-4 rounded-2xl transition-all hover:translate-x-1"
               style={{
-                border: isFirst ? '1px solid rgba(201,149,74,.4)' : '1px solid var(--border)',
-                background: isFirst ? 'linear-gradient(90deg,rgba(201,149,74,.07),var(--surface))' : 'var(--surface)',
-                boxShadow: isFirst ? '0 0 24px rgba(201,149,74,.08)' : 'none',
+                border: isTop3 ? '1px solid rgba(255,255,255,.08)' : '1px solid var(--border)',
+                background: 'var(--surface)',
                 paddingRight: '20px',
               }}
             >
-              {/* Блок ЛУЧШАЯ ПОБЕДА / позиция */}
-              {isFirst ? (
-                <div
-                  className="flex-shrink-0 flex flex-col items-center justify-center gap-1 self-stretch px-4 py-4"
-                  style={{ minWidth: '90px', background: 'linear-gradient(135deg,rgba(201,149,74,.18),rgba(201,149,74,.06))', borderRight: '1px solid rgba(201,149,74,.2)' }}
-                >
-                  <span style={{ fontSize: '26px', filter: 'drop-shadow(0 0 8px rgba(201,149,74,.6))' }}>🏆</span>
-                  <div className="font-display font-bold text-center uppercase leading-tight" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--gold)' }}>
-                    {tab === 'top' ? 'Лучший\nигрок' : tab === 'today' ? 'Лучший\nсегодня' : 'Лучший\nGFC'}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-shrink-0 w-12 text-center pl-4">
-                  <Medal idx={idx} />
-                </div>
-              )}
+              <div className="flex-shrink-0 w-12 text-center pl-4">
+                <Medal idx={idx + 1} />
+              </div>
 
               {/* Аватар */}
               <div className="flex-shrink-0 py-3">
-                <Avatar
-                  username={p.username}
-                  avatarUrl={p.avatarUrl}
-                  size={isFirst ? 52 : 44}
-                  frameKey={p.activeFrameEffect}
-                />
+                <Avatar username={p.username} avatarUrl={p.avatarUrl} size={44} frameKey={p.activeFrameEffect} />
               </div>
 
               {/* Инфо */}
@@ -163,24 +183,19 @@ export default function WinsPage() {
                       <StackTag tag={stack.tag} color={stack.tagColor} />
                     </Link>
                   )}
-                  <span className="font-semibold text-sm" style={{ color: isFirst ? 'var(--gold)' : 'var(--text)' }}>
+                  <span className="font-semibold text-sm">
                     <ColoredUsername username={p.username} effectKey={p.activeUsernameEffect} />
-                  </span>
-                </div>
-                <div className="mt-1">
-                  <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.07)', border: '1px solid rgba(201,149,74,.18)' }}>
-                    🏆 Победитель
                   </span>
                 </div>
               </div>
 
               {/* Счётчик побед */}
               <div className="flex-shrink-0 text-right">
-                <div className="font-display font-bold" style={{ fontSize: '28px', color: isFirst ? 'var(--gold)' : idx < 3 ? 'var(--text)' : 'var(--muted)', lineHeight: 1 }}>
+                <div className="font-display font-bold" style={{ fontSize: '24px', color: idx < 2 ? 'var(--text)' : 'var(--muted)', lineHeight: 1 }}>
                   {p.count}
                 </div>
                 <div className="text-xs font-mono" style={{ color: 'var(--muted)' }}>
-                  {tab === 'gfc' ? 'GFC побед' : p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}
+                  {tab === 'gfc' ? 'GFC' : p.count === 1 ? 'победа' : p.count < 5 ? 'победы' : 'побед'}
                 </div>
               </div>
             </Link>

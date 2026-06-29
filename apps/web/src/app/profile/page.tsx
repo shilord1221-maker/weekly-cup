@@ -142,7 +142,6 @@ function ProfilePageContent() {
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError(null); setEmailSuccess(false);
-    setPwdLoading(true);
     setEmailLoading(true);
     try {
       await api.patch('/auth/email', { newEmail, currentPassword: emailPwd });
@@ -152,7 +151,7 @@ function ProfilePageContent() {
       setTimeout(() => setShowEmailForm(false), 1500);
     } catch (e) {
       setEmailError(e instanceof ApiClientError ? e.message : 'Ошибка');
-    } finally { setEmailLoading(false); setPwdLoading(false); }
+    } finally { setEmailLoading(false); }
   };
 
   const handleDeleteAccount = async () => {
@@ -297,6 +296,11 @@ function ProfilePageContent() {
             </button>
             · {roleLabel(profile.role)}
           </p>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <Link href={`/users/${profile.id}`} className="font-mono text-[10px] px-2 py-1 rounded-lg transition-colors hover:text-white" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.04)', border: '1px solid var(--border2)' }}>
+              👤 Мой публичный профиль →
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -335,9 +339,12 @@ function ProfilePageContent() {
                 <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                   {profile.discordUsername}
                 </div>
-                <span className="font-mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-0.5" style={{ color: 'var(--green)', background: 'rgba(34,197,94,.08)' }}>
-                  Привязан
-                </span>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--green)', background: 'rgba(34,197,94,.08)' }}>✓ Привязан</span>
+                  {profile.discordId && (
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>ID: {profile.discordId}</span>
+                  )}
+                </div>
               </div>
             </div>
             <button onClick={handleUnlinkDiscord} disabled={unlinking} className="btn-out" style={{ padding: '8px 16px', fontSize: '13px' }}>
@@ -502,10 +509,10 @@ function ProfilePageContent() {
         ) : (
           <div className="flex flex-col gap-2">
             {profile.wins.map((w) => (
-              <div key={w.id} className="flex items-center justify-between text-sm py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <Link key={w.id} href={`/lobby/${w.match.id}`} className="flex items-center justify-between text-sm py-2 transition-opacity hover:opacity-80" style={{ borderBottom: '1px solid var(--border)' }}>
                 <span>🏆 Победа · {w.match.map.name}</span>
                 <span className="font-mono text-xs" style={{ color: 'var(--muted)' }}>{new Date(w.createdAt).toLocaleDateString('ru-RU')}</span>
-              </div>
+              </Link>
             ))}
           </div>
         )}
@@ -561,7 +568,7 @@ function ProfilePageContent() {
             <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Weekly Pracs Token</h2>
             <div className="flex items-center gap-2">
               <TokenIcon size={28} />
-              <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>{profile.tokenBalance ?? 0}</span>
+              <span className="font-display font-bold text-2xl" style={{ color: 'var(--gold)' }}>{(profile.tokenBalance ?? 0).toLocaleString('ru-RU')}</span>
               <span className="text-sm" style={{ color: 'var(--muted)' }}>токенов</span>
             </div>
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>+50 за победу в матче</p>
@@ -649,7 +656,7 @@ function ProfilePageContent() {
               Удалить аккаунт
             </h2>
             <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
-              Введите пароль для подтверждения. Аккаунт, побды, достижения и все данные будут удалены <strong>навсегда</strong>.
+              Введите пароль для подтверждения. Аккаунт, победы, достижения и все данные будут удалены <strong>навсегда</strong>.
             </p>
             {deleteError && <div className="text-sm rounded-lg px-3 py-2 mb-3" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{deleteError}</div>}
             <input

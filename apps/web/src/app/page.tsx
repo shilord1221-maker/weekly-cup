@@ -457,29 +457,9 @@ function HowCard({ num, icon, title, desc }: { num: string; icon: string; title:
   );
 }
 
-const SPAN_CLASSES: Record<number, string> = {
-  7: 'md:col-span-7',
-  5: 'md:col-span-5',
-  4: 'md:col-span-4',
-};
 
-function BentoCard({
-  span,
-  minH,
-  tag,
-  title,
-  desc,
-  href,
-  children,
-}: {
-  span: number;
-  minH: number;
-  tag: string;
-  title: string;
-  desc?: string;
-  href: string;
-  children?: React.ReactNode;
-}) {
+// BentoCard — kept for potential future use
+function BentoCard({span,minH,tag,title,desc,href,children,}: {span: number;minH: number;tag: string;title: string;desc?: string;href: string;children?: React.ReactNode;}) {
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
