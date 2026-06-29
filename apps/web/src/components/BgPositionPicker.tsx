@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 interface Props {
   imageUrl: string;
@@ -57,15 +57,18 @@ export function BgPositionPicker({ imageUrl, position, onChange }: Props) {
   }, [applyY]);
   const onTouchEnd = useCallback(() => { dragging.current = false; }, []);
 
-  // Глобальные обработчики через useEffect
-  const bindRef = useRef(false);
-  if (!bindRef.current && typeof window !== 'undefined') {
-    bindRef.current = true;
+  useEffect(() => {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('touchmove', onTouchMove as any, { passive: true });
     window.addEventListener('touchend', onTouchEnd);
-  }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove as any);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [onMouseMove, onMouseUp, onTouchMove, onTouchEnd]);
 
   return (
     <div className="flex flex-col gap-2">

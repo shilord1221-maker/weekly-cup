@@ -135,7 +135,7 @@ export default function WinsPage() {
               {/* Инфо */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  {stack && <Link href={`/stacks/${stack.id}`} onClick={(e) => e.stopPropagation()}><StackTag tag={stack.tag} color={stack.tagColor} /></Link>}
+                  {stack && <span onClick={(e) => { e.preventDefault(); window.location.href = `/stacks/${stack.id}`; }}><StackTag tag={stack.tag} color={stack.tagColor} /></span>}
                 </div>
                 <div className="font-display font-bold" style={{ fontSize: 'clamp(20px,3vw,28px)', color: 'var(--gold)' }}>
                   <ColoredUsername username={p.username} effectKey={p.activeUsernameEffect} />

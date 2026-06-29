@@ -210,7 +210,7 @@ export default function ShopPage() {
               style={{ color: category === key ? '#0a0d16' : 'var(--muted)', background: category === key ? '#fff' : 'transparent' }}>
               {label}
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: category === key ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.06)', color: category === key ? '#0a0d16' : 'var(--muted)' }}>
-                {count}
+                {count ?? ''}
               </span>
             </button>
           ))}
