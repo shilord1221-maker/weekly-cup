@@ -170,94 +170,105 @@ export default function HomePage() {
 
       <ParticlesBackground />
 
-      {/* HERO */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-10 py-36 text-center relative z-10">
-        <div
-          className="absolute -top-1/5 left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle,rgba(79,127,255,.08) 0%,rgba(139,92,246,.04) 40%,transparent 70%)' }}
-        />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(79,127,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,127,255,.03) 1px,transparent 1px)',
-            backgroundSize: '80px 80px',
-            WebkitMaskImage: 'radial-gradient(ellipse 70% 70% at 50% 40%,black 20%,transparent 100%)',
-          }}
-        />
-
-        <div className="relative z-10 mb-7" style={{ animation: 'trophyFloat 5s ease-in-out infinite' }}>
-          <img src="/branding/logo.png" alt="Weekly Pracs" style={{ width: 130, height: 130, borderRadius: '50%', objectFit: 'cover' }} />
+      {/* HERO — новый стиль */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 md:px-10 py-32 text-center overflow-hidden z-10">
+        {/* Фоновые элементы */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px]" style={{ background: 'radial-gradient(circle, rgba(79,127,255,.07) 0%, transparent 65%)', filter: 'blur(40px)' }} />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px]" style={{ background: 'radial-gradient(circle, rgba(139,92,246,.06) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+          <div className="absolute bottom-0 right-0 w-[400px] h-[400px]" style={{ background: 'radial-gradient(circle, rgba(201,149,74,.05) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+          {/* Сетка */}
+          <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(79,127,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(79,127,255,.025) 1px,transparent 1px)', backgroundSize: '64px 64px' }} />
         </div>
 
-        <div
-          className="inline-flex items-center gap-2.5 font-mono text-xs uppercase tracking-widest px-[18px] py-1.5 rounded-full mb-9 relative z-10"
-          style={{ color: 'var(--a)', border: '1px solid rgba(79,127,255,.25)', background: 'rgba(79,127,255,.06)' }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--a)', boxShadow: '0 0 8px var(--a)' }} />
-          Турнирная платформа · Кастомные матчи
+        {/* Лого */}
+        <div className="relative z-10 mb-8" style={{ animation: 'trophyFloat 5s ease-in-out infinite' }}>
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,127,255,.3), transparent 70%)', filter: 'blur(20px)', transform: 'scale(1.3)' }} />
+            <img src="/branding/logo.png" alt="Weekly Pracs" style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', position: 'relative', zIndex: 1, border: '2px solid rgba(79,127,255,.3)' }} />
+          </div>
         </div>
 
-        <h1 className="font-display font-bold uppercase relative z-10" style={{ fontSize: 'clamp(56px,10vw,120px)', lineHeight: 0.92, letterSpacing: '-0.02em' }}>
-          <span className="block" style={{ color: 'var(--text)' }}>
-            Играй
-          </span>
-          <span
-            className="block"
-            style={{ background: 'linear-gradient(90deg,var(--a) 0%,var(--a2) 50%,var(--a3) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-          >
-            На уровне
+        {/* Бейдж */}
+        <div className="relative z-10 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] px-5 py-2 rounded-full mb-8"
+          style={{ color: 'var(--a)', border: '1px solid rgba(79,127,255,.2)', background: 'rgba(79,127,255,.05)', backdropFilter: 'blur(10px)' }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'pulse 2s infinite' }} />
+          Majestic · Кастомные матчи
+        </div>
+
+        {/* Заголовок */}
+        <h1 className="relative z-10 font-display font-bold uppercase" style={{ fontSize: 'clamp(52px,11vw,130px)', lineHeight: 0.88, letterSpacing: '-0.03em', marginBottom: '24px' }}>
+          <span className="block" style={{ color: 'var(--text)' }}>Weekly</span>
+          <span className="block" style={{ background: 'linear-gradient(135deg, var(--a) 0%, var(--a2) 50%, var(--gold) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            Pracs
           </span>
         </h1>
 
-        <p className="relative z-10 mt-3 mb-12 max-w-lg" style={{ fontSize: 'clamp(15px,2vw,18px)', color: 'var(--muted)', lineHeight: 1.75 }}>
-          Организованные кастомные матчи с выбором зон по adjacencyMap, голосовыми каналами Discord и живым лобби без перезагрузок.
+        <p className="relative z-10 max-w-md mb-12 text-base" style={{ color: 'var(--muted)', lineHeight: 1.8 }}>
+          Организованные кастомные матчи 5×5.<br />Бан-пик карт, голосовые каналы, лента побед.
         </p>
 
-        <div className="flex gap-3.5 justify-center flex-wrap relative z-10">
-          <Link href={user ? '/matches' : '/register'} className="btn-main">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-              <polyline points="10 17 15 12 10 7" />
-              <line x1="15" y1="12" x2="3" y2="12" />
-            </svg>
-            Начать играть
+        {/* CTA */}
+        <div className="relative z-10 flex gap-4 flex-wrap justify-center">
+          <Link href={user ? '/matches' : '/register'} className="btn-main" style={{ padding: '14px 36px', fontSize: '15px', fontWeight: 600 }}>
+            {user ? '🎮 Найти матч' : '🚀 Начать играть'}
           </Link>
-          <Link href="/matches" className="btn-out">
-            Ближайшие матчи
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
+          <Link href="/gfc" className="btn-out" style={{ padding: '14px 32px', fontSize: '15px' }}>
+            ⚔️ GFC 5×5
           </Link>
+          <Link href="/wins" className="btn-out" style={{ padding: '14px 32px', fontSize: '15px' }}>
+            🏆 Топ игроков
+          </Link>
+        </div>
+
+        {/* Статы */}
+        <div className="relative z-10 flex gap-8 mt-16 flex-wrap justify-center">
+          {[['🎯', 'Кастомные матчи', '5×5'], ['⚔️', 'GFC режим', 'Атака/Защита'], ['🏆', 'Лента побед', 'Реалтайм'], ['💳', 'Токены', 'За победы']].map(([icon, label, val]) => (
+            <div key={label} className="text-center">
+              <div style={{ fontSize: '20px' }}>{icon}</div>
+              <div className="font-display font-bold text-sm mt-1">{val}</div>
+              <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* TICKER */}
-      <div className="relative z-10 overflow-hidden py-3.5" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div className="flex whitespace-nowrap" style={{ animation: 'ticker 28s linear infinite' }}>
+      <div className="relative z-10 overflow-hidden py-3" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'rgba(8,13,26,.8)', backdropFilter: 'blur(10px)' }}>
+        <div className="flex whitespace-nowrap" style={{ animation: 'ticker 30s linear infinite' }}>
           {[...Array(2)].map((_, rep) => (
             <div key={rep} className="flex">
-              <TickerItem>
-                <LiveDot /> <b style={{ color: 'var(--a)' }}>LIVE</b> Weekly Pracs · кастомные матчи каждую неделю
-              </TickerItem>
-              <TickerItem>🗺️ Зоны выбираются по adjacencyMap — без хардкода</TickerItem>
-              <TickerItem>🔊 Discord Voice — отдельный канал на команду</TickerItem>
-              <TickerItem>🏆 Победы и достижения — в публичной ленте</TickerItem>
+              {[['🔴 LIVE', 'Кастомные матчи каждую неделю'], ['⚔️ GFC', 'Ban-Pick · Атака vs Защита'], ['🏆 Токены', '+50 за каждую победу'], ['🎮 5×5', 'Majestic Cyber League'], ['🛡️ Стаки', 'Создай команду и сражайся']].map(([tag, text]) => (
+                <TickerItem key={tag}><b style={{ color: 'var(--a)' }}>{tag}</b> {text}</TickerItem>
+              ))}
             </div>
           ))}
         </div>
       </div>
 
-      {/* HOW IT WORKS */}
-      <section className="px-10 py-28 relative z-10 max-w-[1240px] mx-auto">
-        <Eyebrow>Как это работает</Eyebrow>
-        <h2 className="font-display font-bold uppercase mb-16" style={{ fontSize: 'clamp(36px,5vw,60px)', lineHeight: 0.95, letterSpacing: '-0.01em' }}>
-          От лобби<br />до победы
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-px rounded-2xl overflow-hidden" style={{ background: 'var(--border)', border: '1px solid var(--border)' }}>
-          <HowCard num="01" icon="🎯" title="Регистрация" desc="Создай аккаунт, привяжи Static ID из игры. Профиль, достижения и история — всё в одном месте." />
-          <HowCard num="02" icon="🗺️" title="Выбор матча" desc="Организатор создаёт матч — карта, зоны по adjacencyMap, режим, время старта по Москве." />
-          <HowCard num="03" icon="🎮" title="Лобби" desc="Занимай место в команде, жди команды в Discord Voice, нажимай «Готовы» — и в бой." />
-          <HowCard num="04" icon="🏆" title="Победа" desc="Матч завершён — победа и достижения записываются всей команде, появляются в ленте." />
+      {/* HOW IT WORKS — новый стиль */}
+      <section className="px-6 md:px-10 py-20 relative z-10 max-w-[1200px] mx-auto">
+        <div className="text-center mb-14">
+          <div className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--a)' }}>Как это работает</div>
+          <h2 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(32px,5vw,56px)', letterSpacing: '-0.02em' }}>
+            От регистрации<br />до победы
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { num: '01', icon: '🎯', title: 'Аккаунт', desc: 'Регистрируйся со Static ID — он подтверждает твою личность в игре' },
+            { num: '02', icon: '🗺️', title: 'Матч', desc: 'Выбирай из открытых лобби или создавай своё с бан-пиком карт' },
+            { num: '03', icon: '🎮', title: 'Лобби', desc: 'Вступай в команду, общайся в войсе Discord и жди старта' },
+            { num: '04', icon: '🏆', title: 'Победа', desc: 'Побеждай и получай токены, места в топе и уникальные эффекты' },
+          ].map((card) => (
+            <div key={card.num} className="relative rounded-2xl p-6 group transition-all hover:-translate-y-1"
+              style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <div className="absolute top-4 right-4 font-display font-bold text-5xl leading-none" style={{ color: 'rgba(79,127,255,.06)' }}>{card.num}</div>
+              <div className="text-2xl mb-4">{card.icon}</div>
+              <div className="font-display font-semibold uppercase mb-2" style={{ fontSize: '16px', letterSpacing: '0.04em' }}>{card.title}</div>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{card.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 

@@ -97,115 +97,125 @@ export default function CreateMatchPage() {
   };
 
   return (
-    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-2xl mx-auto" style={{ background: 'var(--bg)' }}>
-      <div className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--a)' }}>
-        Организатор
+    <div className="min-h-screen px-6 md:px-10 pt-32 pb-20 max-w-4xl mx-auto" style={{ background: 'var(--bg)' }}>
+      <div className="mb-8">
+        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--a)' }}>
+          <span className="block w-6 h-px" style={{ background: 'var(--a)' }} />
+          Организатор
+        </div>
+        <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4vw,44px)', letterSpacing: '-0.02em' }}>
+          Создать матч
+        </h1>
       </div>
-      <h1 className="font-display font-bold uppercase mb-10" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
-        Создать матч
-      </h1>
 
       {serverError && (
-        <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+        <div className="mb-6 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
           {serverError}
         </div>
       )}
 
-      <div className="card flex flex-col gap-6">
-        <div>
-          <label className="label-field">Карта</label>
-          <select value={mapId} onChange={(e) => setMapId(e.target.value)} className="input-field">
-            <option value="">— выберите карту —</option>
-            {maps?.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Зоны — фото карты для ориентира, кнопки-цвета снизу для выбора (без ограничения по соседству) */}
-        {mapDetail && (
-          <div>
-            <label className="label-field">Зоны (выбрано: {selectedZoneIds.length})</label>
-            <div className="mb-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border2)' }}>
-              <img src={mapDetail.imageUrl} alt={mapDetail.name} className="w-full h-auto block" />
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Левая колонка */}
+        <div className="flex flex-col gap-4">
+          {/* Карта */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Шаг 1</div>
+              <div className="font-display font-semibold uppercase">Выбор карты</div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {mapDetail.zones.map((zone) => {
-                const isSelected = selectedZoneIds.includes(zone.id);
-                return (
-                  <button
-                    key={zone.id}
-                    type="button"
-                    onClick={() => toggleZone(zone.id)}
-                    className="px-3.5 py-2 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: isSelected ? 'rgba(79,127,255,.15)' : 'rgba(255,255,255,.03)',
-                      border: `1px solid ${isSelected ? 'var(--a)' : 'var(--border2)'}`,
-                      color: isSelected ? 'var(--a)' : 'var(--text)',
-                    }}
-                  >
-                    {zone.name}
+            <div className="p-5 flex flex-col gap-3">
+              <div className="grid grid-cols-1 gap-2">
+                {maps?.map((m) => (
+                  <button key={m.id} type="button" onClick={() => setMapId(m.id)}
+                    className="relative flex items-center gap-3 p-3 rounded-xl transition-all text-left overflow-hidden"
+                    style={{ border: `1px solid ${mapId === m.id ? 'var(--a)' : 'var(--border2)'}`, background: mapId === m.id ? 'rgba(79,127,255,.08)' : 'rgba(255,255,255,.02)' }}>
+                    {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="w-12 h-8 rounded-lg object-cover flex-shrink-0" />}
+                    <span className="font-medium text-sm">{m.name}</span>
+                    {mapId === m.id && <span className="ml-auto font-mono text-[10px]" style={{ color: 'var(--a)' }}>✓</span>}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-            <p className="text-xs mt-2" style={{ color: 'var(--muted)' }}>
-              Необязательно — можно выбрать любое количество зон, можно выбрать позже.
-            </p>
           </div>
-        )}
 
-        <div>
-          <label className="label-field">Режим</label>
-          <div className="flex gap-2">
-            {MODE_OPTIONS.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => setMode(m.value)}
-                className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1"
-                style={{
-                  background: mode === m.value ? 'var(--a)' : 'rgba(255,255,255,.03)',
-                  color: mode === m.value ? '#fff' : 'var(--muted)',
-                  border: `1px solid ${mode === m.value ? 'var(--a)' : 'var(--border2)'}`,
-                }}
-              >
-                {m.label}
-              </button>
-            ))}
+          {/* Режим */}
+          <div className="rounded-2xl" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Шаг 2</div>
+              <div className="font-display font-semibold uppercase">Режим игры</div>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-4 gap-2">
+                {MODE_OPTIONS.map((m) => (
+                  <button key={m.value} type="button" onClick={() => setMode(m.value)}
+                    className="py-3 rounded-xl font-display font-bold text-lg transition-all"
+                    style={{ background: mode === m.value ? 'var(--a)' : 'rgba(255,255,255,.03)', color: mode === m.value ? '#fff' : 'var(--muted)', border: `1px solid ${mode === m.value ? 'var(--a)' : 'var(--border2)'}`, boxShadow: mode === m.value ? '0 0 20px rgba(79,127,255,.3)' : 'none' }}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border2)' }}>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>
-            Команды теперь создают сами игроки прямо в лобби — вам не нужно задавать их заранее.
-            {' '}
-            {Number.isFinite(MODE_TEAM_LIMITS[mode])
-              ? `Максимум для режима ${MODE_OPTIONS.find((m) => m.value === mode)?.label}: ${MODE_TEAM_LIMITS[mode]} команд.`
-              : `Для режима ${MODE_OPTIONS.find((m) => m.value === mode)?.label} ограничения на количество команд нет.`}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label-field">Дата (МСК)</label>
-            <input value={date} onChange={(e) => setDate(e.target.value)} type="date" className="input-field" />
-          </div>
-          <div>
-            <label className="label-field">Время (МСК)</label>
-            <input value={time} onChange={(e) => setTime(e.target.value)} type="time" className="input-field" />
+          {/* Дата и время */}
+          <div className="rounded-2xl" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Шаг 3</div>
+              <div className="font-display font-semibold uppercase">Дата и время МСК</div>
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-field">Дата</label>
+                <input value={date} onChange={(e) => setDate(e.target.value)} type="date" className="input-field" />
+              </div>
+              <div>
+                <label className="label-field">Время</label>
+                <input value={time} onChange={(e) => setTime(e.target.value)} type="time" className="input-field" />
+              </div>
+            </div>
           </div>
         </div>
-        <p className="text-xs" style={{ color: 'var(--muted)' }}>
-          Время указывается по Москве и автоматически конвертируется в UTC для хранения на сервере.
-        </p>
 
-        <button onClick={handleSubmit} disabled={submitting} className="btn-main justify-center mt-2">
-          {submitting ? 'Создаём...' : 'Создать матч'}
+        {/* Правая колонка — зоны */}
+        <div className="rounded-2xl overflow-hidden flex flex-col" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Шаг 4 (необязательно)</div>
+            <div className="font-display font-semibold uppercase">Зоны {selectedZoneIds.length > 0 && <span style={{ color: 'var(--a)' }}>· {selectedZoneIds.length}</span>}</div>
+          </div>
+
+          {!mapDetail ? (
+            <div className="flex-1 flex items-center justify-center p-10 text-sm" style={{ color: 'var(--muted)' }}>
+              Сначала выберите карту
+            </div>
+          ) : (
+            <div className="p-5 flex flex-col gap-4 flex-1">
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border2)' }}>
+                <img src={mapDetail.imageUrl} alt={mapDetail.name} className="w-full h-auto block" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {mapDetail.zones.map((zone) => {
+                  const isSelected = selectedZoneIds.includes(zone.id);
+                  return (
+                    <button key={zone.id} type="button" onClick={() => toggleZone(zone.id)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-medium transition-all"
+                      style={{ background: isSelected ? 'rgba(79,127,255,.15)' : 'rgba(255,255,255,.03)', border: `1px solid ${isSelected ? 'var(--a)' : 'var(--border2)'}`, color: isSelected ? 'var(--a)' : 'var(--text)' }}>
+                      {zone.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Создать */}
+      <div className="mt-6">
+        <button onClick={handleSubmit} disabled={submitting} className="btn-main justify-center w-full" style={{ padding: '16px', fontSize: '16px' }}>
+          {submitting ? 'Создаём...' : '🎮 Создать матч'}
         </button>
       </div>
+
     </div>
   );
 }

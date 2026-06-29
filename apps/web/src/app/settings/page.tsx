@@ -19,8 +19,10 @@ interface Settings {
   ram?: number | null;
   resolution?: string | null;
   graphicsPreset?: string | null;
-  graphicsScreenshotUrl?: string | null;
+  graphicsTxtUrl?: string | null;
   aspectRatio?: string | null;
+  reduxLink?: string | null;
+  gunpackLink?: string | null;
 }
 
 const ASPECT_RATIOS = ['16:9', '16:10', '5:4', '5:3', '4:3', '3:2'];
@@ -137,14 +139,47 @@ export default function SettingsPage() {
             <Field label="Графика (текстом)" value={form.graphicsPreset ?? ''} onChange={set('graphicsPreset')} placeholder="Низкое / Среднее..." />
           </div>
           <div className="mt-4">
-            <ImageUploadField
-              label="Скриншот настроек графики (необязательно)"
-              value={form.graphicsScreenshotUrl ?? ''}
-              onChange={(url) => setForm((f) => ({ ...f, graphicsScreenshotUrl: url || null }))}
-              folder="media-thumbs"
+            <label className="label-field">Настройки графики (.txt файл — ссылка на Google Диск)</label>
+            <input
+              type="url"
+              value={form.graphicsTxtUrl ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, graphicsTxtUrl: e.target.value || null }))}
+              placeholder="https://drive.google.com/file/d/..."
+              className="input-field"
             />
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Загрузи .txt файл с настройками на Google Диск и вставь ссылку</p>
           </div>
         </div>
+
+        {/* ССЫЛКИ */}
+        <div className="card md:col-span-2">
+          <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-4 flex items-center gap-2" style={{ color: 'var(--muted)' }}>
+            🔗 Ссылки
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label-field">Redux (ссылка на Google Диск)</label>
+              <input
+                type="url"
+                value={form.reduxLink ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, reduxLink: e.target.value || null }))}
+                placeholder="https://drive.google.com/..."
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="label-field">Gunpack (ссылка на Google Диск)</label>
+              <input
+                type="url"
+                value={form.gunpackLink ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, gunpackLink: e.target.value || null }))}
+                placeholder="https://drive.google.com/..."
+                className="input-field"
+              />
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <div className="mt-8 flex items-center gap-4">

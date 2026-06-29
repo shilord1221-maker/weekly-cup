@@ -694,7 +694,9 @@ model PlayerSettings {
   resolution           String?  @db.VarChar(32)
   aspectRatio          String?  @db.VarChar(8)
   graphicsPreset       String?  @db.VarChar(32)
-  graphicsScreenshotUrl String? @db.VarChar(512)
+  graphicsTxtUrl       String?  @db.VarChar(512)
+  reduxLink            String?  @db.VarChar(512)
+  gunpackLink          String?  @db.VarChar(512)
 
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())

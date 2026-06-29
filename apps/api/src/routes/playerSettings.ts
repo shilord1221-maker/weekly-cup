@@ -13,10 +13,12 @@ const SettingsSchema = z.object({
   cpu:         z.string().max(64).optional().nullable(),
   gpu:         z.string().max(64).optional().nullable(),
   ram:         z.number().int().min(1).max(512).optional().nullable(),
-  resolution:               z.string().max(32).optional().nullable(),
-  aspectRatio:              z.string().max(8).optional().nullable(),
-  graphicsPreset:           z.string().max(32).optional().nullable(),
-  graphicsScreenshotUrl:    z.string().url().optional().nullable(),
+  resolution:    z.string().max(32).optional().nullable(),
+  aspectRatio:   z.string().max(8).optional().nullable(),
+  graphicsPreset:z.string().max(32).optional().nullable(),
+  graphicsTxtUrl:z.string().url().optional().nullable(),
+  reduxLink:     z.string().url().optional().nullable(),
+  gunpackLink:   z.string().url().optional().nullable(),
 });
 
 export async function playerSettingsRoutes(app: FastifyInstance) {

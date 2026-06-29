@@ -11,10 +11,11 @@ import { StackTag } from '@/components/StackTag';
 import { roleLabel } from '@/store/auth';
 
 interface PlayerSettings {
-  mouseDpi?: number | null; sensitivity?: number | null; aimSensitivity?: number | null; zoomSensitivity?: number | null;
-  cpu?: string | null; gpu?: string | null; ram?: number | null; monitor?: string | null;
-  mouse?: string | null; mousepad?: string | null; headset?: string | null; keyboard?: string | null;
-  fov?: number | null; resolution?: string | null; graphicsPreset?: string | null; fps?: number | null;
+  mouseDpi?: number | null; sensitivity?: number | null;
+  mouse?: string | null; mousepad?: string | null; keyboard?: string | null; monitor?: string | null;
+  cpu?: string | null; gpu?: string | null; ram?: number | null;
+  resolution?: string | null; aspectRatio?: string | null; graphicsPreset?: string | null;
+  graphicsTxtUrl?: string | null; reduxLink?: string | null; gunpackLink?: string | null;
 }
 
 interface PublicProfile {
@@ -157,57 +158,77 @@ export default function PublicProfilePage() {
       {/* Достижения убраны из публичного профиля — показываем только в /profile */}
 
       {/* КАРТОЧКА НАСТРОЕК */}
-      {playerSettings && (Object.values(playerSettings).some((v) => v !== null && v !== undefined)) && (
-        <div className="mb-6 rounded-2xl overflow-hidden relative z-10" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-          {/* Шапка */}
-          <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(79,127,255,.03)' }}>
-            <span style={{ fontSize: '18px' }}>🎮</span>
-            <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>Настройки игрока</h2>
+      {playerSettings && Object.values(playerSettings).some(Boolean) && (
+        <div className="mb-6 rounded-2xl overflow-hidden relative z-10" style={{ border: '1px solid rgba(79,127,255,.2)', background: 'linear-gradient(135deg,rgba(79,127,255,.04),var(--surface))' }}>
+          <div className="px-5 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(79,127,255,.1)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: 'rgba(79,127,255,.1)' }}>🎮</div>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--text)' }}>Карточка игрока</h2>
           </div>
 
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-5">
             {/* Мышь */}
-            {(playerSettings.mouseDpi || playerSettings.sensitivity || playerSettings.aimSensitivity || playerSettings.mouse) && (
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>🖱️ Мышь</div>
+            {(playerSettings.mouseDpi || playerSettings.sensitivity || playerSettings.mouse || playerSettings.keyboard) && (
+              <div className="rounded-xl p-4" style={{ background: 'rgba(0,0,0,.2)' }}>
+                <div className="font-mono text-[10px] uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: 'var(--a)' }}>🖱️ Мышь и периферия</div>
                 <div className="flex flex-col gap-2">
                   {playerSettings.mouse && <StatRow label="Мышь" value={playerSettings.mouse} />}
                   {playerSettings.mousepad && <StatRow label="Коврик" value={playerSettings.mousepad} />}
+                  {playerSettings.keyboard && <StatRow label="Клавиатура" value={playerSettings.keyboard} />}
+                  {playerSettings.monitor && <StatRow label="Монитор" value={playerSettings.monitor} />}
                   {playerSettings.mouseDpi && <StatRow label="DPI" value={String(playerSettings.mouseDpi)} highlight />}
                   {playerSettings.sensitivity && <StatRow label="Sens" value={String(playerSettings.sensitivity)} highlight />}
-                  {playerSettings.aimSensitivity && <StatRow label="ADS" value={String(playerSettings.aimSensitivity)} />}
                 </div>
               </div>
             )}
 
             {/* Железо */}
-            {(playerSettings.cpu || playerSettings.gpu || playerSettings.ram || playerSettings.monitor) && (
-              <div>
+            {(playerSettings.cpu || playerSettings.gpu || playerSettings.ram) && (
+              <div className="rounded-xl p-4" style={{ background: 'rgba(0,0,0,.2)' }}>
                 <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>💻 Железо</div>
                 <div className="flex flex-col gap-2">
                   {playerSettings.cpu && <StatRow label="CPU" value={playerSettings.cpu} />}
                   {playerSettings.gpu && <StatRow label="GPU" value={playerSettings.gpu} />}
                   {playerSettings.ram && <StatRow label="RAM" value={`${playerSettings.ram} GB`} />}
-                  {playerSettings.monitor && <StatRow label="Монитор" value={playerSettings.monitor} />}
-                  {playerSettings.headset && <StatRow label="Наушники" value={playerSettings.headset} />}
-                  {playerSettings.keyboard && <StatRow label="Клавиатура" value={playerSettings.keyboard} />}
                 </div>
               </div>
             )}
 
-            {/* GTA */}
-            {(playerSettings.fov || playerSettings.resolution || playerSettings.graphicsPreset || playerSettings.fps) && (
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>⚙️ GTA / FiveM</div>
+            {/* Majestic */}
+            {(playerSettings.resolution || playerSettings.aspectRatio || playerSettings.graphicsPreset || playerSettings.graphicsTxtUrl) && (
+              <div className="rounded-xl p-4" style={{ background: 'rgba(0,0,0,.2)' }}>
+                <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>⚙️ Majestic</div>
                 <div className="flex flex-col gap-2">
                   {playerSettings.resolution && <StatRow label="Разрешение" value={playerSettings.resolution} />}
-                  {playerSettings.fov && <StatRow label="FOV" value={String(playerSettings.fov)} highlight />}
+                  {playerSettings.aspectRatio && <StatRow label="Формат" value={playerSettings.aspectRatio} highlight />}
                   {playerSettings.graphicsPreset && <StatRow label="Графика" value={playerSettings.graphicsPreset} />}
-                  {playerSettings.fps && <StatRow label="FPS лимит" value={`${playerSettings.fps}`} highlight />}
+                  {playerSettings.graphicsTxtUrl && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs" style={{ color: 'var(--muted)' }}>Настройки</span>
+                      <a href={playerSettings.graphicsTxtUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-xs" style={{ color: 'var(--a)' }}>скачать .txt</a>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Ссылки */}
+          {(playerSettings.reduxLink || playerSettings.gunpackLink) && (
+            <div className="px-5 pb-4 flex gap-3 flex-wrap">
+              {playerSettings.reduxLink && (
+                <a href={playerSettings.reduxLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all hover:opacity-80"
+                  style={{ background: 'rgba(79,127,255,.1)', border: '1px solid rgba(79,127,255,.2)', color: 'var(--a)' }}>
+                  🔗 Redux
+                </a>
+              )}
+              {playerSettings.gunpackLink && (
+                <a href={playerSettings.gunpackLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all hover:opacity-80"
+                  style={{ background: 'rgba(139,92,246,.1)', border: '1px solid rgba(139,92,246,.2)', color: '#c084fc' }}>
+                  🔫 Gunpack
+                </a>
+              )}
+            </div>
+          )}
         </div>
       )}
 
