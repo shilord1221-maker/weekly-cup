@@ -25,7 +25,9 @@ export default function ShopPage() {
   const canGrant = isAdminOrOwner(user?.role);
   const isOwner = user?.role === 'OWNER';
 
-  const [category, setCategory] = useState<'color' | 'gradient' | 'frame' | 'bg'>('gradient');
+  const [category, setCategory] = useState<'color' | 'gradient' | 'frame' | 'bg' | 'buy'>('gradient');
+  const [buyingPkg, setBuyingPkg] = useState<string | null>(null);
+  const [pkgErr, setPkgErr] = useState<string | null>(null);
   const [buying, setBuying] = useState<string | null>(null);
   const [buyErr, setBuyErr] = useState<string | null>(null);
   const [activating, setActivating] = useState<string | null>(null);
@@ -111,6 +113,14 @@ export default function ShopPage() {
     catch { } finally { setPriceSaving(false); }
   };
 
+  const handleBuyPackage = async (pkgId: string) => {
+    setPkgErr(null); setBuyingPkg(pkgId);
+    try {
+      const res = await api.post<{ paymentUrl: string }>('/payments/create', { packageId: pkgId });
+      window.location.href = res.paymentUrl;
+    } catch (e) { setPkgErr(e instanceof ApiClientError ? e.message : 'Ошибка'); setBuyingPkg(null); }
+  };
+
   const handleBuyBg = async () => {
     if (!bgUploadUrl) { setBgBuyErr('Загрузите изображение'); return; }
     setBgBuyErr(null); setBgBuying(true); setBgBuyOk(false);
@@ -125,6 +135,7 @@ export default function ShopPage() {
     { key: 'color', label: '🎨 Цвет', count: colors.length },
     { key: 'frame', label: '🪽 Рамки', count: frames.length },
     { key: 'bg', label: '🖼️ Фон', count: 1 },
+    { key: 'buy', label: '💳 Купить токены', count: null },
   ] as const;
 
   return (
@@ -345,6 +356,63 @@ export default function ShopPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* КУПИТЬ ТОКЕНЫ */}
+        {category === 'buy' && (
+          <div>
+            <div className="mb-6 flex items-center gap-3 px-5 py-4 rounded-2xl" style={{ background: 'rgba(79,127,255,.04)', border: '1px solid rgba(79,127,255,.15)' }}>
+              <span style={{ fontSize: '20px' }}>ℹ️</span>
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>Курс: <strong style={{ color: 'var(--text)' }}>2 токена = 1₽</strong> · Оплата через ЮКасса (карта, СБП, ЮМани)</p>
+            </div>
+            {pkgErr && <div className="text-sm rounded-xl px-4 py-3 mb-4" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{pkgErr}</div>}
+
+            {!process.env.NEXT_PUBLIC_PAYMENTS_ENABLED && (
+              <div className="text-sm rounded-xl px-5 py-4 mb-6 flex items-center gap-3" style={{ background: 'rgba(201,149,74,.06)', border: '1px solid rgba(201,149,74,.2)', color: 'var(--gold)' }}>
+                <span style={{ fontSize: '20px' }}>⚙️</span>
+                <span>Платёжная система настраивается. Скоро будет доступна оплата токенов за рубли.</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {[
+                { id: 'p100',  tokens: 100,  rubles: 50,   popular: false, bonus: '' },
+                { id: 'p500',  tokens: 500,  rubles: 250,  popular: true,  bonus: '' },
+                { id: 'p1000', tokens: 1000, rubles: 500,  popular: false, bonus: '+50 бонус' },
+                { id: 'p2500', tokens: 2500, rubles: 1250, popular: false, bonus: '+200 бонус' },
+                { id: 'p5000', tokens: 5000, rubles: 2500, popular: false, bonus: '+500 бонус' },
+              ].map((pkg) => (
+                <div key={pkg.id} className="relative rounded-2xl overflow-hidden transition-all hover:-translate-y-1"
+                  style={{ border: pkg.popular ? '1px solid rgba(79,127,255,.4)' : '1px solid var(--border)', background: pkg.popular ? 'rgba(79,127,255,.06)' : 'var(--surface)', boxShadow: pkg.popular ? '0 0 20px rgba(79,127,255,.08)' : 'none' }}>
+                  {pkg.popular && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg,var(--a),var(--a2))' }} />}
+                  {pkg.popular && <div className="absolute top-3 right-3 font-mono text-[9px] px-2 py-0.5 rounded-full" style={{ background: 'var(--a)', color: '#fff' }}>Популярный</div>}
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <TokenIcon size={24} />
+                      <span className="font-display font-bold text-3xl" style={{ color: 'var(--gold)' }}>{pkg.tokens.toLocaleString('ru-RU')}</span>
+                    </div>
+                    {pkg.bonus && <div className="font-mono text-xs mb-3 px-2 py-1 rounded-lg w-fit" style={{ color: 'var(--green)', background: 'rgba(34,197,94,.08)' }}>{pkg.bonus}</div>}
+                    <div className="font-display font-bold text-2xl mb-1">{pkg.rubles.toLocaleString('ru-RU')} ₽</div>
+                    <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>{(pkg.rubles / pkg.tokens * 100).toFixed(1)}₽ за 100 токенов</div>
+                    {user ? (
+                      <button onClick={() => handleBuyPackage(pkg.id)} disabled={buyingPkg === pkg.id} className="btn-main justify-center w-full">
+                        {buyingPkg === pkg.id ? 'Переходим...' : 'Купить'}
+                      </button>
+                    ) : (
+                      <Link href="/login" className="btn-out justify-center w-full block text-center">Войти</Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 rounded-2xl px-5 py-4 text-xs" style={{ background: 'rgba(255,255,255,.02)', border: '1px solid var(--border)' }}>
+              <div className="font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--muted)' }}>Безопасность</div>
+              <p style={{ color: 'var(--muted)', lineHeight: 1.7 }}>
+                Оплата проходит через <strong style={{ color: 'var(--text)' }}>ЮКасса</strong> — лицензированный платёжный сервис. Мы не храним данные карты. Токены зачисляются автоматически после подтверждения платежа.
+              </p>
+            </div>
           </div>
         )}
 

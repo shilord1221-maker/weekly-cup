@@ -26,6 +26,8 @@ import { stackRoutes } from '@/routes/stacks.js';
 import { tokenRoutes } from '@/routes/tokens.js';
 import { gfcRoutes } from '@/routes/gfc.js';
 import { gfcPartyRoutes } from '@/routes/gfcParty.js';
+import { playerSettingsRoutes } from '@/routes/playerSettings.js';
+import { paymentRoutes } from '@/routes/payments.js';
 import { startDiscordBot } from '@/services/discordBot.js';
 
 async function main() {
@@ -79,6 +81,8 @@ async function main() {
   await app.register(tokenRoutes);
   await app.register((instance) => gfcRoutes(instance, { io }));
   await app.register((instance) => gfcPartyRoutes(instance, { io }));
+  await app.register(playerSettingsRoutes);
+  await app.register(paymentRoutes);
 
   // ───────── DISCORD BOT (запускается вместе с проектом; не блокирует старт сайта,
   // если Discord временно недоступен — ошибка логируется, остальной сайт работает) ─────────

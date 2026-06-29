@@ -10,6 +10,13 @@ import { TokenIcon } from '@/components/TokenIcon';
 import { StackTag } from '@/components/StackTag';
 import { roleLabel } from '@/store/auth';
 
+interface PlayerSettings {
+  mouseDpi?: number | null; sensitivity?: number | null; aimSensitivity?: number | null; zoomSensitivity?: number | null;
+  cpu?: string | null; gpu?: string | null; ram?: number | null; monitor?: string | null;
+  mouse?: string | null; mousepad?: string | null; headset?: string | null; keyboard?: string | null;
+  fov?: number | null; resolution?: string | null; graphicsPreset?: string | null; fps?: number | null;
+}
+
 interface PublicProfile {
   id: string;
   username: string;
@@ -37,8 +44,23 @@ const ROLE_BADGE: Record<string, { label: string; color: string; bg: string }> =
   PLAYER:    { label: 'Player',     color: 'var(--muted)', bg: 'rgba(255,255,255,.04)' },
 };
 
+function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs" style={{ color: 'var(--muted)' }}>{label}</span>
+      <span className="font-mono text-xs font-medium" style={{ color: highlight ? 'var(--a)' : 'var(--text)' }}>{value}</span>
+    </div>
+  );
+}
+
 export default function PublicProfilePage() {
   const { id } = useParams<{ id: string }>();
+
+  const { data: playerSettings } = useQuery<PlayerSettings | null>({
+    queryKey: ['player-settings', id],
+    queryFn: () => api.get<PlayerSettings>(`/settings/${id}`, { auth: false }).catch(() => null),
+    enabled: !!id,
+  });
 
   const { data: profile, isLoading } = useQuery<PublicProfile>({
     queryKey: ['public-profile', id],
@@ -149,8 +171,63 @@ export default function PublicProfilePage() {
         </div>
       )}
 
+      {/* КАРТОЧКА НАСТРОЕК */}
+      {playerSettings && (Object.values(playerSettings).some((v) => v !== null && v !== undefined)) && (
+        <div className="mb-6 rounded-2xl overflow-hidden relative z-10" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+          {/* Шапка */}
+          <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(79,127,255,.03)' }}>
+            <span style={{ fontSize: '18px' }}>🎮</span>
+            <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>Настройки игрока</h2>
+          </div>
+
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {/* Мышь */}
+            {(playerSettings.mouseDpi || playerSettings.sensitivity || playerSettings.aimSensitivity || playerSettings.mouse) && (
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>🖱️ Мышь</div>
+                <div className="flex flex-col gap-2">
+                  {playerSettings.mouse && <StatRow label="Мышь" value={playerSettings.mouse} />}
+                  {playerSettings.mousepad && <StatRow label="Коврик" value={playerSettings.mousepad} />}
+                  {playerSettings.mouseDpi && <StatRow label="DPI" value={String(playerSettings.mouseDpi)} highlight />}
+                  {playerSettings.sensitivity && <StatRow label="Sens" value={String(playerSettings.sensitivity)} highlight />}
+                  {playerSettings.aimSensitivity && <StatRow label="ADS" value={String(playerSettings.aimSensitivity)} />}
+                </div>
+              </div>
+            )}
+
+            {/* Железо */}
+            {(playerSettings.cpu || playerSettings.gpu || playerSettings.ram || playerSettings.monitor) && (
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>💻 Железо</div>
+                <div className="flex flex-col gap-2">
+                  {playerSettings.cpu && <StatRow label="CPU" value={playerSettings.cpu} />}
+                  {playerSettings.gpu && <StatRow label="GPU" value={playerSettings.gpu} />}
+                  {playerSettings.ram && <StatRow label="RAM" value={`${playerSettings.ram} GB`} />}
+                  {playerSettings.monitor && <StatRow label="Монитор" value={playerSettings.monitor} />}
+                  {playerSettings.headset && <StatRow label="Наушники" value={playerSettings.headset} />}
+                  {playerSettings.keyboard && <StatRow label="Клавиатура" value={playerSettings.keyboard} />}
+                </div>
+              </div>
+            )}
+
+            {/* GTA */}
+            {(playerSettings.fov || playerSettings.resolution || playerSettings.graphicsPreset || playerSettings.fps) && (
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: 'var(--a)' }}>⚙️ GTA / FiveM</div>
+                <div className="flex flex-col gap-2">
+                  {playerSettings.resolution && <StatRow label="Разрешение" value={playerSettings.resolution} />}
+                  {playerSettings.fov && <StatRow label="FOV" value={String(playerSettings.fov)} highlight />}
+                  {playerSettings.graphicsPreset && <StatRow label="Графика" value={playerSettings.graphicsPreset} />}
+                  {playerSettings.fps && <StatRow label="FPS лимит" value={`${playerSettings.fps}`} highlight />}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ИСТОРИЯ ПОБЕД */}
-      <div className="card">
+      <div className="card relative z-10">
         <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
           Последние победы
         </h2>

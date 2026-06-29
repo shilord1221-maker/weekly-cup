@@ -139,6 +139,8 @@ model User {
   gfcPlayerSlots    GfcPlayer[]    @relation("GfcPlayers")
   gfcQueue          GfcQueue?      @relation("GfcQueue")
   gfcPartyCaptain   GfcParty?      @relation("GfcPartyCaptain")
+  playerSettings    PlayerSettings?
+  tokenPayments     TokenPayment[]
   gfcPartyMember    GfcPartyMember? @relation("GfcPartyMembers")
   gfcPartyInvites   GfcPartyInvite[] @relation("GfcPartyInvites")
 
@@ -666,6 +668,56 @@ model GfcQueue {
   queueType String  @db.VarChar(16) // SOLO | STACK
   stackId  String?
   joinedAt DateTime @default(now())
+}
+
+// ───────────────────────── PLAYER SETTINGS (карточка игрока) ─────────────────────────
+
+model PlayerSettings {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Мышь
+  mouseDpi       Int?
+  sensitivity    Float?   // общая чувствительность GTA
+  aimSensitivity Float?   // прицеливание
+  zoomSensitivity Float?  // зум
+
+  // Железо
+  cpu            String?  @db.VarChar(64)
+  gpu            String?  @db.VarChar(64)
+  ram            Int?     // GB
+  monitor        String?  @db.VarChar(64)  // например "144hz 1080p"
+  mouse          String?  @db.VarChar(64)
+  mousepad       String?  @db.VarChar(64)
+  headset        String?  @db.VarChar(64)
+  keyboard       String?  @db.VarChar(64)
+
+  // Настройки GTA
+  fov            Int?
+  resolution     String?  @db.VarChar(16)  // "1920x1080"
+  graphicsPreset String?  @db.VarChar(32)  // "Низкое", "Среднее", "Высокое"
+  fps            Int?     // ограничение FPS
+
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+}
+
+// ───────────────────────── TOKEN PAYMENTS (покупка токенов) ─────────────────────────
+
+model TokenPayment {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  yookassaId   String   @unique  // ID платежа в ЮКасса
+  amount       Int      // сумма в копейках (рублей * 100)
+  tokens       Int      // сколько токенов начислить
+  status       String   @default("PENDING") // PENDING | SUCCEEDED | CANCELLED
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  @@index([userId])
+  @@index([status])
 }
 
 // ───────────────────────── POLLS (голосование за карту/режим) ─────────────────────────

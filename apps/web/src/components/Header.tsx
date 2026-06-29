@@ -165,6 +165,16 @@ export function Header() {
             <TokenIcon size={32} />
           </Link>
           <Link
+            href="/settings"
+            className="flex items-center justify-center w-11 h-11 rounded-full transition-all hover:border-white/20"
+            style={{ border: '1px solid var(--border2)', background: 'rgba(8,13,26,.7)', backdropFilter: 'blur(20px)', color: 'var(--muted)' }}
+            title="Мои настройки / карточка игрока"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </Link>
+          <Link
             href="/rules"
             className="flex items-center justify-center h-11 px-4 rounded-full text-sm font-medium transition-all hover:border-white/20"
             style={{ border: '1px solid var(--border2)', background: 'rgba(8,13,26,.7)', backdropFilter: 'blur(20px)', color: 'var(--muted)' }}
