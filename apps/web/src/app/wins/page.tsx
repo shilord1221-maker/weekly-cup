@@ -14,9 +14,7 @@ interface LeaderboardItem {
   stack: { id: string; name: string; tag: string; tagColor: string } | null;
   count: number;
 }
-interface DayTopItem extends LeaderboardItem {
-  stack?: LeaderboardItem['stack'];
-}
+type DayTopItem = LeaderboardItem;
 
 function Medal({ idx }: { idx: number }) {
   if (idx === 0) return <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg" style={{ background: 'linear-gradient(135deg,#fde68a,#f59e0b)', boxShadow: '0 0 12px rgba(245,158,11,.5)' }}>👑</div>;
