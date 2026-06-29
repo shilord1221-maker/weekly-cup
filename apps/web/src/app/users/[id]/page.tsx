@@ -58,7 +58,7 @@ export default function PublicProfilePage() {
 
   const { data: playerSettings } = useQuery<PlayerSettings | null>({
     queryKey: ['player-settings', id],
-    queryFn: () => api.get<PlayerSettings>(`/settings/${id}`, { auth: false }).catch(() => null),
+    queryFn: () => api.get<PlayerSettings>(`/settings/${id}`, { auth: false }).catch(() => null as PlayerSettings | null),
     enabled: !!id,
   });
 

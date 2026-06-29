@@ -57,7 +57,7 @@ export default function SettingsPage() {
 
   const { data: settings } = useQuery<Settings | null>({
     queryKey: ['player-settings'],
-    queryFn: () => api.get('/settings/my').catch(() => null),
+    queryFn: () => api.get<Settings>('/settings/my').catch(() => null as Settings | null),
     enabled: !!user,
   });
 
