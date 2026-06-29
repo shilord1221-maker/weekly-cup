@@ -39,7 +39,7 @@ interface ProfileData {
   avatarStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   avatarRejectedReason: string | null;
   achievements: { id: string; title: string; earnedAt: string }[];
-  wins: { id: string; createdAt: string; match: { map: { name: string } } }[];
+  wins: { id: string; createdAt: string; match: { id: string; map: { name: string } } }[];
 }
 
 const DISCORD_ERROR_MESSAGES: Record<string, string> = {
