@@ -10,7 +10,7 @@ export async function referralRoutes(app: FastifyInstance) {
   app.get('/api/referral/my-code', { preHandler: requireAuth }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { referralCode: true, referralBalance: true },
+      select: { referralCode2: true, referralBalance: true },
     });
 
     let code = user?.referralCode;
@@ -18,7 +18,7 @@ export async function referralRoutes(app: FastifyInstance) {
       code = randomBytes(4).toString('hex').toUpperCase();
       await prisma.user.update({
         where: { id: req.user!.id },
-        data: { referralCode: code },
+        data: { referralCode2: code },
       });
     }
 
@@ -52,7 +52,7 @@ export async function referralRoutes(app: FastifyInstance) {
     const { code, newUserId } = req.body as { code: string; newUserId: string };
 
     const referrer = await prisma.user.findUnique({
-      where: { referralCode: code },
+      where: { referralCode2: code },
     });
 
     if (!referrer || referrer.id === newUserId) {
