@@ -31,7 +31,7 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
             winnerTeam: true,
           },
         },
-        teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true, activeUsernameEffect: true, staticId: { select: { value: true } }, stackMembership: { select: { stack: { select: { id: true, name: true, tag: true, tagColor: true, logoUrl: true } } } } } } } } }, orderBy: { slot: 'asc' } },
+        teams: { include: { members: { include: { user: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true, activeUsernameEffect: true, staticId: { select: { value: true } }, stackMembership: { select: { stack: { select: { id: true, name: true, tag: true, tagColor: true } } } } } } } } }, orderBy: { slot: 'asc' } },
       },
     });
     if (!lobby) return reply.code(404).send({ error: 'NOT_FOUND', message: 'Лобби не найдено' });
@@ -40,7 +40,7 @@ export async function lobbyRoutes(app: FastifyInstance, opts: { io: SocketServer
     // и фронт ошибочно считает, что они "не в лобби", хотя запись уже существует.
     const unassignedMembers = await prisma.lobbyMember.findMany({
       where: { lobbyId: lobby.id, teamId: null },
-      include: { user: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true, activeUsernameEffect: true, staticId: { select: { value: true } }, stackMembership: { select: { stack: { select: { id: true, name: true, tag: true, tagColor: true, logoUrl: true } } } } } } },
+      include: { user: { select: { id: true, username: true, avatarUrl: true, activeFrameEffect: true, activeUsernameEffect: true, staticId: { select: { value: true } }, stackMembership: { select: { stack: { select: { id: true, name: true, tag: true, tagColor: true } } } } } } },
     });
 
     reply.send({ ...lobby, unassignedMembers });

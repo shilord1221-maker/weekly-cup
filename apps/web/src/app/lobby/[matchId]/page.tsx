@@ -180,7 +180,7 @@ interface Member {
   userId: string;
   dynamicId?: string | null;
   isEliminated?: boolean;
-  user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null; activeFrameEffect?: string | null; activeUsernameEffect?: string | null; stackMembership?: { stack: { id: string; tag: string; tagColor: string; logoUrl?: string | null } } | null };
+  user: { id: string; username: string; avatarUrl?: string | null; staticId?: { value: string } | null; activeFrameEffect?: string | null; activeUsernameEffect?: string | null; stackMembership?: { stack: { id: string; tag: string; tagColor: string } } | null };
 }
 interface TeamData {
   id: string;
@@ -248,17 +248,6 @@ function formatMs(ms: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-/** Если ВСЕ участники команды состоят в одном и том же стаке — возвращает этот стак,
- *  иначе null. Используется чтобы показать лого стака водяным знаком на карточке команды. */
-function getUnifiedStack(team: TeamData): { id: string; tag: string; tagColor: string; logoUrl?: string | null } | null {
-  if (team.members.length === 0) return null;
-  const stacks = team.members.map((m) => m.user.stackMembership?.stack ?? null);
-  if (stacks.some((s) => !s)) return null;
-  const firstId = stacks[0]!.id;
-  if (!stacks.every((s) => s!.id === firstId)) return null;
-  return stacks[0]!;
 }
 
 export default function LobbyPage() {
@@ -747,98 +736,33 @@ export default function LobbyPage() {
         </div>
       )}
 
-      {/* ── HERO STATUS BAR ── */}
-      <div
-        className="relative overflow-hidden rounded-3xl mb-8 px-7 py-7 md:px-9 md:py-9"
-        style={{
-          border: `1px solid ${isLive ? 'rgba(34,197,94,.25)' : isPaused ? 'rgba(201,149,74,.3)' : isFinished ? 'rgba(201,149,74,.25)' : 'var(--border2)'}`,
-          background: isLive
-            ? 'linear-gradient(135deg, rgba(34,197,94,.08), var(--surface) 55%)'
-            : isFinished
-            ? 'linear-gradient(135deg, rgba(201,149,74,.08), var(--surface) 55%)'
-            : 'linear-gradient(135deg, rgba(79,127,255,.06), var(--surface) 55%)',
-        }}
-      >
-        {/* фоновое крупное ID матча — декоративный слой, не мешает чтению */}
-        <div
-          className="absolute -right-6 -top-10 font-display font-bold select-none pointer-events-none"
-          style={{ fontSize: '160px', lineHeight: 1, color: 'rgba(255,255,255,.025)', letterSpacing: '-0.04em' }}
-        >
-          {MODE_LABELS[lobby.match.mode]}
+      <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
+        <div>
+          <div className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--a)' }}>
+            <span className="block w-6 h-px" style={{ background: 'var(--a)' }} />
+            Лобби · {isOrganizerOrAdmin ? lobby.match.map.name : 'карта скрыта'} · {MODE_LABELS[lobby.match.mode]}
+          </div>
+          <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4vw,40px)', letterSpacing: '-0.01em' }}>
+            {isFinished ? 'Матч завершён' : isLive ? 'Матч идёт' : `Старт в ${mskTime} МСК`}
+          </h1>
         </div>
 
-        <div className="relative flex items-start justify-between flex-wrap gap-5">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              <span
-                className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest px-3 py-1.5 rounded-full"
-                style={{
-                  color: isLive ? 'var(--green)' : isPaused ? 'var(--gold)' : isFinished ? 'var(--gold)' : 'var(--a)',
-                  background: isLive ? 'rgba(34,197,94,.1)' : isPaused ? 'rgba(201,149,74,.1)' : isFinished ? 'rgba(201,149,74,.1)' : 'rgba(79,127,255,.1)',
-                  border: `1px solid ${isLive ? 'rgba(34,197,94,.3)' : isPaused ? 'rgba(201,149,74,.3)' : isFinished ? 'rgba(201,149,74,.3)' : 'rgba(79,127,255,.25)'}`,
-                }}
-              >
-                {isLive && <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'pulse 1.5s infinite' }} />}
-                {isLive ? 'Матч идёт' : isPaused ? 'Пауза' : isFinished ? 'Завершён' : 'Ожидание старта'}
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-widest px-3 py-1.5 rounded-full" style={{ color: 'var(--text)', background: 'rgba(255,255,255,.04)', border: '1px solid var(--border2)' }}>
-                {MODE_LABELS[lobby.match.mode]}
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-widest px-3 py-1.5 rounded-full" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)' }}>
-                {isOrganizerOrAdmin ? lobby.match.map.name : '🔒 карта скрыта'}
-              </span>
-            </div>
-            <h1 className="font-display font-bold uppercase" style={{ fontSize: 'clamp(28px,4.5vw,46px)', letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-              {isFinished ? 'Матч завершён' : isLive ? 'Бой идёт прямо сейчас' : `Старт в ${mskTime}`}
-              {!isFinished && !isLive && <span style={{ color: 'var(--muted)', fontSize: '50%', fontWeight: 600, letterSpacing: '0.04em' }}> МСК</span>}
-            </h1>
-          </div>
-
+        <div className="flex items-center gap-2 flex-wrap">
           {isOrganizerOrAdmin && lobby.match.status !== 'FINISHED' && (
-            <button onClick={handleAutoAssign} disabled={actionLoading} className="btn-out flex-shrink-0">
+            <button onClick={handleAutoAssign} disabled={actionLoading} className="btn-out">
               🎲 Авто-раскидать
             </button>
           )}
         </div>
-
-        {/* ── COUNTDOWN, встроенный в hero, а не отдельным блоком ── */}
-        {isLive && startZoneRemaining !== null && startZoneRemaining > 0 && !lobby.match.finalZoneOpenedAt && (
-          <div className="relative mt-7 pt-6 flex flex-col items-center" style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--a)' }}>
-              Время на заход в зону
-            </div>
-            <div
-              className="font-display font-bold tabular-nums"
-              style={{ fontSize: 'clamp(48px,8vw,72px)', color: startZoneRemaining < 20_000 ? '#f87171' : 'var(--text)', lineHeight: 1, animation: startZoneRemaining < 20_000 ? 'pulse 1s infinite' : 'none' }}
-            >
-              {formatMs(startZoneRemaining)}
-            </div>
-          </div>
-        )}
-
-        {isLive && lobby.match.finalZoneOpenedAt && finalZoneRemaining !== null && finalZoneRemaining > 0 && (
-          <div className="relative mt-7 pt-6 flex flex-col items-center" style={{ borderTop: '1px solid rgba(139,92,246,.2)' }}>
-            <div className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: '#c084fc' }}>
-              Финальная зона: {lobby.match.finalZone?.name} · время на заход
-            </div>
-            <div
-              className="font-display font-bold tabular-nums"
-              style={{ fontSize: 'clamp(48px,8vw,72px)', color: finalZoneRemaining < 20_000 ? '#f87171' : 'var(--text)', lineHeight: 1, animation: finalZoneRemaining < 20_000 ? 'pulse 1s infinite' : 'none' }}
-            >
-              {formatMs(finalZoneRemaining)}
-            </div>
-          </div>
-        )}
       </div>
 
       {isFinished && lobby.match.winnerTeam && (
-        <div className="mb-6 rounded-2xl px-6 py-8 text-center flex flex-col items-center gap-3" style={{ background: 'linear-gradient(135deg, rgba(201,149,74,.1), rgba(201,149,74,.02))', border: '1px solid rgba(201,149,74,.3)' }}>
-          <span style={{ fontSize: '36px' }}>🏆</span>
-          <span className="font-display font-bold uppercase" style={{ fontSize: '24px', color: 'var(--gold)', letterSpacing: '0.01em' }}>
-            {lobby.match.winnerTeam.name}
+        <div className="mb-6 rounded-xl px-6 py-6 text-center flex flex-col items-center gap-4" style={{ background: 'rgba(201,149,74,.08)', border: '1px solid rgba(201,149,74,.25)' }}>
+          <span className="font-display font-bold uppercase" style={{ fontSize: '20px', color: 'var(--gold)' }}>
+            🏆 Победитель: {lobby.match.winnerTeam.name}
           </span>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Победитель матча
+            Матч завершён.
           </p>
         </div>
       )}
@@ -846,10 +770,9 @@ export default function LobbyPage() {
       {/* Карта видна только тем, кто уже вступил в команду (или организатору/админу) —
           до этого момента игрок не должен знать, на какой карте будет матч. */}
       {!isOrganizerOrAdmin && !myMembership?.teamId && !isFinished && (
-        <div className="mb-6 rounded-2xl px-6 py-10 text-center" style={{ border: '1px dashed var(--border2)', background: 'rgba(255,255,255,.015)' }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🗺️</div>
+        <div className="mb-6 rounded-xl px-6 py-8 text-center" style={{ border: '1px dashed var(--border2)', background: 'rgba(255,255,255,.015)' }}>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Карта откроется, как только вы вступите в команду
+            🗺️ Карта откроется, как только вы вступите в команду
           </p>
         </div>
       )}
@@ -880,8 +803,30 @@ export default function LobbyPage() {
         </div>
       )}
 
+      {isLive && startZoneRemaining !== null && startZoneRemaining > 0 && !lobby.match.finalZoneOpenedAt && (
+        <div className="mb-6 rounded-xl px-6 py-5 text-center" style={{ background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.2)' }}>
+          <div className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--a)' }}>
+            Время на заход в зону
+          </div>
+          <div className="font-display font-bold" style={{ fontSize: '40px', color: 'var(--text)' }}>
+            {formatMs(startZoneRemaining)}
+          </div>
+        </div>
+      )}
+
+      {isLive && lobby.match.finalZoneOpenedAt && finalZoneRemaining !== null && finalZoneRemaining > 0 && (
+        <div className="mb-6 rounded-xl px-6 py-5 text-center" style={{ background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)' }}>
+          <div className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: '#c084fc' }}>
+            Время на заход в финальную зону: {lobby.match.finalZone?.name}
+          </div>
+          <div className="font-display font-bold" style={{ fontSize: '40px', color: 'var(--text)' }}>
+            {formatMs(finalZoneRemaining)}
+          </div>
+        </div>
+      )}
+
       {actionError && (
-        <div className="mb-6 text-sm rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+        <div className="mb-6 text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
           <span>{actionError}</span>
           {actionErrorCode === 'DISCORD_NOT_LINKED' && (
             <Link href="/profile" className="btn-main flex-shrink-0" style={{ padding: '6px 14px', fontSize: '12px' }}>
@@ -892,130 +837,125 @@ export default function LobbyPage() {
       )}
 
       {isOrganizerOrAdmin && (
-        <div className="rounded-2xl mb-8 overflow-hidden" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
-          <div className="flex items-center gap-2 px-6 py-4" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(79,127,255,.03)' }}>
-            <span style={{ fontSize: '14px' }}>🛠</span>
-            <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--text)' }}>
-              Управление матчем
-            </h2>
-          </div>
+        <div className="card mb-8 flex flex-col gap-4">
+          <h2 className="font-display font-semibold uppercase text-sm tracking-wider" style={{ color: 'var(--muted)' }}>
+            Управление матчем
+          </h2>
 
-          <div className="p-6 flex flex-col gap-4">
-            {(isLive || isPaused) && (
-              <div className="rounded-xl px-4 py-3.5 flex flex-wrap items-center gap-3" style={{ background: 'rgba(34,197,94,.04)', border: '1px solid rgba(34,197,94,.15)' }}>
-                <span className="font-display font-bold" style={{ fontSize: '22px', color: 'var(--green)' }}>
-                  {lobby.teams.flatMap((t) => t.members).filter((m) => !m.isEliminated).length}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                  живых игроков из {lobby.teams.flatMap((t) => t.members).length}
-                </span>
-                <div className="flex flex-wrap gap-1.5 ml-auto">
-                  {lobby.teams.map((t) => {
-                    const alive = t.members.filter((m) => !m.isEliminated).length;
-                    if (t.members.length === 0) return null;
-                    return (
-                      <span
-                        key={t.id}
-                        className="font-mono text-[10px] px-2 py-1 rounded-full"
-                        style={{ color: alive === 0 ? '#f87171' : 'var(--muted)', background: alive === 0 ? 'rgba(239,68,68,.08)' : 'rgba(255,255,255,.03)' }}
-                      >
-                        {t.name}: {alive}/{t.members.length}
-                      </span>
-                    );
-                  })}
-                </div>
+          {(isLive || isPaused) && (
+            <div className="rounded-lg px-4 py-3 flex flex-wrap items-center gap-3" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border2)' }}>
+              <span className="font-display font-bold" style={{ fontSize: '18px', color: 'var(--green)' }}>
+                {lobby.teams.flatMap((t) => t.members).filter((m) => !m.isEliminated).length}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                живых игроков из {lobby.teams.flatMap((t) => t.members).length}
+              </span>
+              <div className="flex flex-wrap gap-1.5 ml-auto">
+                {lobby.teams.map((t) => {
+                  const alive = t.members.filter((m) => !m.isEliminated).length;
+                  if (t.members.length === 0) return null;
+                  return (
+                    <span
+                      key={t.id}
+                      className="font-mono text-[10px] px-2 py-1 rounded-full"
+                      style={{ color: alive === 0 ? '#f87171' : 'var(--muted)', background: alive === 0 ? 'rgba(239,68,68,.08)' : 'rgba(255,255,255,.03)' }}
+                    >
+                      {t.name}: {alive}/{t.members.length}
+                    </span>
+                  );
+                })}
               </div>
-            )}
+            </div>
+          )}
 
-            {canStart && (
-              <div className="flex gap-2 items-center flex-wrap">
-                <input
-                  value={customZoneSeconds}
-                  onChange={(e) => setCustomZoneSeconds(e.target.value.replace(/\D/g, ''))}
-                  placeholder="120"
-                  inputMode="numeric"
-                  className="input-field"
-                  style={{ width: '100px' }}
-                />
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                  секунд на заход в зону (по умолчанию 120)
-                </span>
-                <button onClick={handleStartMatch} disabled={actionLoading} className="btn-main justify-center flex-1" style={{ minWidth: '140px' }}>
-                  ▶ Старт
+          {canStart && (
+            <div className="flex gap-2 items-center flex-wrap">
+              <input
+                value={customZoneSeconds}
+                onChange={(e) => setCustomZoneSeconds(e.target.value.replace(/\D/g, ''))}
+                placeholder="120"
+                inputMode="numeric"
+                className="input-field"
+                style={{ width: '100px' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                секунд на заход в зону (по умолчанию 120)
+              </span>
+              <button onClick={handleStartMatch} disabled={actionLoading} className="btn-main justify-center flex-1" style={{ minWidth: '140px' }}>
+                ▶ Старт
+              </button>
+            </div>
+          )}
+
+          {isLive && (
+            <button onClick={handlePauseMatch} disabled={actionLoading} className="btn-out justify-center">
+              ⏸ Поставить на паузу
+            </button>
+          )}
+
+          {isPaused && (
+            <button onClick={handleResumeMatch} disabled={actionLoading} className="btn-main justify-center">
+              ▶ Продолжить
+            </button>
+          )}
+
+          {!isFinished && (
+            <button
+              onClick={() => handleCopyAllIds('all', lobby.teams.flatMap((t) => t.members.map((m) => m.dynamicId ?? '')))}
+              className="btn-out justify-center"
+            >
+              {copiedFeedback === 'all' ? '✓ Скопировано' : '📋 Скопировать все Dynamic ID'}
+            </button>
+          )}
+
+          {(isLive || isPaused) && (
+            <div className="flex gap-2 items-center flex-wrap">
+              <input
+                value={extendSeconds}
+                onChange={(e) => setExtendSeconds(e.target.value.replace(/\D/g, ''))}
+                placeholder="60"
+                inputMode="numeric"
+                className="input-field"
+                style={{ width: '80px' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                сек добавить к таймеру
+              </span>
+              <button onClick={handleExtendZone} disabled={actionLoading || !extendSeconds} className="btn-out" style={{ padding: '10px 16px' }}>
+                ⏱ Продлить
+              </button>
+            </div>
+          )}
+
+          {isLive && !lobby.match.finalZoneOpenedAt && hasZones && (
+            <button onClick={handleRollFinalZone} disabled={actionLoading} className="btn-main justify-center">
+              🎲 Выбрать финальную зону
+            </button>
+          )}
+
+          {isLive && !!lobby.match.finalZoneOpenedAt && (
+            <div className="flex flex-col gap-2">
+              <label className="label-field">Победитель</label>
+              <div className="flex gap-2 flex-wrap">
+                <select value={selectedWinnerTeamId} onChange={(e) => setSelectedWinnerTeamId(e.target.value)} className="input-field flex-1">
+                  <option value="">— выберите команду —</option>
+                  {lobby.teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.members.map((m) => `${m.user.username}${m.user.staticId ? ' / ' + m.user.staticId.value : ''}`).join(', ') || 'пусто'})
+                    </option>
+                  ))}
+                </select>
+                <button onClick={handleFinishMatch} disabled={actionLoading || !selectedWinnerTeamId} className="btn-main" style={{ padding: '13px 24px' }}>
+                  Завершить матч
                 </button>
               </div>
-            )}
-
-            {isLive && (
-              <button onClick={handlePauseMatch} disabled={actionLoading} className="btn-out justify-center">
-                ⏸ Поставить на паузу
-              </button>
-            )}
-
-            {isPaused && (
-              <button onClick={handleResumeMatch} disabled={actionLoading} className="btn-main justify-center">
-                ▶ Продолжить
-              </button>
-            )}
-
-            {!isFinished && (
-              <button
-                onClick={() => handleCopyAllIds('all', lobby.teams.flatMap((t) => t.members.map((m) => m.dynamicId ?? '')))}
-                className="btn-out justify-center"
-              >
-                {copiedFeedback === 'all' ? '✓ Скопировано' : '📋 Скопировать все Dynamic ID'}
-              </button>
-            )}
-
-            {(isLive || isPaused) && (
-              <div className="flex gap-2 items-center flex-wrap">
-                <input
-                  value={extendSeconds}
-                  onChange={(e) => setExtendSeconds(e.target.value.replace(/\D/g, ''))}
-                  placeholder="60"
-                  inputMode="numeric"
-                  className="input-field"
-                  style={{ width: '80px' }}
-                />
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                  сек добавить к таймеру
-                </span>
-                <button onClick={handleExtendZone} disabled={actionLoading || !extendSeconds} className="btn-out" style={{ padding: '10px 16px' }}>
-                  ⏱ Продлить
-                </button>
-              </div>
-            )}
-
-            {isLive && !lobby.match.finalZoneOpenedAt && hasZones && (
-              <button onClick={handleRollFinalZone} disabled={actionLoading} className="btn-main justify-center">
-                🎲 Выбрать финальную зону
-              </button>
-            )}
-
-            {isLive && !!lobby.match.finalZoneOpenedAt && (
-              <div className="flex flex-col gap-2">
-                <label className="label-field">Победитель</label>
-                <div className="flex gap-2 flex-wrap">
-                  <select value={selectedWinnerTeamId} onChange={(e) => setSelectedWinnerTeamId(e.target.value)} className="input-field flex-1">
-                    <option value="">— выберите команду —</option>
-                    {lobby.teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} ({t.members.map((m) => `${m.user.username}${m.user.staticId ? ' / ' + m.user.staticId.value : ''}`).join(', ') || 'пусто'})
-                      </option>
-                    ))}
-                  </select>
-                  <button onClick={handleFinishMatch} disabled={actionLoading || !selectedWinnerTeamId} className="btn-main" style={{ padding: '13px 24px' }}>
-                    Завершить матч
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
       {!user && (
-        <div className="mb-8 rounded-2xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
+        <div className="mb-8 rounded-xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
           <p style={{ color: 'var(--muted)' }}>Войдите, чтобы присоединиться к лобби</p>
           <a href="/login" className="btn-main">
             Войти
@@ -1024,7 +964,7 @@ export default function LobbyPage() {
       )}
 
       {user && !myMembership && !isFinished && (
-        <div className="mb-8 rounded-2xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
+        <div className="mb-8 rounded-xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
           <p style={{ color: 'var(--muted)' }}>Вы пока не в лобби</p>
           <button onClick={handleOpenJoinModal} disabled={actionLoading} className="btn-main">
             Войти в лобби
@@ -1033,14 +973,8 @@ export default function LobbyPage() {
       )}
 
       {user && myMembership && (
-        <div
-          className="mb-8 rounded-2xl px-6 py-5 flex items-center justify-between flex-wrap gap-4"
-          style={{ border: '1px solid rgba(79,127,255,.2)', background: 'rgba(79,127,255,.03)' }}
-        >
-          <div className="flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: myMembership.teamId ? 'var(--green)' : 'var(--gold)' }} />
-            <p style={{ color: 'var(--text)' }}>{myMembership.teamId ? 'Вы в лобби — команда выбрана' : 'Вы в лобби — выберите команду ниже'}</p>
-          </div>
+        <div className="mb-8 rounded-xl px-6 py-5 flex items-center justify-between flex-wrap gap-4" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
+          <p style={{ color: 'var(--text)' }}>Вы в лобби {myMembership.teamId ? '· команда выбрана' : '· выберите команду ниже'}</p>
           <div className="flex items-center gap-2">
             {(isLive || isPaused) && myMembership.teamId && (
               <button
@@ -1059,14 +993,13 @@ export default function LobbyPage() {
       )}
 
       {lobby.unassignedMembers.length > 0 && (
-        <div className="mb-8 rounded-2xl px-6 py-5" style={{ border: '1px dashed var(--border2)', background: 'rgba(255,255,255,.015)' }}>
-          <p className="text-xs uppercase tracking-wider mb-3 font-mono" style={{ color: 'var(--muted)' }}>
-            Ждут выбора команды · {lobby.unassignedMembers.length}
+        <div className="mb-8 rounded-xl px-6 py-5" style={{ border: '1px dashed var(--border2)', background: 'rgba(255,255,255,.015)' }}>
+          <p className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--muted)' }}>
+            Ждут выбора команды
           </p>
           <div className="flex flex-wrap gap-2">
             {lobby.unassignedMembers.map((m) => (
-              <span key={m.id} className="flex items-center gap-2 text-sm pl-1.5 pr-3 py-1.5 rounded-full" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)' }}>
-                <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={20} frameKey={m.user.activeFrameEffect} />
+              <span key={m.id} className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)' }}>
                 {m.user.username}
                 {m.userId === user?.id && (
                   <span className="text-[10px] font-mono" style={{ color: 'var(--a)' }}>
@@ -1114,70 +1047,46 @@ export default function LobbyPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {lobby.teams.map((team) => {
           const isMyTeam = myMembership?.teamId === team.id;
           const isFull = team.members.length >= capacity;
           const isWinner = lobby.match.winnerTeam?.id === team.id;
-          const unifiedStack = getUnifiedStack(team);
-          const fillPct = Math.min(100, Math.round((team.members.length / capacity) * 100));
 
           return (
             <div
               key={team.id}
-              className="relative rounded-2xl overflow-hidden transition-all"
-              style={{
-                border: `1px solid ${isWinner ? 'rgba(201,149,74,.45)' : isMyTeam ? 'rgba(79,127,255,.35)' : 'var(--border)'}`,
-                background: isWinner ? 'rgba(201,149,74,.04)' : 'var(--surface)',
-                boxShadow: isMyTeam ? '0 0 0 1px rgba(79,127,255,.15), 0 12px 32px -16px rgba(79,127,255,.35)' : 'none',
-              }}
+              className="rounded-2xl p-6"
+              style={{ border: `1px solid ${isWinner ? 'rgba(201,149,74,.4)' : 'var(--border)'}`, background: isWinner ? 'rgba(201,149,74,.04)' : 'var(--surface)' }}
             >
-              {/* ── ВОДЯНОЙ ЗНАК ЛОГО СТАКА — только если ВСЯ команда из одного стака ── */}
-              {unifiedStack?.logoUrl && (
-                <div
-                  className="absolute pointer-events-none"
-                  style={{
-                    right: '-30px',
-                    top: '-30px',
-                    width: '220px',
-                    height: '220px',
-                    backgroundImage: `url(${unifiedStack.logoUrl})`,
-                    backgroundSize: 'contain',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center',
-                    opacity: 0.07,
-                    filter: 'grayscale(0.2)',
-                    transform: 'rotate(8deg)',
-                  }}
-                />
-              )}
-              {unifiedStack?.logoUrl && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: `linear-gradient(135deg, ${unifiedStack.tagColor}0d, transparent 60%)` }}
-                />
-              )}
-
-              <div className="relative p-6">
-                {/* ── HEADER: имя команды, бейдж стака, статус заполненности ── */}
-                <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-display font-bold uppercase tracking-wider truncate" style={{ fontSize: '18px', color: 'var(--text)' }}>
-                      {team.name}
-                    </span>
-                    {isWinner && <span style={{ fontSize: '18px' }} title="Победитель">🏆</span>}
-                    {unifiedStack && (
-                      <span
-                        className="flex-shrink-0 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ color: unifiedStack.tagColor, background: `${unifiedStack.tagColor}18`, letterSpacing: '0.04em' }}
-                        title="Вся команда из одного стака"
-                      >
-                        [{unifiedStack.tag.toUpperCase()}]
-                      </span>
-                    )}
-                  </div>
+              <div className="flex items-center justify-between mb-5">
+                <div className="font-display font-semibold uppercase tracking-wider flex items-center gap-2" style={{ fontSize: '16px', color: 'var(--text)' }}>
+                  {team.name}
+                  {isWinner && <span>🏆</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  {isOrganizerOrAdmin && team.members.length > 0 && (
+                    <button
+                      onClick={() => handleCopyAllIds(team.id, team.members.map((m) => m.dynamicId ?? ''))}
+                      className="font-mono text-[10px] px-2 py-1 rounded-full transition-colors"
+                      style={{ color: 'var(--a)', background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.18)' }}
+                      title="Скопировать ID этой команды"
+                    >
+                      {copiedFeedback === team.id ? '✓' : '📋 ID'}
+                    </button>
+                  )}
+                  {isOrganizerOrAdmin && !isFinished && (
+                    <button
+                      onClick={() => handleDeleteTeam(team.id, team.name)}
+                      className="font-mono text-[10px] px-2 py-1 rounded-full transition-colors"
+                      style={{ color: '#f87171', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.18)' }}
+                      title="Удалить команду"
+                    >
+                      🗑 Удалить
+                    </button>
+                  )}
                   <span
-                    className="flex-shrink-0 font-mono text-[11px] px-2.5 py-1 rounded-full"
+                    className="font-mono text-[11px] px-2.5 py-1 rounded-full"
                     style={{
                       color: team.isReady ? 'var(--green)' : 'var(--muted)',
                       background: team.isReady ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)',
@@ -1187,158 +1096,110 @@ export default function LobbyPage() {
                     {team.isReady ? 'READY ✓' : `${team.members.length}/${capacity}`}
                   </span>
                 </div>
+              </div>
 
-                {/* ── ПРОГРЕСС ЗАПОЛНЕНИЯ ── */}
-                <div className="h-1 w-full rounded-full overflow-hidden mb-5" style={{ background: 'rgba(255,255,255,.05)' }}>
+              <div className="flex flex-col gap-2 mb-5 min-h-[80px]">
+                {team.members.length === 0 && <p className="text-xs italic" style={{ color: 'rgba(96,104,128,.5)' }}>Пока никого</p>}
+                {team.members.map((m) => (
                   <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${fillPct}%`,
-                      background: team.isReady ? 'var(--green)' : isWinner ? 'var(--gold)' : 'var(--a)',
-                    }}
-                  />
-                </div>
-
-                {/* ── ACTIONS ── (управляющие кнопки админа/организатора над списком, компактно) */}
-                {isOrganizerOrAdmin && team.members.length > 0 && !isFinished && (
-                  <div className="flex gap-1.5 mb-4 flex-wrap">
-                    {isOrganizerOrAdmin && (
+                    key={m.id}
+                    className="flex items-center gap-2.5 text-sm py-1 group"
+                    style={{ borderBottom: '1px solid var(--border)', opacity: m.isEliminated ? 0.45 : 1 }}
+                  >
+                    <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={24} frameKey={m.user.activeFrameEffect} />
+                    {m.user.stackMembership?.stack && (
+                      <StackTag tag={m.user.stackMembership.stack.tag} color={m.user.stackMembership.stack.tagColor} />
+                    )}
+                    <span style={{ textDecoration: m.isEliminated ? 'line-through' : 'none' }}>
+                      {m.isEliminated && '💀 '}
+                      <ColoredUsername username={m.user.username} effectKey={m.user.activeUsernameEffect} />
+                    </span>
+                    {m.user.staticId && (
+                      <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
+                        {m.user.staticId.value}
+                      </span>
+                    )}
+                    {isOrganizerOrAdmin && m.dynamicId && (
                       <button
-                        onClick={() => handleCopyAllIds(team.id, team.members.map((m) => m.dynamicId ?? ''))}
-                        className="font-mono text-[10px] px-2 py-1 rounded-full transition-colors"
-                        style={{ color: 'var(--a)', background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.18)' }}
-                        title="Скопировать ID этой команды"
+                        onClick={() => { navigator.clipboard.writeText(m.dynamicId ?? ''); setCopiedFeedback(`mid-${m.id}`); setTimeout(() => setCopiedFeedback(null), 1500); }}
+                        className="font-mono text-[10px] px-1.5 py-0.5 rounded transition-colors"
+                        style={{ color: 'var(--a)', background: 'rgba(79,127,255,.08)', border: 'none', cursor: 'pointer' }}
+                        title="Скопировать Dynamic ID"
                       >
-                        {copiedFeedback === team.id ? '✓' : '📋 ID'}
+                        {copiedFeedback === `mid-${m.id}` ? '✓' : `ID: ${m.dynamicId}`}
                       </button>
                     )}
-                    {isOrganizerOrAdmin && (
+                    {m.userId === team.createdById && (
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.08)' }}>
+                        👑 капитан
+                      </span>
+                    )}
+                    {m.userId === user?.id && (
+                      <span className="ml-auto text-[10px] font-mono" style={{ color: 'var(--a)' }}>
+                        вы
+                      </span>
+                    )}
+                    {isAdminOrOwner(user?.role) && m.userId !== user?.id && (
                       <button
-                        onClick={() => handleDeleteTeam(team.id, team.name)}
-                        className="font-mono text-[10px] px-2 py-1 rounded-full transition-colors"
-                        style={{ color: '#f87171', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.18)' }}
-                        title="Удалить команду"
+                        onClick={() => handleKickPlayer(m.userId)}
+                        className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: '#f87171' }}
+                        title="Кикнуть из команды (только Admin)"
                       >
-                        🗑 Удалить
+                        кикнуть
+                      </button>
+                    )}
+                    {!isAdminOrOwner(user?.role) && team.createdById === user?.id && m.userId !== user?.id && (
+                      <button
+                        onClick={() => handleCaptainKick(team.id, m.userId)}
+                        className="ml-auto text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: '#f87171' }}
+                        title="Кикнуть из своей команды"
+                      >
+                        кикнуть
                       </button>
                     )}
                   </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2 items-center flex-wrap">
+                {user && myMembership && !isMyTeam && !isFull && !isFinished && (
+                  <button onClick={() => handleChooseTeam(team.id)} disabled={actionLoading} className="btn-out flex-1" style={{ padding: '10px 16px', fontSize: '13px' }}>
+                    Выбрать команду
+                  </button>
                 )}
-
-                {/* ── СОСТАВ ── */}
-                <div className="flex flex-col gap-0.5 mb-5 min-h-[80px]">
-                  {team.members.length === 0 && (
-                    <div className="flex items-center justify-center py-6 rounded-xl" style={{ border: '1px dashed var(--border)' }}>
-                      <p className="text-xs italic" style={{ color: 'rgba(96,104,128,.5)' }}>Пока никого</p>
-                    </div>
-                  )}
-                  {team.members.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-2.5 text-sm py-2 group rounded-lg px-2 -mx-2 transition-colors"
-                      style={{ opacity: m.isEliminated ? 0.45 : 1 }}
-                    >
-                      <Avatar username={m.user.username} avatarUrl={m.user.avatarUrl} size={30} frameKey={m.user.activeFrameEffect} />
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
-                        {m.user.stackMembership?.stack && (
-                          <StackTag tag={m.user.stackMembership.stack.tag} color={m.user.stackMembership.stack.tagColor} />
-                        )}
-                        <span style={{ textDecoration: m.isEliminated ? 'line-through' : 'none' }}>
-                          {m.isEliminated && '💀 '}
-                          <ColoredUsername username={m.user.username} effectKey={m.user.activeUsernameEffect} />
-                        </span>
-                        {m.user.staticId && (
-                          <span className="font-mono text-[10px]" style={{ color: 'var(--muted)' }}>
-                            {m.user.staticId.value}
-                          </span>
-                        )}
-                        {m.userId === team.createdById && (
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: 'var(--gold)', background: 'rgba(201,149,74,.08)' }}>
-                            👑 капитан
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {isOrganizerOrAdmin && m.dynamicId && (
-                          <button
-                            onClick={() => { navigator.clipboard.writeText(m.dynamicId ?? ''); setCopiedFeedback(`mid-${m.id}`); setTimeout(() => setCopiedFeedback(null), 1500); }}
-                            className="font-mono text-[10px] px-1.5 py-0.5 rounded transition-colors"
-                            style={{ color: 'var(--a)', background: 'rgba(79,127,255,.08)', border: 'none', cursor: 'pointer' }}
-                            title="Скопировать Dynamic ID"
-                          >
-                            {copiedFeedback === `mid-${m.id}` ? '✓' : `ID: ${m.dynamicId}`}
-                          </button>
-                        )}
-                        {m.userId === user?.id && (
-                          <span className="text-[10px] font-mono" style={{ color: 'var(--a)' }}>
-                            вы
-                          </span>
-                        )}
-                        {isAdminOrOwner(user?.role) && m.userId !== user?.id && (
-                          <button
-                            onClick={() => handleKickPlayer(m.userId)}
-                            className="text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ color: '#f87171' }}
-                            title="Кикнуть из команды (только Admin)"
-                          >
-                            кикнуть
-                          </button>
-                        )}
-                        {!isAdminOrOwner(user?.role) && team.createdById === user?.id && m.userId !== user?.id && (
-                          <button
-                            onClick={() => handleCaptainKick(team.id, m.userId)}
-                            className="text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ color: '#f87171' }}
-                            title="Кикнуть из своей команды"
-                          >
-                            кикнуть
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2 items-center flex-wrap">
-                  {user && myMembership && !isMyTeam && !isFull && !isFinished && (
-                    <button onClick={() => handleChooseTeam(team.id)} disabled={actionLoading} className="btn-out flex-1" style={{ padding: '10px 16px', fontSize: '13px' }}>
-                      Выбрать команду
-                    </button>
-                  )}
-                  {isMyTeam && !isFinished && (
-                    <button
-                      onClick={() => handleReady(team.id, !team.isReady)}
-                      disabled={actionLoading}
-                      className="btn-main flex-1"
-                      style={{ padding: '10px 16px', fontSize: '13px' }}
-                    >
-                      {team.isReady ? 'Снять готовность' : 'Мы готовы'}
-                    </button>
-                  )}
-                </div>
-
-                {/* ЧАТ КОМАНДЫ — видят и пишут только её участники */}
-                {isMyTeam && (
-                  <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                    <ChatPanel matchId={lobby.match.id} teamId={team.id} height="280px" title="Чат команды" />
-                  </div>
+                {isMyTeam && !isFinished && (
+                  <button
+                    onClick={() => handleReady(team.id, !team.isReady)}
+                    disabled={actionLoading}
+                    className="btn-main flex-1"
+                    style={{ padding: '10px 16px', fontSize: '13px' }}
+                  >
+                    {team.isReady ? 'Снять готовность' : 'Мы готовы'}
+                  </button>
                 )}
               </div>
+
+              {/* ЧАТ КОМАНДЫ — видят и пишут только её участники */}
+              {isMyTeam && (
+                <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                  <ChatPanel matchId={lobby.match.id} teamId={team.id} height="280px" title="Чат команды" />
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
       {/* ЧАТ ЛОББИ — отдельная комната от общего чата, доступна всем в этом матче */}
-      <div className="rounded-2xl mt-8 overflow-hidden" style={{ border: '1px solid var(--border2)', background: 'var(--surface)' }}>
-        <div className="p-6">
-          <ChatPanel matchId={lobby.match.id} height="500px" title="Чат лобби" />
-        </div>
+      <div className="card mt-8">
+        <ChatPanel matchId={lobby.match.id} height="500px" title="Чат лобби" />
       </div>
 
       {/* JOIN MODAL — динамический ID запрашивается перед входом в лобби */}
       {showJoinModal && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)' }} onClick={() => setShowJoinModal(false)}>
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,.7)' }} onClick={() => setShowJoinModal(false)}>
           <div className="card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-display font-semibold uppercase text-sm tracking-wider mb-2" style={{ color: 'var(--muted)' }}>
               Вход в лобби

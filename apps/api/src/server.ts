@@ -29,6 +29,9 @@ import { gfcPartyRoutes } from '@/routes/gfcParty.js';
 import { playerSettingsRoutes } from '@/routes/playerSettings.js';
 import { paymentRoutes } from '@/routes/payments.js';
 import { startDiscordBot } from '@/services/discordBot.js';
+import { referralRoutes } from '@/routes/referral.js';
+import { promoRoutes } from '@/routes/promo.js';
+import { initTelegramBot } from '@/services/telegramBot.js';
 
 async function main() {
   const app = Fastify({
@@ -83,12 +86,15 @@ async function main() {
   await app.register((instance) => gfcPartyRoutes(instance, { io }));
   await app.register(playerSettingsRoutes);
   await app.register(paymentRoutes);
+  await app.register(referralRoutes);
+  await app.register(promoRoutes);
 
   // ───────── DISCORD BOT (запускается вместе с проектом; не блокирует старт сайта,
   // если Discord временно недоступен — ошибка логируется, остальной сайт работает) ─────────
   startDiscordBot().catch((err) => {
     console.error('[discord] Не удалось запустить бота при старте:', err);
   });
+    initTelegramBot();
 
   // ───────── BACKGROUND WORKER (запуск в этом же процессе для простоты MVP;
   // при масштабировании выносится в отдельный процесс/контейнер) ─────────

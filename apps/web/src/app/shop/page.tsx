@@ -360,20 +360,33 @@ export default function ShopPage() {
         )}
 
         {/* КУПИТЬ ТОКЕНЫ */}
+        {/* КУПИТЬ ТОКЕНЫ */}
         {category === 'buy' && (
           <div>
             <div className="mb-6 flex items-center gap-3 px-5 py-4 rounded-2xl" style={{ background: 'rgba(79,127,255,.04)', border: '1px solid rgba(79,127,255,.15)' }}>
               <span style={{ fontSize: '20px' }}>ℹ️</span>
-              <p className="text-sm" style={{ color: 'var(--muted)' }}>Курс: <strong style={{ color: 'var(--text)' }}>2 токена = 1₽</strong> · Оплата через ЮКасса (карта, СБП, ЮМани)</p>
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>Курс: <strong style={{ color: 'var(--text)' }}>2 токена = 1₽</strong> · Оплата через DonationAlerts</p>
             </div>
             {pkgErr && <div className="text-sm rounded-xl px-4 py-3 mb-4" style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#f87171' }}>{pkgErr}</div>}
 
-            {!process.env.NEXT_PUBLIC_PAYMENTS_ENABLED && (
-              <div className="text-sm rounded-xl px-5 py-4 mb-6 flex items-center gap-3" style={{ background: 'rgba(201,149,74,.06)', border: '1px solid rgba(201,149,74,.2)', color: 'var(--gold)' }}>
-                <span style={{ fontSize: '20px' }}>⚙️</span>
-                <span>Платёжная система настраивается. Скоро будет доступна оплата токенов за рубли.</span>
+            {/* Промокод */}
+            <div className="bg-gray-800 p-4 rounded-xl mb-4">
+              <div className="flex gap-2">
+                <input
+                  id="promo-input"
+                  placeholder="Промокод"
+                  className="input-field flex-1 uppercase"
+                />
+                <button onClick={async () => {
+                  const code = (document.getElementById('promo-input') as HTMLInputElement).value;
+                  const res = await fetch('/api/promo/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+                  if (res.ok) { const data = await res.json(); alert(`+${data.tokens} токенов!`); refetchMy(); }
+                  else alert('Неверный промокод');
+                }} className="btn-out flex-shrink-0" style={{ padding: '10px 14px' }}>
+                  Применить
+                </button>
               </div>
-            )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {[
@@ -408,9 +421,13 @@ export default function ShopPage() {
             </div>
 
             <div className="mt-8 rounded-2xl px-5 py-4 text-xs" style={{ background: 'rgba(255,255,255,.02)', border: '1px solid var(--border)' }}>
-              <div className="font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--muted)' }}>Безопасность</div>
+              <div className="font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--muted)' }}>Как купить</div>
               <p style={{ color: 'var(--muted)', lineHeight: 1.7 }}>
-                Оплата проходит через <strong style={{ color: 'var(--text)' }}>ЮКасса</strong> — лицензированный платёжный сервис. Мы не храним данные карты. Токены зачисляются автоматически после подтверждения платежа.
+                1. Нажми «Купить» → откроется DonationAlerts<br/>
+                2. Укажи сумму и в сообщении напиши: <strong style={{ color: 'var(--text)' }}>email: твой@email.com</strong><br/>
+                3. Сделай скриншот оплаты<br/>
+                4. Отправь скриншот в Telegram-бот @ТВОЙ_БОТ<br/>
+                5. Модератор проверит и зачислит токены
               </p>
             </div>
           </div>
