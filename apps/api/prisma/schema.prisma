@@ -73,13 +73,17 @@ model User {
   passwordHash String
   role         Role     @default(PLAYER)
   avatarUrl    String?
+  // Аватарка проходит модерацию: avatarUrl — то, что реально показывается всем (последнее
+  // одобренное), pendingAvatarUrl — новая загрузка, ожидающая решения админа/овнера.
   pendingAvatarUrl String?
-  avatarStatus     AvatarStatus?
+  avatarStatus     AvatarStatus? // null = нет заявки на рассмотрении
   avatarReviewedById String?
   avatarRejectedReason String? @db.VarChar(500)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Бан — глобальный запрет на вход. IP сохраняется при регистрации и последних входах,
+  // чтобы можно было банить и по IP (от повторной регистрации с того же устройства).
   isBanned     Boolean   @default(false)
   bannedAt     DateTime?
   bannedReason String?   @db.VarChar(500)
@@ -87,30 +91,31 @@ model User {
   registrationIp String? @db.VarChar(64)
   lastLoginIp    String? @db.VarChar(64)
 
+  // Отстранение от игр — мягче полного бана: аккаунт остаётся рабочим (можно заходить на сайт,
+  // писать в чат и т.д.), но запрещено участвовать в лобби/командах/матчах. suspendedUntil = null
+  // означает бессрочное отстранение (до ручного снятия), иначе — дата, после которой оно снимается само.
   isSuspended       Boolean   @default(false)
   suspendedAt       DateTime?
   suspendedUntil    DateTime?
   suspendedReason   String?   @db.VarChar(500)
   suspendedById     String?
 
+  // Привязка Discord — обязательна для участия в лобби. discordId уникален: один Discord-аккаунт
+  // не может быть привязан к двум разным пользователям сайта.
   discordId       String? @unique @db.VarChar(32)
   discordUsername String? @db.VarChar(64)
   discordAvatar   String? @db.VarChar(255)
   discordLinkedAt DateTime?
+  // Текущая Voice-роль, выданная боту — храним, чтобы при следующей синхронизации точно знать,
+  // какую роль снимать, даже если discord_id или состояние команды изменилось между запросами.
   discordCurrentVoiceRole String? @db.VarChar(64)
 
+  // Реферальная система — у каждого пользователя есть свой неизменный код для приглашений.
+  // referredById — кто привёл этого пользователя (null для тех, кто пришёл сам, без ссылки).
+  referralCode String? @unique @db.VarChar(16)
   referredById String?
   referredBy   User?   @relation("ReferralTree", fields: [referredById], references: [id], onDelete: SetNull)
   referrals    User[]  @relation("ReferralTree")
-
-  referralCode2        String?   @unique @map("referral_code") @db.VarChar(16)
-  referralBalance     Decimal   @default(0) @db.Decimal(10, 2)
-  
-  referralsSent2       Referral[] @relation("ReferralsSent")
-  referralsReceived2   Referral[] @relation("ReferralsReceived")
-  payoutRequests      PayoutRequest[]
-  createdPromos       PromoCode[] @relation("CreatedPromos")
-  promoCodeUses       PromoCodeUse[]
 
   staticId        StaticId?
   organizedMatches Match[]        @relation("OrganizerMatches")
@@ -139,12 +144,14 @@ model User {
   gfcPartyMember    GfcPartyMember? @relation("GfcPartyMembers")
   gfcPartyInvites   GfcPartyInvite[] @relation("GfcPartyInvites")
 
+  // Токены — внутренняя валюта платформы. Зарабатываются победами, тратятся в магазине эффектов.
   tokenBalance         Int       @default(0)
   activeUsernameEffect String?   @db.VarChar(64)
   activeFrameEffect    String?   @db.VarChar(64)
   cosmetics            UserCosmetic[]
   tokenTransactions    TokenTransaction[]
 
+  // Фон профиля — проходит модерацию как аватарка
   profileBg            String?
   profileBgPosition    String?   @default("50% 30%") @db.VarChar(32)
   pendingProfileBg     String?
@@ -158,6 +165,27 @@ model User {
   @@index([registrationIp])
   @@index([discordId])
   @@index([referredById])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  @@index([userId])
+}
+
+model StaticId {
+  id        String   @id @default(uuid())
+  value     String   @unique @db.VarChar(64)
+  proofUrl  String? // ссылка на скрин-пруф Static ID (загружается через yapix или аналог)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 // ───────────────────────── MAPS / ZONES ─────────────────────────
@@ -727,66 +755,4 @@ model PollVote {
 
   @@unique([optionId, userId])
   @@index([userId])
-}
-
-model PromoCode {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  type        String   @default("bonus_tokens")
-  value       Int
-  maxUses     Int      @default(100)
-  usedCount   Int      @default(0)
-  expiresAt   DateTime?
-  isActive    Boolean  @default(true)
-  createdById String?
-  createdAt   DateTime @default(now())
-  createdBy   User?    @relation("CreatedPromos", fields: [createdById], references: [id])
-  uses        PromoCodeUse[]
-}
-
-model PromoCodeUse {
-  id          String   @id @default(uuid())
-  promoCodeId String
-  userId      String
-  usedAt      DateTime @default(now())
-  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
-  @@unique([promoCodeId, userId])
-}
-
-model Referral {
-  id            String   @id @default(uuid())
-  referrerId    String
-  referredId    String
-  code          String   @unique
-  totalEarned   Decimal  @default(0) @db.Decimal(10, 2)
-  totalPaidOut  Decimal  @default(0) @db.Decimal(10, 2)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  referrer      User     @relation("ReferralsSent", fields: [referrerId], references: [id])
-  referred      User     @relation("ReferralsReceived", fields: [referredId], references: [id])
-  transactions  ReferralTransaction[]
-}
-
-model ReferralTransaction {
-  id          String   @id @default(uuid())
-  referralId  String
-  amount      Decimal  @db.Decimal(10, 2)
-  sourceType  String
-  sourceId    String?
-  isPaidOut   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  referral    Referral @relation(fields: [referralId], references: [id])
-}
-
-model PayoutRequest {
-  id          String   @id @default(uuid())
-  userId      String
-  amount      Decimal  @db.Decimal(10, 2)
-  status      String   @default("pending")
-  method      String   @default("card")
-  details     String
-  createdAt   DateTime @default(now())
-  processedAt DateTime?
-  user        User     @relation(fields: [userId], references: [id])
 }
